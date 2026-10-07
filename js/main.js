@@ -237,3 +237,36 @@ if (location.search.includes('fast')) {
 if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !location.search.includes('dev')) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+
+// ===== 修仙层入口(V0.78)=====
+import { Cult } from './xiuxian/index.js';
+import { Hall } from './xiuxian/ui.js';
+import { Bag, DAY } from './xiuxian/items.js';
+import { CAMP, offlineReport } from './xiuxian/camp.js';
+import { Merchant } from './xiuxian/merchant.js';
+
+(function bootCult() {
+  const bind = () => {
+    Cult.init();
+    Bag.load('xx_bag_v080');
+    CAMP.load();
+    DAY.load('xx_day_v080');
+    Merchant.load();
+    // 离线收益:进游戏先结算篝火
+    const off = offlineReport();
+    if (off && off.dao > 0) setTimeout(() => Hall.showOffline(off), 900);
+    const b = document.getElementById('btn-cult');
+    if (b && !b._bound) {
+      b._bound = true;
+      b.onclick = () => Hall.open();
+    }
+    // 菜单统计补一行境界
+    const st = document.getElementById('menu-stats');
+    if (st && !st._xx) {
+      st._xx = true;
+      try { Cult.load(); } catch {}
+    }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();

@@ -7,6 +7,8 @@ import { Save } from '../core/save.js';
 import { Bus } from '../core/engine.js';
 import { defaultCultivation, addExp, canBreakthrough, doBreakthrough, combatPower, realmTitle } from './realms.js';
 import { defaultArts, enlighten, canEnlighten } from './arts.js';
+import { Nemesis, DEFEAT, Titles, BGM } from './relations.js';
+import { unlock as unlockAudio, play as playBGM } from './assets.js';
 
 const CKEY = 'xx_cultivation_v077';
 
@@ -69,4 +71,23 @@ export const Cult = {
   title() { return realmTitle(this.s); },
   power() { return combatPower(this.s); },
   reset() { this.s = defaultState(); this.commit(); },
+
+  // ---- 集成:宿敌/称号/战败/BGM ----
+  nemesis: Nemesis,
+  defeat: DEFEAT,
+  titles: Titles,
+  bgm: BGM,
+
+  init() {
+    this.nemesis.load();
+    this.titles.load();
+    unlockAudio();
+    return this;
+  },
+  // 宿敌战专用 BGM
+  playNemesisBgm() { playBGM('bgm_nemesis'); },
+  // 越级大佬专用 BGM
+  playOverlordBgm() { playBGM('bgm_overlord'); },
+  // 离开回合制,恢复环境曲
+  leaveBattleBgm() { BGM.curPrio = -1; },
 };

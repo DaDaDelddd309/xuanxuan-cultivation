@@ -1,0 +1,600 @@
+// ===== 修仙阁 · 主界面 UI =====
+// 五个标签:境界 / 地图 / 神通 / 人物 / 称号
+// 契约:只读 Cult.s 并调用其已有函数,不改状态结构。
+
+import { Cult } from './index.js';
+import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp } from './realms.js';
+import { ARTS, canEnlighten, enlighten } from './arts.js';
+import { WORLD, nodeById, neighbors } from './world.js';
+import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
+import { Duel } from './duel.js';
+import { STONES, STONE_LIST, SCROLL_LIST, SCROLLS, GOODS, Bag, DAY, OVERFLOW_RATE, scrollForExp } from './items.js';
+import { CAMP, CAMP_TIERS, offlineReport } from './camp.js';
+import { Merchant } from './merchant.js';
+
+const PORTRAIT = { hero:'assets/portrait/hero.jpg', foe:'assets/portrait/foe.jpg', aunt:'assets/portrait/aunt.jpg' };
+const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号']];
+
+let root, bodyEl, tab = 'realm';
+let feedN = 1;   // 投石数量
+
+const $ = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
+const pct = (a, b) => b > 0 ? Math.min(100, Math.max(0, a / b * 100)) : 0;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(msg) {
+  let t = document.getElementById('xx-toast');
+  if (!t) { t = $('div', 'xx-toast'); t.id = 'xx-toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  requestAnimationFrame(() => t.classList.add('on'));
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('on'), 1900);
+}
+
+export const Hall = {
+  open() {
+    if (!root) this.build();
+    root.classList.remove('hidden');
+    this.render();
+  },
+  close() { root && root.classList.add('hidden'); },
+  isOpen() { return root && !root.classList.contains('hidden'); },
+
+  // 离线收益弹层
+  showOffline(o) {
+    const el = document.createElement('div');
+    el.className = 'xx-off';
+    const sc = o.scroll;
+    el.innerHTML = `<div class="xx-off-in">
+      <h3>篝 火 仍 烧 着</h3>
+      <div class="sub">你走后的 ${Math.floor(o.sec/60)} 分钟</div>
+      <div class="xx-card"><div class="xx-label">道行</div><div class="xx-big">+${o.dao}</div></div>
+      <div class="xx-card"><div class="xx-label">修为</div><div class="xx-big">+${o.exp}</div></div>
+      ${o.stone ? `<div class="xx-card"><div class="xx-label">拾得</div>
+        <div class="xx-val">${STONES[o.stone.id].name} ×${o.stone.n}</div></div>` : ''}
+      ${sc ? `<div class="xx-card"><div class="xx-label">有人留下一卷</div>
+        <div class="xx-val">${SCROLL_LIST.find(x=>x.id===sc.id)?.name || '传承书'}</div></div>` : ''}
+      ${o.visitor ? `<div class="xx-card"><div class="xx-label">来了个人</div>
+        <div class="xx-val">${esc(o.visitor.name)} · ${esc(o.visitor.title)}</div>
+        <div class="xx-dim" style="margin-top:5px">${esc(o.visitor.line)}</div></div>` : ''}
+      <button class="xx-btn main" style="margin-top:8px">收 下</button>
+    </div>`;
+    document.getElementById('app').appendChild(el);
+    // 收益入账
+    const s = Cult.get();
+    s.dao += o.dao;
+    addExp(s, o.exp);
+    if (o.stone) Bag.add(o.stone.id, o.stone.n);
+    if (sc) Bag.add(sc.id, sc.n || 1);
+    Cult.commit();
+    el.querySelector('button').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 14000);
+  },
+
+  build() {
+    root = $('div', 'xx-screen hidden');
+    root.innerHTML =
+      `<div class="xx-head">
+         <button class="xx-back" data-act="back">‹</button>
+         <h2>修 仙 阁</h2>
+         <div class="xx-realm" id="xx-realm-badge">炼气一层</div>
+       </div>
+       <div class="xx-tabs">${TABS.map(([k, n]) =>
+         `<button class="xx-tab" data-tab="${k}">${n}</button>`).join('')}</div>
+       <div class="xx-body" id="xx-body"></div>`;
+    document.getElementById('app').appendChild(root);
+
+    root.addEventListener('click', e => {
+      const b = e.target.closest('[data-act],[data-tab]');
+      if (!b) return;
+      if (b.dataset.tab) { tab = b.dataset.tab; this.render(); return; }
+      this.act(b.dataset.act, b.dataset.v, b.dataset.v2);
+    });
+    bodyEl = root.querySelector('#xx-body');
+  },
+
+  act(a, v, v2) {
+    const s = Cult.get();
+    switch (a) {
+      case 'back': this.close(); break;
+      case 'meditate': {
+        const g = addExp(s, 40);
+        Cult.commit(); this.render();
+        toast(`吐纳 ${g} 点修为`); break;
+      }
+      case 'break': {
+        const chk = canBreakthrough(s);
+        if (!chk.ok) { toast(chk.msg || '时机未到'); return; }
+        if (chk.needPill) {
+          const p = PILLS[chk.needPill];
+          if ((s.pills[chk.needPill] || 0) < 1) { toast(`缺 ${p.name},去秘境寻觅`); return; }
+          s.pills[chk.needPill] -= 1;
+        }
+        const overflow = Math.max(0, s.exp);
+        const r = doBreakthrough(s);
+        // 溢出的修为不浪费 → 自动转成传承书
+        let got = null;
+        if (overflow > 200) {
+          const conv = Math.floor(overflow * OVERFLOW_RATE);
+          got = { id: scrollForExp(conv).id, exp: conv };
+          Bag.add(got.id, 1);
+        }
+        DAY.tick();
+        Cult.commit(); this.render();
+        toast(got ? `突破 → ${r.realm}${r.layer}层 · 溢出化为${SCROLL_LIST.find(x=>x.id===got.id).name}`
+                  : `突破成功 → ${r.realm}${r.layer}层`); break;
+      }
+      case 'buy': {
+        const p = PILLS[v];
+        if (!p) return;
+        if (s.dao < p.price) { toast('道行不足'); return; }
+        s.dao -= p.price;
+        s.pills[v] = (s.pills[v] || 0) + 1;
+        Cult.commit(); this.render(); toast(`购得 ${p.name} ×1`); break;
+      }
+      case 'travel': {
+        const from = Cult.get().current;
+        const path = neighbors(from);
+        if (!path.includes(v)) { toast('路不通'); return; }
+        Cult.get().current = v;
+        Cult.get().visited[v] = true;
+        Cult.commit();
+        this.render();
+        this.arrive(v); break;
+      }
+      case 'enlighten': this.doEnlighten(v, v2); break;
+
+      // —— 营地 ——
+      case 'light': {
+        const r = CAMP.light(s.current);
+        toast(r.msg);
+        if (r.ok) setTimeout(() => { const f = CAMP.feed(); toast(f.msg); this.render(); }, 260);
+        this.render(); break;
+      }
+      case 'douse': { const r = CAMP.douse(); toast(r.msg); this.render(); break; }
+      case 'nfeed': feedN = Math.max(1, Math.min(99, feedN + Number(v))); this.render(); break;
+      case 'feed': {
+        const r = CAMP.feed(v || null, v ? feedN : null);
+        toast(r.msg);
+        if (r.ok && v === null) { /* 投了全部 */ }
+        this.render(); break;
+      }
+      case 'gift': { const r = CAMP.gift(v); toast(r ? r.text : '他暂时没什么可给的。'); this.render(); break; }
+      case 'teach': {
+        const m = CAMP.s.members.find(x => x.uid === v);
+        const pick = SCROLL_LIST.find(sc => sc.realm.includes('炼气')) || SCROLL_LIST[0];
+        const r = CAMP.teach(v, pick.id);
+        toast(r.msg); this.render(); break;
+      }
+      case 'sect': { const r = CAMP.foundSect(); toast(r.msg); this.render(); break; }
+      case 'exch': {
+        const ex = Bag.exchange(v);
+        if (!ex) { toast('无法兑换'); break; }
+        if (s.dao < ex.cost) { toast('道行不足'); break; }
+        s.dao -= ex.cost;
+        Bag.add(ex.scroll.id, 1);
+        Cult.commit(); toast(`兑得 ${SCROLL_LIST.find(x=>x.id===ex.scroll.id).name} ×1`); this.render(); break;
+      }
+      case 'usegood': {
+        const msg = Bag.use(v);
+        Cult.commit();
+        toast(msg || '无效'); this.render(); break;
+      }
+      case 'merchant': Merchant.maybeShow(); break;
+    }
+  },
+
+  // ---- 抵达节点:村庄休整 / 野地自动遭遇 / 强敌才打断 ----
+  // 设计:普通地图内容自动播放、不打断操作。只有 elite/secret/boss 才进回合制。
+  arrive(id) {
+    const s = Cult.get();
+    const n = nodeById(id);
+    if (!n) return;
+
+    // 村庄:不战斗,给休整
+    if (n.type === 'village') { this.render(); toast('炊烟袅袅。歇一会儿。'); return; }
+
+    // 荒野/野地:自动遭遇,直接结算,不打断
+    if (n.type === 'field') {
+      const gain = 20 + Math.floor(Math.random() * 40) + s.layer * 6;
+      s.dao += gain; s.totalKills += 1;
+      addExp(s, 30 + Math.floor(Math.random() * 40));
+      const herb = Math.random() < 0.12;
+      if (herb) { s.pills.pill_zhuji = (s.pills.pill_zhuji || 0) + 1; }
+      Cult.commit();
+      Cult.titles.track('challenge', 1);
+      if (Math.random() < 0.2) Cult.titles.track('spare', 1);
+      Cult.titles.track('rescue', 1);
+      DAY.tick();
+      const st = Bag.rollStone(0);
+      if (st) Bag.add(st.id, st.n);
+      Cult.commit();
+      Merchant.maybeShow();
+      this.render();
+      toast(`遭遇散妖,道行 +${gain}`
+        + (herb ? ' · 拾得七叶草' : '')
+        + (st ? ` · ${STONES[st.id].name}×${st.n}` : ''));
+      return;
+    }
+
+    // 险地 / 秘境 / 妖巢:才打断,进回合制
+    Duel.start({
+      node: n,
+      hero: { name:'轩轩', img: PORTRAIT.hero, realmIdx: REALMS.findIndex(r => r.id === s.realm) },
+      foe: this.makeFoe(n, s),
+      onWin: (r) => {
+        const s2 = Cult.get();
+        s2.dao += r.dao; s2.totalKills += 1;
+        if (r.pill) s2.pills[r.pill] = (s2.pills[r.pill] || 0) + 1;
+        addExp(s2, r.exp);
+        Cult.commit();
+        Cult.titles.track('challenge', 1);
+        DAY.tick();
+        // 源石掉落:按节点层级,只有 Boss 才给高阶
+        const lvl = n.type === 'boss' ? 3 : n.type === 'secret' ? 2 : 1;
+        const st = Bag.rollStone(lvl);
+        if (st) Bag.add(st.id, st.n);
+        Cult.commit();
+        const stoneTxt = st ? ` · 得${STONES[st.id].name}×${st.n}` : '';
+        toast(`胜!道行 +${r.dao}${r.pill ? ' · 得丹' : ''}${stoneTxt}`);
+        Merchant.maybeShow();
+        this.render();
+      },
+      onLose: (choice) => { this.applyDefeat(choice); },
+    });
+  },
+
+  // 按玩家境界匹配敌人强度 —— 不是固定数值
+  makeFoe(n, s) {
+    const pIdx = REALMS.findIndex(r => r.id === s.realm);
+    const isBoss = n.type === 'boss';
+    const isElite = n.type === 'elite';
+    // 越境压迫:精英/首领有概率出现高于玩家的对手
+    const stronger = isBoss || (isElite && Math.random() < 0.4);
+    const foeIdx = Math.max(0, Math.min(REALMS.length - 1,
+      pIdx + (stronger ? 1 : 0)));
+    const foes = isBoss ? [[LORE.CHARACTERS.moying.name, LORE.CHARACTERS.moying.title, 'foe', true]]
+      : [['黑风散修','炼气中期','foe', false], ['守谷妖修','妖修','aunt', false],
+         ['游方剑客','筑基初期','foe', false]];
+    const pick = foes[Math.floor(Math.random() * foes.length)];
+    return {
+      name: pick[0], title: pick[1],
+      img: isBoss ? PORTRAIT.foe : (pick[2] === 'aunt' ? PORTRAIT.aunt : PORTRAIT.foe),
+      realmIdx: foeIdx,
+      stronger: foeIdx > pIdx,
+      isNemesis: !!pick[3],
+    };
+  },
+
+  // 战败结算:不清档,四选一
+  applyDefeat(choice) {
+    const s = Cult.get();
+    const pIdx = REALMS.findIndex(r => r.id === s.realm);
+    const foe = { title: '对手' };
+    const r = Cult.defeat.resolve(foe, s, {
+      ransom: choice === 'ransom',
+      installment: choice === 'installment',
+      resist: choice === 'resist',
+      debt: 300,
+    });
+    const e = r.effect;
+    if (e.realmDamage) {
+      // 跌一大境(至少炼气一层)
+      if (pIdx > 0) { s.realm = REALMS[pIdx - 1].id; s.layer = Math.max(1, maxLayerOf(s.realm) - 2); }
+      else s.layer = Math.max(1, s.layer - 3);
+      s.exp = 0;
+    }
+    if (e.demon) { Cult.titles.track('demon', e.demon); }
+    if (e.debt) s.debt = e.debt;
+    if (e.daoLoss) s.dao = Math.floor(s.dao * (1 - e.daoLoss));
+    Cult.commit();
+    this.render();
+  },
+
+  // ---- 悟道:选两门满级神通融合 ----
+  picking: null,
+  doEnlighten(a, b) {
+    if (this.picking) {
+      const first = this.picking; this.picking = null;
+      if (first === a) { this.render(); return; }
+      const chk = canEnlighten(Cult.get(), first, a);
+      if (!chk.ok) { toast(chk.msg); this.render(); return; }
+      const r = enlighten(Cult.get(), first, a);
+      if (r.ok) {
+        Cult.commit();
+        const outName = ARTS[r.out] ? ARTS[r.out].name : r.out;
+        toast(`悟道!${outName} — ${r.rec.rule}`);
+        Cult.titles.track('sword_all_max', ARTS[r.out] && ARTS[r.out].family === 'sword' ? 1 : 0);
+      }
+      this.render(); return;
+    }
+    this.picking = a; this.render();
+  },
+
+  render() {
+    if (!bodyEl) return;
+    const s = Cult.get();
+    const r = getRealm(s.realm);
+    root.querySelector('#xx-realm-badge').textContent = `${r.name}${s.layer}层`;
+    root.querySelectorAll('.xx-tab').forEach(t =>
+      t.classList.toggle('on', t.dataset.tab === tab));
+    bodyEl.innerHTML =
+      tab === 'realm' ? this.vRealm(s)
+      : tab === 'map'   ? this.vMap(s)
+      : tab === 'camp'  ? this.vCamp(s)
+      : tab === 'bag'   ? this.vBag(s)
+      : tab === 'arts'  ? this.vArts(s)
+      : tab === 'people'? this.vPeople(s)
+      : this.vTitle(s);
+  },
+
+  // ---------- 境界 ----------
+  vRealm(s) {
+    const r = getRealm(s.realm);
+    const maxL = maxLayerOf(s.realm);
+    const need = layerCost(s.realm, s.layer);
+    const chk = canBreakthrough(s);
+    const cost = need == null ? 0 : need;
+    let pills = '';
+    for (const [id, p] of Object.entries(PILLS)) {
+      const own = s.pills[id] || 0;
+      pills += `<div class="xx-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div class="xx-label">${p.name}${own ? ` ×${own}` : ''}</div>
+          <div class="xx-val">${p.price} 道行</div></div>
+          <button class="xx-btn" style="width:auto;margin:0;padding:8px 16px;font-size:13px"
+            data-act="buy" data-v="${id}">购</button>
+        </div>
+        <div class="xx-dim" style="margin-top:6px">${p.desc}</div>
+      </div>`;
+    }
+    return `
+      <div class="xx-card">
+        <div class="xx-label">${esc(r.desc)}</div>
+        <div class="xx-big">${r.name} · ${s.layer}/${maxL} 层</div>
+        ${need == null
+          ? `<div class="xx-dim" style="margin-top:8px">本境界已修满,需 ${PILLS[REALMS.find(x=>x.id===s.realm).requires]?.name || '丹药'} 方可突破</div>`
+          : `<div class="xx-bar"><i style="width:${pct(s.exp, cost)}%"></i></div>
+             <div class="xx-dim" style="margin-top:6px">修为 ${Math.floor(s.exp)} / ${cost}</div>`}
+      </div>
+      <div class="xx-grid">
+        <div class="xx-card"><div class="xx-label">道行</div><div class="xx-big">${s.dao}</div></div>
+        <div class="xx-card"><div class="xx-label">击杀</div><div class="xx-big">${s.totalKills}</div></div>
+      </div>
+      <button class="xx-btn" data-act="meditate">吐 纳 修 炼</button>
+      <button class="xx-btn main" data-act="break" ${chk.ok ? '' : 'disabled'}>
+        ${chk.needPill ? `服 ${PILLS[chk.needPill]?.name || '丹'} 突 破` : '突 破'}
+        ${chk.ok ? '' : `<div class="xx-dim" style="letter-spacing:0;margin-top:4px">${esc(chk.msg || '')}</div>`}
+      </button>
+      <div style="height:12px"></div>
+      <div class="xx-label">丹 药</div>${pills}`;
+  },
+
+  // ---------- 地图 ----------
+  vMap(s) {
+    const g = WORLD.grid;
+    const pos = n => ({ x: 6 + (n.x - 1) / (g - 1) * 88, y: 8 + (n.y - 1) / (g - 1) * 86 });
+    let nodes = '', edges = '';
+    for (const e of WORLD.edges) {
+      const a = nodeById(e[0]), b = nodeById(e[1]);
+      const pa = pos(a), pb = pos(b);
+      const dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
+      edges += `<div class="xx-edge" style="left:${pa.x}%;top:${pa.y}%;
+        width:${len}%;transform:rotate(${ang}deg)"></div>`;
+    }
+    for (const n of WORLD.nodes) {
+      const p = pos(n);
+      const t = { village:'🏘', field:'🌾', elite:'⛰', secret:'💎', boss:'☠' }[n.type] || '•';
+      const cls = ['xx-node'];
+      if (s.visited[n.id]) cls.push('visited');
+      if (s.current === n.id) cls.push('cur');
+      const adj = neighbors(s.current).includes(n.id);
+      if (!adj && s.current !== n.id) cls.push('locked');
+      nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
+        data-act="travel" data-v="${n.id}" title="${esc(n.name || '')}">
+        ${t}<div class="xx-node-lb">${esc(n.name || n.id)}</div></div>`;
+    }
+    const cur = nodeById(s.current);
+    const typeName = { village:'村庄', field:'荒野', elite:'险地', secret:'秘境', boss:'妖巢' }[cur.type] || '';
+    const meta = { village:'可休整、炼丹、悟道', field:'散妖游荡',
+      elite:'有强敌蛰伏,可能触发回合制', secret:'藏宝之地,盛产丹药', boss:'大能坐镇,必逢回合' }[cur.type] || '';
+    return `<div class="xx-map">${edges}${nodes}</div>
+      <div class="xx-card" style="margin-top:14px">
+        <div class="xx-label">当前位置</div>
+        <div class="xx-val">${esc(cur.name || cur.id)} · ${typeName}</div>
+        <div class="xx-dim" style="margin-top:5px">${meta}</div>
+      </div>
+      <div class="xx-dim" style="text-align:center">点亮的相邻节点即可前往</div>`;
+  },
+
+  // ---------- 神通 / 悟道 ----------
+  vArts(s) {
+    const owned = Object.keys(s.arts).filter(k => s.arts[k] > 0);
+    const full = owned.filter(k => s.arts[k] >= 5);
+    let h = '';
+    if (this.picking) {
+      h += `<div class="xx-card"><div class="xx-label">悟 道</div>
+        <div class="xx-val">已选「${ARTS[this.picking]?.name}」,再选一门满级神通</div>
+        <div class="xx-dim" style="margin-top:5px">道行消耗视配方而定,融合后二者各降一级</div></div>`;
+    } else {
+      h += `<div class="xx-card">
+        <div class="xx-label">悟 道</div>
+        <div class="xx-val">两门神通皆修至满级(5级)可融合出超武</div>
+        <div class="xx-dim" style="margin-top:5px">
+          满级神通 ${full.length} / 14 门 · 当前道行 ${s.dao}</div></div>`;
+    }
+    const grid = Object.entries(ARTS).map(([k, a]) => {
+      const lv = s.arts[k] || 0;
+      const cls = ['xx-art'];
+      if (!lv) cls.push('lock');
+      if (lv >= a.max) cls.push('max');
+      if (a.fused) cls.push('fused');
+      const sel = this.picking === k;
+      return `<div class="${cls.join(' ')}" ${lv ? `data-act="enlighten" data-v="${k}"` : ''}>
+        ${a.fused ? '<span class="xx-tag">超武</span>' : lv >= a.max ? '<span class="xx-tag gold">满</span>' : ''}
+        <div class="xx-art-n">${esc(a.name)}</div>
+        <div class="xx-art-b">${lv || '—'}</div>
+        <div class="xx-art-lv">${sel ? '已选' : a.d.slice(0, 6)}</div>
+      </div>`;
+    }).join('');
+    return h + `<div class="xx-grid3">${grid}</div>`;
+  },
+
+  // ---------- 营地 ----------
+  vCamp(s) {
+    const burning = CAMP.burning();
+    const t = CAMP.tier(), nx = CAMP.next();
+    const d = DAY.phase();
+    const fuel = CAMP.fuelMin();
+    const maxF = CAMP.maxFuel();
+    const barW = maxF > 0 ? Math.min(100, fuel / (maxF + fuel) * 100) : 0;
+
+    let stones = '';
+    if (burning) {
+      stones = STONE_LIST.filter(x => Bag.count(x.id) > 0).map(x => `
+        <div class="xx-stone has" data-act="feed" data-v="${x.id}">
+          <div class="xm-"></div><div class="xx-stone-m">${Bag.count(x.id)}</div>
+          <div class="xx-stone-n" style="color:${x.col}">${x.name}</div>
+          <div class="xx-stone-d">${x.dur} 分钟</div>
+          <div class="xx-stone-c">投 ${feedN}</div>
+        </div>`).join('') ||
+        '<div class="xx-dim" style="text-align:center;padding:10px">没有源石了 —— 源石只能靠猎妖、秘境外加兑换。</div>';
+    }
+
+    const mem = CAMP.s.members.length
+      ? CAMP.s.members.map(m => `
+        <div class="xx-mem">
+          <div class="a">
+            <div class="n">${esc(m.name)}<span class="xx-dim" style="margin-left:6px">${esc(m.title)}</span></div>
+            <div class="t">修为 ${m.lv} 层 · 已赠 ${m.gift}/3</div>
+          </div>
+          <div class="act">
+            <button class="xx-mbtn" data-act="gift" data-v="${m.uid}">讨谢礼</button>
+            <button class="xx-mbtn" data-act="teach" data-v="${m.uid}">授传承</button>
+          </div>
+        </div>`).join('')
+      : '<div class="xx-dim">还没有人留下。营地的名声要靠时间传出去。</div>';
+
+    return `
+      <div class="xx-fire ${burning ? 'on' : ''}">
+        <div class="xx-fire-t">${burning ? '火 还 烧 着' : '尚 无 篝 火'}</div>
+        <div class="xx-fire-s">${burning ? `余 ${fuel} 分钟 · ${esc(t.name)} LV${t.lv}` : '需要一枚源石'}</div>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">昼 夜</div>
+        <div class="xx-daynow">${d.name} · ${d.desc}</div>
+        <div class="xx-daybar"></div>
+        <div class="xx-dim">夜间挂机收益 ×1.35,但没有火会更危险。</div>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">源 石(${Bag.stoneMinutes()} 分钟)</div>
+        ${burning
+          ? `<div class="xx-bar s"><i style="width:${barW}%"></i></div>
+             <div class="xx-dim" style="margin:6px 0 10px">烧完为止。当前容量 ${maxF} 分钟。</div>
+             <div class="xx-numrow">
+               <button class="xx-nbtn" data-act="nfeed" data-v="-1">−</button>
+               <div class="xx-val">${feedN}</div>
+               <button class="xx-nbtn" data-act="nfeed" data-v="1">＋</button>
+             </div>
+             <div class="xx-stones">${stones}</div>
+             <button class="xx-btn" style="margin-top:10px" data-act="feed">全 部 投 入</button>
+             <button class="xx-btn" data-act="douse">熄 火</button>`
+          : `<button class="xx-btn main" data-act="light">生 火 · 投入现有源石</button>`}
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">营 地</div>
+        <div class="xx-val">${t.name} · LV${t.lv}</div>
+        <div class="xx-dim" style="margin-top:5px">${t.d}</div>
+        ${nx ? `<div class="xx-bar jade"><i style="width:${Math.min(100, CAMP.s.totalSec / nx.need * 100)}%"></i></div>
+          <div class="xx-dim" style="margin-top:5px">距「${nx.name}」还需燃烧 ${Math.ceil((nx.need - CAMP.s.totalSec)/60)} 分钟 · 声望 ${CAMP.s.rep}</div>`
+          : '<div class="xx-gold" style="margin-top:6px">已至顶级。</div>'}
+        ${CAMP.tier().lv >= 4 ? '<div class="xx-dim">阵旗已成:此营地可作方圆传送点(传送一次 ' + CAMP.teleportCost() + ' 道行)。</div>' : ''}
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">人 员 (${CAMP.s.members.length})</div>
+        ${mem}
+      </div>
+
+      ${CAMP.tier().lv >= 5 ? `<button class="xx-btn main" data-act="sect">${CAMP.s.formed ? '宗门已成' : '立 宗'}</button>`
+        : '<div class="xx-dim" style="text-align:center">营地经营至「山门」并持家族令,可自立宗门。</div>'}
+
+      <div style="height:10px"></div>
+      <button class="xx-btn" data-act="merchant">招 呼 路 过 的 商 人</button>`;
+  },
+
+  // ---------- 行囊 ----------
+  vBag() {
+    const items = Bag.s.items || {};
+    const keys = Object.keys(items).filter(k => items[k] > 0);
+    let h = `<div class="xx-card">
+      <div class="xx-label">道 行</div><div class="xx-big">${Cult.get().dao}</div>
+      <div class="xx-dim" style="margin-top:5px">可用道行兑换源石与传承书 —— 比商人便宜,但不打折。</div>
+    </div>`;
+    if (!keys.length) return h + '<div class="xx-dim" style="text-align:center">空空如也。去打点东西回来。</div>';
+    for (const k of keys) {
+      const it = STONES[k] || SCROLLS[k] || GOODS[k];
+      if (!it) continue;
+      const isStone = !!STONES[k];
+      const isScroll = !!SCROLLS[k];
+      h += `<div class="xx-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="flex:1">
+            <div class="xx-label" style="color:${it.col}">${it.name} ×${items[k]}</div>
+            <div class="xx-val" style="font-size:13px">${isStone ? `燃烧 ${it.dur} 分钟` : (it.d || it.realm || '')}</div>
+            ${isStone ? `<div class="xx-dim" style="margin-top:4px">来源:${it.src}</div>` : ''}
+          </div>
+          ${!isStone && GOODS[k] ? `<button class="xx-btn" style="width:auto;margin:0;padding:8px 15px;font-size:13px"
+            data-act="usegood" data-v="${k}">使 用</button>` : ''}
+        </div></div>`;
+    }
+    // 兑换区
+    h += `<div class="xx-label" style="margin:14px 0 6px">道 行 兑 换</div>`;
+    h += Object.entries(Bag.EXCHANGE).map(([sid, e]) => `
+      <div class="xx-card" style="padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div class="xx-label" style="color:${STONES[sid].col}">${STONES[sid].name}</div>
+          <div class="xx-dim">${STONES[sid].dur} 分钟 + ${SCROLL_LIST.find(x=>x.exp<=(e.exp*1.2)&&x.exp>=e.exp*0.45)?.name||'传承书'}</div></div>
+          <button class="xx-btn" style="width:auto;margin:0;padding:7px 13px;font-size:12px"
+            data-act="exch" data-v="${sid}">${e.dao}</button>
+        </div></div>`).join('');
+    return h;
+  },
+
+  // ---------- 人物 ----------
+  vPeople() {
+    return Object.values(CHARACTERS).map(c => `
+      <div class="xx-ch">
+        <img src="${PORTRAIT[c.portrait] || PORTRAIT.hero}" alt="">
+        <div>
+          <h4>${esc(c.name)} <span class="xx-dim" style="font-size:11px">${esc(c.role)}</span></h4>
+          <div class="t">${esc(c.title)}</div>
+          <p>${esc(c.bio)}</p>
+          <p class="xx-gold" style="margin-top:5px">${esc(c.arc)}</p>
+        </div>
+      </div>`).join('')
+      + `<div class="xx-card"><div class="xx-label">世 界</div>
+        <div class="xx-val">${esc(LORE.title)} · ${esc(LORE.era)}</div>
+        <div class="xx-dim" style="margin-top:6px">${esc(LORE.intro)}</div></div>
+        ${LORE.rules.map(r => `<div class="xx-dim" style="padding:4px 0">· ${esc(r)}</div>`).join('')}`;
+  },
+
+  // ---------- 称号 ----------
+  vTitle() {
+    const got = Cult.titles.list();
+    return TITLES.map(t => {
+      const on = got.includes(t.id);
+      return `<div class="xx-title-i ${on ? 'on' : 'off'}">
+        <div class="xx-seal">${on ? '印' : '？'}</div>
+        <div style="flex:1">
+          <div style="color:${on ? 'var(--xx-gold)' : 'var(--xx-paper)'};letter-spacing:2px">${esc(t.name)}</div>
+          <div class="xx-dim">${on ? esc(t.desc) : esc(t.cond)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  },
+};
