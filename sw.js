@@ -3,7 +3,7 @@
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v082';
+const V = 'xuanxuan-v083';
 const BUILD = '20261007-2245';
 
 const CORE = [
@@ -23,13 +23,15 @@ const XX = [
   'js/xiuxian/index.js', 'js/xiuxian/realms.js', 'js/xiuxian/arts.js', 'js/xiuxian/battle.js',
   'js/xiuxian/world.js', 'js/xiuxian/lore.js', 'js/xiuxian/relations.js', 'js/xiuxian/assets.js',
   'js/xiuxian/ui.js', 'js/xiuxian/duel.js', 'js/xiuxian/items.js', 'js/xiuxian/camp.js',
-  'js/xiuxian/merchant.js', 'js/xiuxian/profile.js', 'js/xiuxian/companion.js', 'js/xiuxian/profile.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
+  'js/xiuxian/merchant.js', 'js/xiuxian/profile.js', 'js/xiuxian/build.js', 'js/xiuxian/bestiary.js', 'js/xiuxian/companion.js', 'js/xiuxian/profile.js', 'js/xiuxian/build.js', 'js/xiuxian/bestiary.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
   'js/xiuxian/ritual.js', 'js/xiuxian/bond.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/foe.jpg', 'assets/portrait/aunt.jpg',
   'assets/bg/duel.jpg', 'assets/bg/cave.jpg', 'assets/bg/sect.jpg',
   'assets/bgm/nemesis.mp3', 'assets/bgm/overlord.mp3',
+  'assets/mob/ghostfire.jpg','assets/mob/revenant.jpg','assets/mob/golem.jpg',
+  'assets/mob/ninehead.jpg','assets/mob/bloodriver.jpg','assets/portrait/momocha.jpg',
 ];
 const ASSETS = [...CORE, ...XX, ...ART, 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 

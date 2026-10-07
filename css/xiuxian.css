@@ -492,3 +492,42 @@
 .xx-sk.sup{border-color:var(--xx-cinnabar);background:linear-gradient(135deg,rgba(60,20,16,.97),rgba(24,12,10,.97))}
 .xx-sk-tag{position:absolute;top:-7px;left:6px;font-size:9px;padding:1px 5px;border-radius:2px;
   background:var(--xx-cinnabar);color:#fff;letter-spacing:1px}
+
+/* ===== 领地建造格 ===== */
+.bd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bd-slot{aspect-ratio:1/1.15;border-radius:3px;border:1px dashed rgba(232,220,196,.25);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  cursor:pointer;transition:.18s;background:rgba(0,0,0,.28);position:relative;padding:5px}
+.bd-slot.empty{color:rgba(232,220,196,.4);font-size:22px;border-style:dashed}
+.bd-slot.empty:active{border-color:var(--xx-gold);background:rgba(201,162,39,.1)}
+.bd-slot.lock{opacity:.28;cursor:default}
+.bd-slot-i{font-size:22px;line-height:1}
+.bd-slot-n{font-size:11px;color:var(--xx-paper);letter-spacing:1px}
+.bd-slot-w{font-size:9.5px;color:rgba(232,220,196,.5)}
+.bd-slot-r{position:absolute;top:3px;right:4px;font-size:9px;color:var(--xx-gold);
+  background:rgba(0,0,0,.6);padding:1px 4px;border-radius:2px}
+.bd-inv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.bd-inv-i{background:rgba(232,220,196,.05);border:1px solid rgba(232,220,196,.2);
+  border-radius:3px;padding:8px 3px;font-size:17px;cursor:pointer;font-family:inherit;
+  color:var(--xx-paper);position:relative;transition:.16s;line-height:1.4}
+.bd-inv-i:active{transform:scale(.94);background:rgba(201,162,39,.14)}
+.bd-inv-i span{font-size:9.5px;display:block;margin-top:2px;letter-spacing:.5px}
+.bd-inv-i em{position:absolute;top:2px;right:4px;font-size:9px;font-style:normal;
+  color:var(--xx-gold)}
+
+/* ===== 图鉴条目 ===== */
+.xx-dxx{display:flex;gap:11px;padding:11px;margin-bottom:9px;
+  border:1px solid rgba(232,220,196,.12);border-radius:3px;background:rgba(232,220,196,.035)}
+.xx-dxx.mine{border-color:var(--xx-cinnabar);background:rgba(181,52,42,.09)}
+.xx-dxx img{width:64px;height:86px;object-fit:cover;border-radius:2px;flex-shrink:0;
+  border:1px solid rgba(201,162,39,.28)}
+.xx-dxx-b{flex:1;min-width:0}
+.xx-dxx-n{font-size:14px;color:var(--xx-paper);letter-spacing:1.5px;margin-bottom:4px;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.xx-dxx-n span{font-size:9.5px;color:var(--xx-gold);border:1px solid rgba(201,162,39,.35);
+  padding:1px 5px;border-radius:2px;letter-spacing:1px}
+.xx-dxx-n em{font-style:normal;font-size:9.5px;color:#fff;background:var(--xx-cinnabar);
+  padding:1px 5px;border-radius:2px}
+.xx-dxx-d{font-size:12px;color:rgba(232,220,196,.72);line-height:1.65;margin-bottom:5px}
+.xx-dxx-b2{font-size:10.5px;color:rgba(232,220,196,.48);line-height:1.6}
+.xx-dxx-t{font-size:10.5px;color:var(--xx-cinnabar);margin-top:4px;letter-spacing:.5px}

@@ -251,6 +251,7 @@ import { Profile, Seed } from './xiuxian/profile.js';
 import { Titles, Nemesis } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';
 import { CHRONICLE } from './xiuxian/chronicle.js';
+import { BUILD } from './xiuxian/build.js';
 
 (function bootCult() {
   const bind = () => {
@@ -268,6 +269,7 @@ import { CHRONICLE } from './xiuxian/chronicle.js';
     Profile.load();
     FAMILY.load();
     CHRONICLE.load();
+    BUILD.load();
     // 统一存档:进游戏先收集,页面隐藏/关闭时落盘
     const mods = { Cult, Nemesis, Titles, Bag, CAMP, DAY, Merchant, COMPANION };
     Profile.collect(mods);
@@ -282,7 +284,8 @@ import { CHRONICLE } from './xiuxian/chronicle.js';
     let _bondT = 0, _idleT = 0;
     engine.addAlways(dt => {
       _bondT += dt; _idleT += dt;
-      if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden(); }
+      if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden();
+        if (BUILD.s.placed.length) BUILD.tickAll(); }
       if (_idleT > 24) {
         _idleT = 0;
         if (COMPANION.canHug()) Bond.showHug();

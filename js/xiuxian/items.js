@@ -80,6 +80,11 @@ export function scrollForExp(exp) {
 }
 
 // ————— 背包 —————
+// 外部物品注册表(建筑等由 bestiary.js 在加载时注册,避免循环依赖)
+export const REGISTRY = { buildings: {} };
+export function registerBuildings(map) { Object.assign(REGISTRY.buildings, map); }
+const isItem = id => !!(STONES[id] || SCROLLS[id] || GOODS[id] || REGISTRY.buildings[id]);
+
 export const Bag = {
   s: { items: {}, demon: 0, charter: false },
 
@@ -94,7 +99,7 @@ export const Bag = {
 
   count(id) { return this.s.items[id] || 0; },
   add(id, n = 1) {
-    if (!STONES[id] && !SCROLLS[id] && !GOODS[id]) return false;
+    if (!isItem(id)) return false;
     this.s.items[id] = (this.s.items[id] || 0) + n;
     return true;
   },
@@ -104,6 +109,8 @@ export const Bag = {
     if (this.s.items[id] <= 0) delete this.s.items[id];
     return true;
   },
+  // 建材数量
+  buildCount(id) { return this.s.items[id] || 0; },
   // 源石总时长(分钟)
   stoneMinutes() {
     let m = 0;

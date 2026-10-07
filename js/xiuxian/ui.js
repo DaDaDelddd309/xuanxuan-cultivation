@@ -16,9 +16,11 @@ import { COMPANION } from './companion.js';
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
+import { BUILD } from './build.js';
+import { BUILDINGS, BESTIARY, NPCS, TIERS } from './bestiary.js';
 
 const PORTRAIT = { hero:'assets/portrait/hero.jpg', foe:'assets/portrait/foe.jpg', aunt:'assets/portrait/aunt.jpg' };
-const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['sys','存档']];
+const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
@@ -26,6 +28,11 @@ let feedN = 1;   // 投石数量
 const $ = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
 const pct = (a, b) => b > 0 ? Math.min(100, Math.max(0, a / b * 100)) : 0;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function tierNeedText(nx){
+  if(!nx) return '已达顶级。';
+  const n=nx.need;
+  return `晋升「${nx.name}」需:建筑 ${n.builds} · 人口 ${n.pop} · 篝火 ${n.fires}`;
+}
 
 function toast(msg) {
   let t = document.getElementById('xx-toast');
@@ -189,6 +196,23 @@ export const Hall = {
         toast(msg || '无效'); this.render(); break;
       }
       case 'merchant': Merchant.maybeShow(); break;
+      // —— 领地 ——
+      case 'place': { const r=BUILD.place(v); toast(r.msg); this.render(); break; }
+      case 'slot': {
+        const inv = Object.keys(BUILDINGS).filter(b=>Bag.count(b)>0);
+        if(!inv.length){toast('没有可用建材');break;}
+        const r = BUILD.place(inv[0], +v);
+        toast(r.msg); this.render(); break;
+      }
+      case 'binfo': {
+        const i = +v; const chk = BUILD.canAssign(i);
+        if(chk.ok){ const r=BUILD.assign(i, chk.free[0].uid); toast(r.msg); }
+        else toast(chk.msg);
+        this.render(); break;
+      }
+      case 'autofill': { const r=BUILD.autoFill(); toast(r.msg); this.render(); break; }
+      case 'addfire': { const r=BUILD.addFire(s.current); toast(r.msg); this.render(); break; }
+      case 'promote': { const r=BUILD.promote(); toast(r.msg); this.render(); break; }
       // —— 家族 ——
       case 'found': {
         const inp = document.getElementById('xx-famname');
@@ -382,6 +406,8 @@ export const Hall = {
       : tab === 'arts'  ? this.vArts(s)
       : tab === 'people'? this.vPeople(s)
       : tab === 'fam'   ? this.vFam()
+      : tab === 'build' ? this.vBuild()
+      : tab === 'dex'   ? this.vDex()
       : tab === 'sys'   ? this.vSys()
       : this.vTitle(s);
   },
@@ -665,6 +691,121 @@ export const Hall = {
       </div>
       <div class="xx-dim" style="text-align:center">
         繁衍需两名未婚族人 + 200 资产 · 领地越多,被围攻越频繁,战力要求越高</div>`;
+  },
+
+  // ---------- 领地建造 ----------
+  vBuild() {
+    const t = BUILD.tier(), nx = BUILD.nextTier();
+    const inv = Object.keys(BUILDINGS).filter(b => Bag.count(b) > 0);
+
+    // 放置格(6 格,随阶位亮起)
+    let slots = '';
+    for (let i = 0; i < 6; i++) {
+      const unlocked = i < t.slots;
+      const inst = BUILD.s.placed[i];
+      if (!unlocked) { slots += `<div class="bd-slot lock">🔒</div>`; continue; }
+      if (!inst) { slots += `<div class="bd-slot empty" data-act="slot" data-v="${i}">＋</div>`; continue; }
+      const b = BUILDINGS[inst.bid];
+      const wn = inst.workers.length;
+      const fld = inst.bid === 'bld_field' ? BUILD.tickField(i) : null;
+      slots += `<div class="bd-slot" data-act="binfo" data-v="${i}" style="border-color:${b.col}66">
+        <div class="bd-slot-i">${b.icon}</div>
+        <div class="bd-slot-n">${b.name}</div>
+        <div class="bd-slot-w">${wn ? '值守 '+wn : '<span style="color:var(--xx-cinnabar)">待派人</span>'}</div>
+        ${fld && fld.ready ? '<div class="bd-slot-r">可收</div>'
+          : fld && fld.left != null ? `<div class="bd-slot-r">${fld.left}分</div>` : ''}
+      </div>`;
+    }
+
+    const pk = BUILD.canPromote();
+    const out = BUILD.tickAll();
+
+    return `
+      <div class="xx-card">
+        <div class="xx-label">领 地 等 级</div>
+        <div class="xx-big" style="color:${t.col}">${t.name} · LV${t.lv}</div>
+        <div class="xx-dim" style="margin-top:5px">${t.desc}</div>
+        <div class="xx-dim" style="margin-top:8px">
+          ${BUILD.summary()}</div>
+      </div>
+
+      ${out.msg.length ? `<div class="xx-card"><div class="xx-label">本 轮 产 出</div>
+        <div class="xx-val" style="font-size:13px;color:var(--xx-gold)">${out.msg.join(' · ')}</div></div>` : ''}
+
+      <div class="xx-card">
+        <div class="xx-label">建 造 空 间</div>
+        <div class="xx-dim" style="margin-bottom:9px">幻境之内,无怪,可随意放置。点空格取出建筑。</div>
+        <div class="bd-grid">${slots}</div>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">可 用 建 材</div>
+        ${inv.length ? `<div class="bd-inv">${inv.map(b=>{
+          const d = BUILDINGS[b];
+          return `<button class="bd-inv-i" style="border-color:${d.col}66"
+            data-act="place" data-v="${b}">${d.icon}<br><span>${d.name}</span>
+            <em>×${Bag.count(b)}</em></button>`;
+        }).join('')}</div>`
+        : '<div class="xx-dim">没有建材。去打怪 —— 妖王掉灵田,魔修掉丹炉哨塔,老祖掉议事堂。</div>'}
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">人 手 安 置</div>
+        <div class="xx-dim" style="margin-bottom:8px">
+          生产型建筑最多 3 人,人越多效率越高(1人×1.0 / 2人×1.6 / 3人×2.1)</div>
+        <button class="xx-btn" data-act="autofill">一 键 满 编</button>
+        <div class="xx-dim" style="text-align:center">族中闲人 ${FAMILY.s.members.filter(m=>!BUILD.isEmployed(m.uid)).length} 人</div>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">篝 火</div>
+        <div class="xx-val">${BUILD.fireCount()} 处</div>
+        <div class="xx-dim" style="margin-top:5px">
+          ${tierNeedText(nx)}</div>
+        <button class="xx-btn" data-act="addfire">新 增 一 处 篝 火</button>
+      </div>
+
+      <button class="xx-btn main" data-act="promote" ${pk.ok?'':'disabled'}>
+        晋 升 为「${nx ? nx.name : '顶级'}」${pk.ok?'':`<div class="xx-dim" style="letter-spacing:0;margin-top:4px">${esc(pk.msg)}</div>`}
+      </button>`;
+  },
+
+  // ---------- 图鉴(怪物 + NPC)----------
+  vDex() {
+    const cs = COMPANION.s;
+    const form = cs.route === 'kiss' ? 'baby' : cs.route === 'cold' ? 'ghostfire' : cs.route === 'ghost' ? 'revenant' : null;
+    const order = ['ghostfire','revenant','baby','momocha','merchant','moying'];
+    return `
+      <div class="xx-card"><div class="xx-label">灵 伴 三 形</div>
+        <div class="xx-dim">同一段因果,三条路。三种形态,三种待遇。</div></div>
+      ${order.map(k=>{
+        const n = NPCS[k];
+        const mine = k === form;
+        return `<div class="xx-dxx ${mine?'mine':''}">
+          <img src="${n.img}" alt="">
+          <div class="xx-dxx-b">
+            <div class="xx-dxx-n">${esc(n.name)}<span>${esc(n.form)}</span>${mine?'<em>你当前</em>':''}</div>
+            <div class="xx-dxx-d">${esc(n.desc)}</div>
+            <div class="xx-dxx-b2">${esc(n.ability)}</div>
+            ${n.threat && n.threat!=='无' ? `<div class="xx-dxx-t">威胁:${esc(n.threat)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="xx-card"><div class="xx-label">妖 物 图 谱</div>
+        <div class="xx-dim">${Object.keys(BESTIARY).length} 种已知。</div></div>
+      ${Object.entries(BESTIARY).map(([k,m])=>`
+        <div class="xx-dxx">
+          <img src="${m.img}" alt="">
+          <div class="xx-dxx-b">
+            <div class="xx-dxx-n">${esc(m.name)}<span>${esc(m.realm)}</span></div>
+            <div class="xx-dxx-d">${esc(m.desc)}</div>
+            <div class="xx-dxx-b2">气血 ${m.hp} · 伤害 ${m.dmg} · 修为 +${m.xp}</div>
+            <div class="xx-dxx-b2">掉落:${m.drops.map(d=>{
+              const it = BUILDINGS[d.id] || STONES[d.id] || SCROLLS[d.id] || {name:d.id};
+              return `${it.name} ${(d.p*100).toFixed(0)}%`;
+            }).join(' · ')}</div>
+          </div>
+        </div>`).join('')}`;
   },
 
   // ---------- 存档(种子 / 存档码)----------
