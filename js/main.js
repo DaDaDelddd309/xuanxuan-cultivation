@@ -253,12 +253,15 @@ import { Titles, Nemesis } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';
 import { CHRONICLE } from './xiuxian/chronicle.js';
 import { BUILD } from './xiuxian/build.js';
+import { STORY } from './xiuxian/story.js';
+import { Ambience, phaseChime } from './xiuxian/ambience.js';
 import { WORLD } from './xiuxian/world.js';
 import { setMomocha } from './xiuxian/camp.js';
 import { BESTIARY } from './xiuxian/bestiary.js';
 
 (function bootCult() {
   const bind = () => {
+    let _bondT = 0, _idleT = 0, _lastPhase = null, _lastDayMul = 1, _ghostMod = null;
     Cult.init();
     Bag.load('xx_bag_v080');
     CAMP.load();
@@ -274,6 +277,8 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     FAMILY.load();
     CHRONICLE.load();
     BUILD.load();
+    STORY.load();
+    Ambience.init();
     setMomocha(!!FAMILY.momocha());
     BUILD.setWorld(WORLD);
     // 统一存档:进游戏先收集,页面隐藏/关闭时落盘
@@ -288,9 +293,9 @@ import { BESTIARY } from './xiuxian/bestiary.js';
                     get ward(){ return COMPANION.wardRadius(); } };
 
     // —— 怨灵附身:通过 enemies.js 的官方钩子强化全场怪 ——
-    Enemies.setEnemyMod(COMPANION.possessing()
-      ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() }
-      : null);
+    _ghostMod = COMPANION.possessing()
+      ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() } : null;
+    Enemies.setEnemyMod(_ghostMod);
     // 篝火护栏:火在时,怪不能进圈
     engine.addUpdater(dt => {
       const ward = COMPANION.wardRadius();
@@ -327,17 +332,31 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       return 'guard';
     }
     // 灵伴/怨灵/篝火守卫:每帧推进
-    let _bondT = 0, _idleT = 0;
     engine.addAlways(dt => {
       _bondT += dt; _idleT += dt;
       if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden();
         if (BUILD.s.placed.length) BUILD.tickAll();
         setMomocha(!!FAMILY.momocha());
         FAMILY._cap = BUILD.popCap();   // 议事堂扩容
+        // 昼夜:转场音效 + 氛围
+        const ph = Ambience.phase();
+        if (ph.key !== _lastPhase) {
+          if (_lastPhase) phaseChime(_lastPhase, ph.key);
+          _lastPhase = ph.key;
+          Ambience.apply(true);
+        }
+        // 叙事推进
+        if (Math.random() < 0.02) STORY.tick();
+        // 昼夜怪物强度(独立于怨灵)
+        const dayMul = Ambience.mobMul();
+        if (dayMul !== _lastDayMul) {
+          _lastDayMul = dayMul;
+          Enemies.setEnemyMod(_ghostMod ? Object.assign({},_ghostMod,{hp:dayMul*(_ghostMod.hp||1)}) : {hp:dayMul});
+        }
         // 怨灵附身状态同步到敌人模块
-        Enemies.setEnemyMod(COMPANION.possessing()
-          ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() }
-          : null);
+        _ghostMod = COMPANION.possessing()
+          ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() } : null;
+        Enemies.setEnemyMod(_ghostMod);
       }
       if (_idleT > 24) {
         _idleT = 0;

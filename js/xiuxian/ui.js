@@ -16,6 +16,9 @@ import { COMPANION } from './companion.js';
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
+import { LEGEND, LEGEND_LIST } from './legend.js';
+import { STORY, ARCS } from './story.js';
+import { PHASES } from './ambience.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
@@ -283,6 +286,20 @@ export const Hall = {
     const s = Cult.get();
     const n = nodeById(id);
     if (!n) return;
+    // —— 叙事推进:这条线该不会该露头 ——
+    const beats = STORY.arrive(id);
+    for (const b of beats) {
+      STORY.see(b.arc === 'hongyi' ? 'hongyi' : b.arc === 'laolao' ? 'laolao'
+              : b.arc === 'tomb' ? 'shijiang' : b.arc === 'jiangu' ? 'jiangu' : 'baize');
+      toast(`${b.name} · ${b.beat+1}`, true);
+      setTimeout(() => this.showStoryBeat(b), 500);
+    }
+    // —— 此地传说妖 ——
+    const leg = LEGEND_LIST.filter(l => l.where === n.type);
+    if (leg.length) {
+      const l = leg[0];
+      if (STORY.see(l.key)) { toast(`初见「${l.name}」`, true); setTimeout(()=>this.showLegend(l), 700); }
+    }
 
     // 村庄:不战斗,给休整
     if (n.type === 'village') { this.render(); toast('炊烟袅袅。歇一会儿。'); return; }
@@ -515,9 +532,13 @@ export const Hall = {
     }
     for (const n of WORLD.nodes) {
       const p = pos(n);
+      const unseen = !s.visited[n.id];
+      const storyHere = STORY.activeList().filter(a2=>a2.next && a2.next.node===n.id).length;
+      const legHere = LEGEND_LIST.filter(l2=>l2.where===n.type && !STORY.met(l2.key)).length;
       const t = { village:'🏘', field:'🌾', elite:'⛰', secret:'💎', boss:'☠' }[n.type] || '•';
       const cls = ['xx-node'];
-      if (s.visited[n.id]) cls.push('visited');
+      if (unseen) cls.push('fog');
+      else cls.push('visited');
       if (s.current === n.id) cls.push('cur');
       const adj = neighbors(s.current).includes(n.id);
       if (!adj && s.current !== n.id) cls.push('locked');
@@ -525,7 +546,9 @@ export const Hall = {
       const canTp  = BUILD.canTeleport() && s.visited[n.id] && s.current !== n.id;
       nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
         data-act="travel" data-v="${n.id}" title="${esc(n.name || '')}">
-        ${t}<div class="xx-node-lb">${esc(n.name || n.id)}</div>
+        ${unseen?'<div class="xx-fogq">?</div>':t}<div class="xx-node-lb">${unseen?(n.name||'未知之地'):esc(n.name || n.id)}</div>
+        ${storyHere?'<div class="xx-node-st" title="有事发生">!</div>':''}
+        ${legHere?'<div class="xx-node-lg" title="有异兽">◆</div>':''}
         ${isMine?`<div class="xx-node-mine" data-act="mine" data-v="${n.id}" data-v2="${n.type}">占</div>`:''}
         ${canTp?`<div class="xx-node-tp" data-act="tp" data-v="${n.id}">传</div>`:''}
         </div>`;
@@ -534,7 +557,16 @@ export const Hall = {
     const typeName = { village:'村庄', field:'荒野', elite:'险地', secret:'秘境', boss:'妖巢' }[cur.type] || '';
     const meta = { village:'可休整、炼丹、悟道', field:'散妖游荡',
       elite:'有强敌蛰伏,可能触发回合制', secret:'藏宝之地,盛产丹药', boss:'大能坐镇,必逢回合' }[cur.type] || '';
-    return `<div class="xx-map">${edges}${nodes}</div>
+    const acts = STORY.activeList();
+    const storyHdr = acts.length ? `
+      <div class="xx-card"><div class="xx-label">眼 下 之 事</div>
+        ${acts.map(a=>`<div style="margin-bottom:7px">
+          <div class="xx-val" style="font-size:13px;color:var(--xx-gold)">${esc(a.name)}
+            <span class="xx-dim">(${a.beat+1}/${a.total})</span></div>
+          <div class="xx-dim" style="margin-top:2px">${esc(a.next ? a.next.text : '')}</div>
+          <div class="xx-dim" style="margin-top:2px;color:var(--xx-jade)">往 ${a.next?a.next.node:''} 去</div>
+        </div>`).join('')}</div>` : '';
+    return storyHdr + `<div class="xx-map">${edges}${nodes}</div>
       <div class="xx-card" style="margin-top:14px">
         <div class="xx-label">当前位置</div>
         <div class="xx-val">${esc(cur.name || cur.id)} · ${typeName}</div>
@@ -739,7 +771,57 @@ export const Hall = {
         繁衍需两名未婚族人 + 200 资产 · 领地越多,被围攻越频繁,战力要求越高</div>`;
   },
 
+  showStoryBeat(b) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">${esc(b.name)}</div>
+      <div class="xx-sc-t">${esc(b.text)}</div>
+      ${b.reveal?`<div class="xx-sc-r">${esc(b.reveal)}</div>`:''}
+      ${b.last?`<div class="xx-sc-go">此线已至尽头。去「${esc(ARCS[b.arc].mob)}」处了结。</div>`:''}
+      <div class="xx-sc-x">知道了</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+  showLegend(l) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-img"><img src="${l.img}"></div>
+      <div class="xx-sc-n">${esc(l.name)}</div>
+      <div class="xx-sc-t">${esc(l.lore)}</div>
+      <div class="xx-sc-r">${esc(l.tell)}</div>
+      <div class="xx-sc-x">记住了</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+
   // ---------- 领地建造 ----------
+  showStoryBeat(b) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">${esc(b.name)}</div>
+      <div class="xx-sc-t">${esc(b.text)}</div>
+      ${b.reveal?`<div class="xx-sc-r">${esc(b.reveal)}</div>`:''}
+      ${b.last?`<div class="xx-sc-go">此线已至尽头。去「${esc(ARCS[b.arc].mob)}」处了结。</div>`:''}
+      <div class="xx-sc-x">知道了</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+  showLegend(l) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-img"><img src="${l.img}"></div>
+      <div class="xx-sc-n">${esc(l.name)}</div>
+      <div class="xx-sc-t">${esc(l.lore)}</div>
+      <div class="xx-sc-r">${esc(l.tell)}</div>
+      <div class="xx-sc-x">记住了</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+
   // ---------- 领地建造 ----------
   vBuild() {
     const t = BUILD.tier(), nx = BUILD.nextTier();
@@ -875,6 +957,21 @@ export const Hall = {
           </div>
         </div>`;
       }).join('')}
+      <div class="xx-card"><div class="xx-label">传 说 妖 谱 (${STORY.metList().length}/${LEGEND_LIST.length})</div>
+        <div class="xx-dim">每只都有来历。见过了,它的故事就展开了。</div></div>
+      ${LEGEND_LIST.map(l=>{
+        const seen = STORY.met(l.key);
+        return `<div class="xx-dxx ${seen?'':'unseen'}">
+          <img src="${l.img}" alt="">
+          <div class="xx-dxx-b">
+            <div class="xx-dxx-n">${esc(l.name)}<span>${['','','常','稀有','珍稀','传说'][l.rarity]}</span></div>
+            <div class="xx-dxx-d">${esc(seen?l.lore:'……未曾遇见。')}</div>
+            ${seen?`<div class="xx-dxx-b2">${esc(l.story)}</div>`:''}
+            ${seen?`<div class="xx-dxx-t">传闻:${esc(l.tell)}</div>`:''}
+            ${seen&&l.quest?`<div class="xx-dxx-b2" style="color:var(--xx-gold);margin-top:4px">
+              支线「${esc(l.quest.title)}」— ${esc(l.quest.desc)}</div>`:''}
+          </div></div>`;
+      }).join('')}
       <div class="xx-card"><div class="xx-label">妖 物 图 谱</div>
         <div class="xx-dim">${Object.keys(BESTIARY).length} 种已知。</div></div>
       ${Object.entries(BESTIARY).map(([k,m])=>`
@@ -991,14 +1088,20 @@ export const Hall = {
           <p class="xx-gold" style="margin-top:5px">${esc(c.arc)}</p>
         </div>
       </div>`).join('')
-      + (Cult.get().encLog && Cult.get().encLog.length ? `
-        <div class="xx-card"><div class="xx-label">行 脚 日 记</div>
-        ${Cult.get().encLog.slice(0,6).map(e => `
+      + (STORY.s.log.length ? `
+        <div class="xx-card"><div class="xx-label">所 见 所 闻</div>
+        ${STORY.s.log.slice(0,7).map(e => `
           <div style="margin-bottom:9px">
-            <div class="xx-val" style="font-size:13px;color:var(--xx-gold)">${esc(e.name)}</div>
+            <div class="xx-val" style="font-size:12px;color:var(--xx-gold)">${esc(e.arc)}</div>
             <div class="xx-dim" style="margin-top:2px">${esc(e.text)}</div>
-            <div class="xx-dim" style="color:var(--xx-jade)">${esc(e.log)}</div>
           </div>`).join('')}
+        </div>` : '')
+      + (STORY.doneList().length ? `
+        <div class="xx-card"><div class="xx-label">了 结</div>
+        ${STORY.doneList().map(e=>`<div style="margin-bottom:8px">
+          <div class="xx-val" style="font-size:12px;color:var(--xx-jade)">${esc(e.name)}</div>
+          <div class="xx-dim" style="margin-top:2px">${esc(e.epilogue||'')}</div>
+        </div>`).join('')}
         </div>` : '')
       + `<div class="xx-card"><div class="xx-label">世 界</div>
         <div class="xx-val">${esc(LORE.title)} · ${esc(LORE.era)}</div>

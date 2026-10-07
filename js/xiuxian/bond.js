@@ -5,6 +5,7 @@
 //  · 篝火外强化怪标记 + 护栏内绝对安全提示
 import { COMPANION } from './companion.js';
 import { CAMP } from './camp.js';
+import { STORY } from './story.js';
 
 const $ = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -73,7 +74,12 @@ export const Bond = {
   },
   // 根据路线自动说一句话
   idle() {
-    if (COMPANION.s.route === 'cold') { this.bubble(COMPANION.cold()); return; }
+    // 鬼火最爱念流言
+    if (COMPANION.s.route === 'cold') {
+      const r = STORY.takeRumor();
+      this.bubble(r ? `「${r}」` : COMPANION.cold());
+      return;
+    }
     if (COMPANION.s.route === 'ghost' && Math.random() < 0.4) {
       this.bubble(COMPANION.ghostLine(), 'dark'); return;
     }

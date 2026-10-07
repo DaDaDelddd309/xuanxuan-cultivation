@@ -7,6 +7,7 @@
 
 import { STONES, SCROLLS, GOODS, Bag } from './items.js';
 import { Cult } from './index.js';
+import { STORY } from './story.js';
 
 let root, timer, hideTimer;
 
@@ -74,7 +75,10 @@ export const Merchant = {
     const line  = LINES[Math.floor(Math.random()*LINES.length)];
     const list  = goods(this.s);
     this.root.querySelector('#xm-title').textContent = title;
-    this.root.querySelector('#xm-line').textContent = line;
+    // 商人会念流言(优先念世界里的传闻)
+    const rumor = STORY.takeRumor();
+    this.root.querySelector('#xm-line').textContent = rumor
+      ? `「${rumor}」` : line;
     this.root.querySelector('#xm-list').innerHTML = list.map(g => `
       <div class="xm-item" data-buy="${g.id}" data-price="${g.price}">
         <div class="xm-n" style="color:${g.col}">${g.name}</div>
