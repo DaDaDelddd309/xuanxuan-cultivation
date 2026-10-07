@@ -531,3 +531,8 @@
 .xx-dxx-d{font-size:12px;color:rgba(232,220,196,.72);line-height:1.65;margin-bottom:5px}
 .xx-dxx-b2{font-size:10.5px;color:rgba(232,220,196,.48);line-height:1.6}
 .xx-dxx-t{font-size:10.5px;color:var(--xx-cinnabar);margin-top:4px;letter-spacing:.5px}
+.xx-node-mine,.xx-node-tp{position:absolute;top:-6px;right:-6px;width:19px;height:19px;
+  border-radius:50%;font-size:10px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:5;border:1px solid;background:#1a1512}
+.xx-node-mine{color:var(--xx-gold);border-color:rgba(201,162,39,.7)}
+.xx-node-tp{color:#7ec8b0;border-color:rgba(126,200,176,.7);top:auto;bottom:-6px;right:auto;left:-6px}

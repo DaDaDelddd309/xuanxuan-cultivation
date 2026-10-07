@@ -32,6 +32,7 @@ export const FAMILY = {
     attacks: 0,        // 被围攻次数
     defended: 0,
   },
+  _cap: 40,        // 人口上限,由 BUILD.popCap 注入
   load() {
     try {
       const r = localStorage.getItem(K);
@@ -108,7 +109,7 @@ export const FAMILY = {
   },
   birth() {
     if (!this.s.founded) return { ok:false, msg:'尚未立族。' };
-    const free = this.s.members.filter(m=>!m.partner && m.npc!=='momocha');
+    const free = this.s.members.filter(m=>!m.partner && m.npc!=='momocha' && !m.raised);
     if (free.length < 2) return { ok:false, msg:'族中无未婚配对,人口凋零。' };
     if (this.s.wealth < 200) return { ok:false, msg:'家族资产不足 200。' };
     const a = free[0], b = free[1];
@@ -146,13 +147,49 @@ export const FAMILY = {
     return { ok:true, msg:r };
   },
 
+  // —— 全属性修士 ——
+  // 传承书喂出来的,不走随机生成。四维全满,战力 = 层数 ×3(普通族人 ×2)
+  RAISED: [
+    { key:'sword',  name:'剑 修',   col:'#c8d4e0' },
+    { key:'body',   name:'体 修',   col:'#e0904a' },
+    { key:'spirit', name:'神 修',   col:'#b86fd0' },
+    { key:'array',  name:'阵 修',   col:'#4a9de0' },
+  ],
+  canRaise() {
+    const cap = this._cap || 40;
+    if (this.s.members.length >= cap) return { ok:false, msg:'族人已满(议事堂可扩容)。' };
+    if (this.s.wealth < 500) return { ok:false, msg:'资产不足 500。' };
+    return { ok:true };
+  },
+  raise(kind) {
+    const chk = this.canRaise();
+    if (!chk.ok) return chk;
+    const k = this.RAISED.find(x => x.key === kind) || this.RAISED[0];
+    this.s.wealth -= 500;
+    const m = {
+      uid: 'r' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36),
+      gen: this.s.gen, role: 'raised', roleName: k.name, col: k.col,
+      raised: k.key,
+      desc: '以传承书喂养而出。四维俱佳,一人抵三。',
+      name: k.name[0] + (['无涯','守拙','长明','抱一'][Math.floor(Math.random()*4)]),
+      lv: 3, aff: 70, partner: null, born: Date.now(),
+    };
+    this.s.members.push(m);
+    this.save();
+    return { ok:true, m, msg:`${m.name}(${k.name})养成了。` };
+  },
+
   // —— 每日产出(按角色职能)——
   yieldDay() {
     let stone = 0, pill = 0, dao = 0, exp = 0;
     for (const m of this.s.members) {
       if (m.npc === 'momocha') { dao += 260; continue; }   // 固定贡献
       const P = 1 + m.lv * 0.25;
-      if (m.role === 'miner') stone += Math.round(2 * P);
+      if (m.raised) {                       // 全属性修士:四项都产
+        stone += Math.round(3 * P); pill += Math.round(0.8 * P);
+        exp += Math.round(50 * P); dao += Math.round(25 * P);
+      }
+      else if (m.role === 'miner') stone += Math.round(2 * P);
       else if (m.role === 'alchemist') pill += Math.round(0.6 * P);
       else if (m.role === 'scholar') exp += Math.round(40 * P);
       else if (m.role === 'warrior' || m.role === 'elder') dao += Math.round(15 * P);
@@ -211,7 +248,7 @@ export const FAMILY = {
     return { ok:true, power, msg:`求援发出,${power>300?'老友带援兵赶来':'只来了几个散修'}` };
   },
 
-  power() { return this.s.members.reduce((a,m)=>a+m.lv*2+(m.role==='warrior'?3:0),0); },
+  power() { return this.s.members.reduce((a,m)=>a+(m.raised? m.lv*3 : m.lv*2+(m.role==='warrior'?3:0)),0); },
   ROLES,
   reset() { localStorage.removeItem(K); },
 };

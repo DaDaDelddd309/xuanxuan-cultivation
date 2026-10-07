@@ -253,6 +253,7 @@ import { Titles, Nemesis } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';
 import { CHRONICLE } from './xiuxian/chronicle.js';
 import { BUILD } from './xiuxian/build.js';
+import { WORLD } from './xiuxian/world.js';
 import { setMomocha } from './xiuxian/camp.js';
 import { BESTIARY } from './xiuxian/bestiary.js';
 
@@ -274,6 +275,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     CHRONICLE.load();
     BUILD.load();
     setMomocha(!!FAMILY.momocha());
+    BUILD.setWorld(WORLD);
     // 统一存档:进游戏先收集,页面隐藏/关闭时落盘
     const mods = { Cult, Nemesis, Titles, Bag, CAMP, DAY, Merchant, COMPANION };
     Profile.collect(mods);
@@ -331,6 +333,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden();
         if (BUILD.s.placed.length) BUILD.tickAll();
         setMomocha(!!FAMILY.momocha());
+        FAMILY._cap = BUILD.popCap();   // 议事堂扩容
         // 怨灵附身状态同步到敌人模块
         Enemies.setEnemyMod(COMPANION.possessing()
           ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() }

@@ -81,9 +81,10 @@ export function scrollForExp(exp) {
 
 // ————— 背包 —————
 // 外部物品注册表(建筑等由 bestiary.js 在加载时注册,避免循环依赖)
-export const REGISTRY = { buildings: {} };
+export const REGISTRY = { buildings: {}, extras: {} };
+export function registerExtras(map) { Object.assign(REGISTRY.extras, map); }
 export function registerBuildings(map) { Object.assign(REGISTRY.buildings, map); }
-const isItem = id => !!(STONES[id] || SCROLLS[id] || GOODS[id] || REGISTRY.buildings[id]);
+const isItem = id => !!(STONES[id] || SCROLLS[id] || GOODS[id] || REGISTRY.buildings[id] || REGISTRY.extras[id]);
 
 export const Bag = {
   s: { items: {}, demon: 0, charter: false },

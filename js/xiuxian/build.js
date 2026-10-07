@@ -7,7 +7,7 @@
 //  · 灵田按 10 分钟一熟,产量受 族人属性 + 区域怪物密度 影响
 //  · 晋升看 建筑数 + 人口 + 篝火数
 
-import { BUILDINGS, TIERS, BESTIARY } from './bestiary.js';
+import { BUILDINGS, TIERS, BESTIARY, RICE } from './bestiary.js';
 import { CAMP } from './camp.js';
 import { FAMILY } from './family.js';
 import { Cult } from './index.js';
@@ -19,8 +19,10 @@ export const FIELD_PERIOD = 10 * 60 * 1000;   // 灵田 10 分钟一熟(按需�
 
 export const BUILD = {
   s: {
-    placed: [],        // [{bid, slot, x, y, workers:[uid], plantAt, ready}]
+    placed: [],        // [{bid, slot, workers:[uid], plantAt}]
     fires: [],         // 篝火坐标(多篝火 → 晋升条件)
+    land: [],          // 占领的领地(含矿脉)
+    pacts: { signed: 0, allyAt: 0 },
     tierLv: 1,
     incomeAt: 0,       // 集市/演武场 结算时间戳
   },
@@ -30,15 +32,90 @@ export const BUILD = {
       const r = localStorage.getItem(K);
       if (r) {
         const d = JSON.parse(r) || {};
-        const def = { placed:[], fires:[], tierLv:1, incomeAt:0 };
+        const def = { placed:[], fires:[], land:[], tierLv:1, incomeAt:0,
+                     pacts:{signed:0,allyAt:0} };
         this.s = { ...def, ...d };
         if (!Array.isArray(this.s.placed)) this.s.placed = [];
+        if (!Array.isArray(this.s.land)) this.s.land = [];
+        if (!this.s.pacts) this.s.pacts = { signed:0, allyAt:0 };
         if (!Array.isArray(this.s.fires)) this.s.fires = [];
       }
     } catch {}
     return this.s;
   },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); } catch {} },
+
+  // —— 建筑效果聚合(所有已放置建筑的效果加总)——
+  effects() {
+    const e = { ward:0, popCap:0, atk:0, fieldMul:0, trade:false, lure:0, warn:false };
+    for (const p of this.s.placed) {
+      const b = BUILDINGS[p.bid];
+      if (!b || !b.eff) continue;
+      if (b.eff.ward)  e.ward   += b.eff.ward;
+      if (b.eff.popCap) e.popCap += b.eff.popCap;
+      if (b.eff.atk)    e.atk    += b.eff.atk;
+      if (b.eff.fieldMul) e.fieldMul += b.eff.fieldMul;
+      if (b.eff.lure)   e.lure   += b.eff.lure;
+      if (b.eff.trade)  e.trade  = true;
+      if (b.eff.warn)   e.warn   = true;
+    }
+    return e;
+  },
+  count(bid) { return this.s.placed.filter(p => p.bid === bid).length; },
+
+  // —— 灵米闭环 ——
+  // 收获:从灵田收进背包
+  harvest(bidx) {
+    const inst = this.s.placed[bidx];
+    if (!inst || inst.bid !== 'bld_field') return { ok:false, msg:'这不是灵田。' };
+    if (!inst.plantAt) {
+      // 未种 → 下种
+      inst.plantAt = Date.now() + FIELD_PERIOD;
+      this.save();
+      return { ok:true, msg:'已下种。约 10 分钟成熟,届时可点此收获。' };
+    }
+    if (Date.now() < inst.plantAt) {
+      const left = Math.ceil((inst.plantAt - Date.now())/60000);
+      return { ok:false, msg:`还没熟,还有 ${left} 分钟。` };
+    }
+    const y = this.fieldYield(bidx);
+    inst.plantAt = 0;
+    Bag.add(RICE.id, y.n);
+    this.save();
+    return { ok:true, n:y.n, msg:`收获灵米 ${y.n} 斤。(${y.text})` };
+  },
+  // 灵田快速重种
+  replant(bidx) { return this.harvest(bidx); },
+  rice() { return Bag.count(RICE.id) || 0; },
+  // 食用
+  eatRice(n = 1) {
+    if (!Bag.take(RICE.id, n)) return { ok:false, msg:'没有灵米。' };
+    Cult.get().exp += RICE.eat.exp;
+    Cult.get().dao += RICE.eat.dao;
+    Cult.commit();
+    return { ok:true, msg:`生吞 ${n} 斤。修为 +${RICE.eat.exp} · 道行 +${RICE.eat.dao}` };
+  },
+  // 卖给商人
+  sellRice(n) {
+    const have = this.rice();
+    n = Math.min(n, have);
+    if (n <= 0) return { ok:false, msg:'没有灵米可卖。' };
+    const gain = n * RICE.price;
+    Bag.take(RICE.id, n);
+    Cult.get().dao += gain;
+    Cult.commit();
+    return { ok:true, msg:`卖出 ${n} 斤,得 ${gain} 道行。` };
+  },
+  // 喂给族人:顶半日功夫
+  feedRice(uid, n = 1) {
+    const m = FAMILY.member(uid);
+    if (!m) return { ok:false, msg:'无此族人。' };
+    if (m.npc === 'momocha') return { ok:false, msg:'么么茶不吃饭。他只喝茶。' };
+    if (!Bag.take(RICE.id, n)) return { ok:false, msg:'没有灵米。' };
+    m.lv += 1;
+    this.save();
+    return { ok:true, msg:`${m.name} 吃了一份,至 ${m.lv} 层。` };
+  },
 
   // —— 阶位 ——
   tier() {
@@ -191,7 +268,7 @@ export const BUILD = {
       attr += 1 + m.lv * 0.3;
     }
     attr = inst.workers.length ? attr / inst.workers.length : 0;
-    const dens = this.fieldBonus();
+    const dens = this.fieldBonus() * (1 + this.effects().fieldMul);
     const night = DAY.isNight() ? 1.15 : 1.0;
     let n = Math.max(1, Math.round((2 + Math.random()*3) * eff * (1+attr*0.2) * dens * night));
     if (momo) n = Math.round(n * 1.8);      // 么么茶侍弄灵田,产量 ×1.8
@@ -220,7 +297,8 @@ export const BUILD = {
       const b = BUILDINGS[inst.bid];
       if (!b.out) continue;
       const r = this.tickField(i);
-      if (r && r.ready) { out.lingmi += r.n; out.msg.push(`灵田收${r.n}斤`); }
+      if (r && r.ready) { inst.plantAt = 0; out.lingmi += r.n;
+        out.msg.push(`灵田熟,待收 ${r.n} 斤`); }
       if (inst.bid === 'bld_furnace') {
         const eff = this.efficiency(inst.workers.length);
         if (eff > 0) {
@@ -274,6 +352,84 @@ export const BUILD = {
     return { ok:true, msg:`领地晋升为「${nx.name}」,可放置 ${nx.slots} 处。` };
   },
 
+  // —— 矿脉:占领地图节点,每日产源石 ——
+  // 只有秘境地脉价值高,荒野勉强,村庄无矿
+  MINE_TIER: { secret: 3, elite: 2, boss: 3, field: 1, village: 0 },
+  canClaimMine(nodeId) {
+    if (this.s.fires.some(f => f.nodeId === nodeId)) return { ok:false, msg:'此处分给你建篝火了。' };
+    if (this.s.land.includes(nodeId)) return { ok:false, msg:'已是自家领地。' };
+    return { ok:true };
+  },
+  claimMine(nodeId, type) {
+    const chk = this.canClaimMine(nodeId);
+    if (!chk.ok) return chk;
+    if ((this.MINE_TIER[type] || 0) <= 0) return { ok:false, msg:'此处无矿。' };
+    this.s.land.push(nodeId);
+    this.save();
+    return { ok:true, msg:`纳入领地。此处将每日出产源石。` };
+  },
+  // 矿脉日产(每次调用按 10 分钟折算)
+  mineYield() {
+    if (!CAMP.burning()) return { n:0, msg:'火未燃,矿脉不开。' };
+    let t = 0;
+    for (const id of this.s.land) {
+      // 从 WORLD 反查类型
+      const n = this._nodeType(id);
+      t += this.MINE_TIER[n] || 0;
+    }
+    const n = Math.max(1, Math.round(t * (1 + CAMP.tier().lv * 0.4)));
+    if (n > 0) Bag.add('stone_1', n);
+    this.save();
+    return { n, msg:`矿脉产出源石 ×${n}` };
+  },
+  _nodeType(id) {
+    const w = this._world;
+    if (!w) return 'field';
+    const n = w.nodes.find(x => x.id === id);
+    return n ? n.type : 'field';
+  },
+  setWorld(w) { this._world = w; },
+
+  // —— 阵法旗传送点 ——
+  // 需在村/镇/市/宗门 阶位(LV2+)且至少 1 处篝火
+  canTeleport() { return this.tier().lv >= 2 && this.fireCount() >= 1; },
+  teleportCost() { return 60 - this.tier().lv * 8 < 0 ? 0 : 60 - this.tier().lv * 8; },
+  teleportTo(nodeId) {
+    if (!this.canTeleport()) return { ok:false, msg:'领地未至村落,或尚无篝火可依。' };
+    const cost = this.teleportCost();
+    const s = Cult.get();
+    if (s.dao < cost) return { ok:false, msg:`道行不足 ${cost}` };
+    if (s.current === nodeId) return { ok:false, msg:'已在此处。' };
+    s.dao -= cost;
+    s.current = nodeId;
+    s.visited[nodeId] = true;
+    Cult.commit();
+    return { ok:true, msg:`阵旗发动,至「${nodeId}」。耗 ${cost} 道行。` };
+  },
+
+  // —— 同盟契约 ——
+  // 签订后:互相支援、围攻率下降、集市互通
+  canPact() { return this.s.pacts.signed < 3; },
+  signPact(name) {
+    if (!this.canPact()) return { ok:false, msg:'契约已满。' };
+    const cost = 800 + this.s.pacts.signed * 600;
+    if (Cult.get().dao < cost) return { ok:false, msg:`缔约需 ${cost} 道行` };
+    Cult.get().dao -= cost;
+    this.s.pacts.signed++;
+    this.s.pacts.allyAt = Date.now();
+    Cult.commit();
+    this.save();
+    return { ok:true, msg:`与「${name}」缔结同盟。往后受袭,盟友会来。` };
+  },
+  // 盟友支援:被打时自动
+  allyAid() {
+    if (!this.s.pacts.signed) return null;
+    const power = 120 + this.s.pacts.signed * 180 + Math.floor(Math.random()*200);
+    return { power, msg:`盟友驰援 ${power} 人马。` };
+  },
+  // 契约降低围攻率
+  pactShield() { return this.s.pacts.signed * 0.06; },
+
   // 篝火建造(多篝火是晋升条件)
   addFire(nodeId) {
     if (this.s.fires.some(f => f.nodeId === nodeId)) return { ok:false, msg:'此处已有篝火' };
@@ -287,9 +443,15 @@ export const BUILD = {
     return { ok:true, msg:`新增篝火(${this.s.fires.length} 处)` };
   },
 
+  // 人口上限:基础 12 + 议事堂加成
+  popCap() { return 12 + this.effects().popCap; },
+  // 战力:族人战力 + 演武场加成
+  power() { return FAMILY.power() + this.effects().atk; },
+  // 护栏:基础 + 哨塔加成
+  ward() { return 70 + CAMP.tier().lv * 22 + this.effects().ward; },
   summary() {
     const t = this.tier();
-    return `领地 ${t.name} · 建筑 ${this.s.placed.length}/${this.slots()} · 篝火 ${this.fireCount()} · 人口 ${FAMILY.s.members.length}`;
+    return `领地 ${t.name} · 建筑 ${this.s.placed.length}/${this.slots()} · 篝火 ${this.fireCount()} · 人口 ${FAMILY.s.members.length}/${this.popCap()}`;
   },
   reset() { try { localStorage.removeItem(K); } catch {} },
 };

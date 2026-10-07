@@ -16,8 +16,8 @@ import { COMPANION } from './companion.js';
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
-import { BUILD } from './build.js';
-import { BUILDINGS, BESTIARY, NPCS, TIERS } from './bestiary.js';
+import { BUILD, FIELD_PERIOD } from './build.js';
+import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
 const PORTRAIT = { hero:'assets/portrait/hero.jpg', foe:'assets/portrait/foe.jpg', aunt:'assets/portrait/aunt.jpg' };
 const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['sys','存档']];
@@ -198,11 +198,29 @@ export const Hall = {
       case 'merchant': Merchant.maybeShow(); break;
       // —— 领地 ——
       case 'place': { const r=BUILD.place(v); toast(r.msg); this.render(); break; }
+      // —— 灵米 / 领地 ——
+      case 'harvest': { const r=BUILD.harvest(+v); toast(r.msg); this.render(); break; }
+      case 'harvestall': {
+        let got=0, n=0;
+        BUILD.s.placed.forEach((p,i)=>{ if(p.bid==='bld_field'&&Date.now()>=p.plantAt){ const r=BUILD.harvest(i); if(r.ok){got+=r.n;n++;} } });
+        toast(n? `收了 ${n} 块灵田,共 ${got} 斤` : '没有成熟的灵田。');
+        this.render(); break;
+      }
+      case 'eat': { const r=BUILD.eatRice(v||1); toast(r.msg); this.render(); break; }
+      case 'sell': { const r=BUILD.sellRice(v||1); toast(r.msg); this.render(); break; }
+      case 'minenow': { const r=BUILD.mineYield(); toast(r.msg); this.render(); break; }
+      case 'mine': { const r=BUILD.claimMine(v, v2); toast(r.msg); this.render(); break; }
+      case 'tp': { const r=BUILD.teleportTo(v); toast(r.msg); this.render(); break; }
+      case 'pact': { const r=BUILD.signPact('落云散修'); toast(r.msg); this.render(); break; }
       case 'slot': {
         const inv = Object.keys(BUILDINGS).filter(b=>Bag.count(b)>0);
         if(!inv.length){toast('没有可用建材');break;}
         const r = BUILD.place(inv[0], +v);
-        toast(r.msg); this.render(); break;
+        toast(r.msg);
+        if (r.ok && BUILD.s.placed[+v] && BUILD.s.placed[+v].bid==='bld_field') {
+          const h = BUILD.harvest(+v); if (h.ok) setTimeout(()=>toast(h.msg), 300);
+        }
+        this.render(); break;
       }
       case 'binfo': {
         const i = +v; const chk = BUILD.canAssign(i);
@@ -221,6 +239,8 @@ export const Hall = {
         toast(r.msg); this.render(); break;
       }
       case 'fam': { const r=FAMILY.interact(v2,v); toast(r.msg); this.render(); break; }
+      case 'feedrice': { const r=BUILD.feedRice(v2,1); toast(r.msg); this.render(); break; }
+      case 'raise': { const r=FAMILY.raise(v); toast(r.msg); this.render(); break; }
       case 'birth': { const r=FAMILY.birth(); toast(r.msg); this.render(); break; }
       case 'yield': { const y=FAMILY.yieldDay();
         FAMILY.s.wealth += y.dao;
@@ -501,9 +521,14 @@ export const Hall = {
       if (s.current === n.id) cls.push('cur');
       const adj = neighbors(s.current).includes(n.id);
       if (!adj && s.current !== n.id) cls.push('locked');
+      const isMine = ['secret','elite','boss'].includes(n.type) && !BUILD.s.land.includes(n.id) && s.current !== n.id;
+      const canTp  = BUILD.canTeleport() && s.visited[n.id] && s.current !== n.id;
       nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
         data-act="travel" data-v="${n.id}" title="${esc(n.name || '')}">
-        ${t}<div class="xx-node-lb">${esc(n.name || n.id)}</div></div>`;
+        ${t}<div class="xx-node-lb">${esc(n.name || n.id)}</div>
+        ${isMine?`<div class="xx-node-mine" data-act="mine" data-v="${n.id}" data-v2="${n.type}">占</div>`:''}
+        ${canTp?`<div class="xx-node-tp" data-act="tp" data-v="${n.id}">传</div>`:''}
+        </div>`;
     }
     const cur = nodeById(s.current);
     const typeName = { village:'村庄', field:'荒野', elite:'险地', secret:'秘境', boss:'妖巢' }[cur.type] || '';
@@ -515,7 +540,9 @@ export const Hall = {
         <div class="xx-val">${esc(cur.name || cur.id)} · ${typeName}</div>
         <div class="xx-dim" style="margin-top:5px">${meta}</div>
       </div>
-      <div class="xx-dim" style="text-align:center">点亮的相邻节点即可前往</div>`;
+      <div class="xx-dim" style="text-align:center;line-height:1.9">
+        点亮相邻节点即可前往 · 秘境界/妖巢点「占」纳入领地开矿<br>
+        ${BUILD.canTeleport() ? `阵法旗已立,可点「传」前往已到之处(每次 ${BUILD.teleportCost()} 道行)` : '领地至村落LV2 可布阵法旗传送'}</div>`;
   },
 
   // ---------- 神通 / 悟道 ----------
@@ -669,8 +696,8 @@ export const Hall = {
           <div class="t">${m.lv} 层 · 忠 ${m.aff}${p?' · 配偶 '+esc(p.name):''}</div>
         </div>
         <div class="act">
+          <button class="xx-mbtn" data-act="feedrice" data-v2="${m.uid}">喂灵米</button>
           <button class="xx-mbtn" data-act="fam" data-v="talk" data-v2="${m.uid}">叙话</button>
-          <button class="xx-mbtn" data-act="fam" data-v="gift" data-v2="${m.uid}">赠源石</button>
           <button class="xx-mbtn" data-act="fam" data-v="train" data-v2="${m.uid}">督修</button>
         </div></div>`;
     }).join('') || '<div class="xx-dim">族中无人。</div>';
@@ -692,6 +719,16 @@ export const Hall = {
       <div class="xx-card">
         <div class="xx-label">族 人</div>${mem}
       </div>
+      <div class="xx-card">
+        <div class="xx-label">全 属 性 修 士</div>
+        <div class="xx-dim" style="margin-bottom:9px">
+          耗 500 资产养成。一人抵三人,四项全产(源石/丹/修为/道行)。不可婚配 —— 他的道已定。</div>
+        <div class="xx-grid3">
+          ${FAMILY.RAISED.map(k=>`<button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+            data-act="raise" data-v="${k.key}">${k.name}</button>`).join('')}
+        </div>
+      </div>
+
       <div class="xx-grid">
         <button class="xx-btn" data-act="birth" ${FAMILY.canBirth()?'':'disabled'}>延 续 香 火</button>
         <button class="xx-btn" data-act="yield">族 产 结 算</button>
@@ -703,16 +740,17 @@ export const Hall = {
   },
 
   // ---------- 领地建造 ----------
+  // ---------- 领地建造 ----------
   vBuild() {
     const t = BUILD.tier(), nx = BUILD.nextTier();
     const inv = Object.keys(BUILDINGS).filter(b => Bag.count(b) > 0);
+    const E = BUILD.effects();
+    const rice = BUILD.rice();
 
-    // 放置格(6 格,随阶位亮起)
     let slots = '';
     for (let i = 0; i < 6; i++) {
-      const unlocked = i < t.slots;
+      if (i >= t.slots) { slots += `<div class="bd-slot lock">🔒</div>`; continue; }
       const inst = BUILD.s.placed[i];
-      if (!unlocked) { slots += `<div class="bd-slot lock">🔒</div>`; continue; }
       if (!inst) { slots += `<div class="bd-slot empty" data-act="slot" data-v="${i}">＋</div>`; continue; }
       const b = BUILDINGS[inst.bid];
       const wn = inst.workers.length;
@@ -734,17 +772,42 @@ export const Hall = {
         <div class="xx-label">领 地 等 级</div>
         <div class="xx-big" style="color:${t.col}">${t.name} · LV${t.lv}</div>
         <div class="xx-dim" style="margin-top:5px">${t.desc}</div>
-        <div class="xx-dim" style="margin-top:8px">
-          ${BUILD.summary()}</div>
+        <div class="xx-dim" style="margin-top:8px">${BUILD.summary()}</div>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">建 筑 效 果</div>
+        <div class="xx-dim">
+          护栏 +${E.ward}px${E.warn?' · 围攻预警':''} · 人口上限 +${E.popCap} ·
+          全族战力 +${E.atk}${E.fieldMul?` · 灵田 +${Math.round(E.fieldMul*100)}%`:''}${E.trade?' · 贸易已开':''}
+        </div>
+        ${['ward','popCap','atk','fieldMul'].every(k=>!E[k])&&!E.trade
+          ? '<div class="xx-dim" style="margin-top:6px">还没建有用的建筑。灵井、哨塔、议事堂、演武场、集市各有其用。</div>' : ''}
       </div>
 
       ${out.msg.length ? `<div class="xx-card"><div class="xx-label">本 轮 产 出</div>
         <div class="xx-val" style="font-size:13px;color:var(--xx-gold)">${out.msg.join(' · ')}</div></div>` : ''}
 
       <div class="xx-card">
+        <div class="xx-label">灵 米 (${rice} 斤)</div>
+        <div class="xx-dim" style="margin-bottom:9px">
+          ${RICE.d}生吞 +${RICE.eat.exp}修为/${RICE.eat.dao}道行 · 喂族人顶半日 · 卖 ${RICE.price}/斤</div>
+        <div class="xx-grid3">
+          <button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+            data-act="harvestall">收起全部</button>
+          <button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+            data-act="eat" data-v="1">生吞一斤</button>
+          <button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+            data-act="sell" data-v="10">卖10斤</button>
+        </div>
+      </div>
+
+      <div class="xx-card">
         <div class="xx-label">建 造 空 间</div>
-        <div class="xx-dim" style="margin-bottom:9px">幻境之内,无怪,可随意放置。点空格取出建筑。</div>
+        <div class="xx-dim" style="margin-bottom:9px">幻境之内,无怪,可随意放置。点空格取出建筑,点建筑派人。</div>
         <div class="bd-grid">${slots}</div>
+        ${BUILD.s.placed.some(p=>p.bid==='bld_field')
+          ? '<div class="xx-dim" style="margin-top:9px">灵田:点空格下种 → 10 分钟后再点收获。灵井可加速产量。</div>' : ''}
       </div>
 
       <div class="xx-card">
@@ -755,23 +818,35 @@ export const Hall = {
             data-act="place" data-v="${b}">${d.icon}<br><span>${d.name}</span>
             <em>×${Bag.count(b)}</em></button>`;
         }).join('')}</div>`
-        : '<div class="xx-dim">没有建材。去打怪 —— 妖王掉灵田,魔修掉丹炉哨塔,老祖掉议事堂。</div>'}
+        : '<div class="xx-dim">没有建材。去打怪 —— 妖王掉灵田,魔修掉丹炉哨塔,老祖掉议事堂集市。</div>'}
       </div>
 
       <div class="xx-card">
         <div class="xx-label">人 手 安 置</div>
-        <div class="xx-dim" style="margin-bottom:8px">
-          生产型建筑最多 3 人,人越多效率越高(1人×1.0 / 2人×1.6 / 3人×2.1)</div>
+        <div class="xx-dim" style="margin-bottom:8px">生产型最多 3 人(1人×1.0 / 2人×1.6 / 3人×2.1)</div>
         <button class="xx-btn" data-act="autofill">一 键 满 编</button>
-        <div class="xx-dim" style="text-align:center">族中闲人 ${FAMILY.s.members.filter(m=>!BUILD.isEmployed(m.uid)).length} 人</div>
       </div>
 
       <div class="xx-card">
-        <div class="xx-label">篝 火</div>
-        <div class="xx-val">${BUILD.fireCount()} 处</div>
-        <div class="xx-dim" style="margin-top:5px">
-          ${tierNeedText(nx)}</div>
-        <button class="xx-btn" data-act="addfire">新 增 一 处 篝 火</button>
+        <div class="xx-label">矿 脉</div>
+        <div class="xx-val">${BUILD.s.land.length} 处领地</div>
+        <div class="xx-dim" style="margin-top:5px">去大地图点「占」纳入领地,每日出产源石。</div>
+        <button class="xx-btn" data-act="minenow">立 即 开 采</button>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">传 送 阵 法</div>
+        ${BUILD.canTeleport()
+          ? `<div class="xx-val">可用 · 每次 ${BUILD.teleportCost()} 道行</div>
+             <div class="xx-dim" style="margin-top:5px">去大地图点「传」前往已到之处。</div>`
+          : `<div class="xx-dim">需领地至「村落」LV2 以上,且有篝火。当前 ${t.name}。</div>`}
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">同 盟 契 约 (${BUILD.s.pacts.signed}/3)</div>
+        <div class="xx-dim" style="margin-bottom:8px">
+          缔结后受袭盟友驰援,围攻率 -${Math.round(BUILD.pactShield()*100)}%,集市互通。</div>
+        <button class="xx-btn" data-act="pact" ${BUILD.canPact()?'':'disabled'}>缔 结 同 盟</button>
       </div>
 
       <button class="xx-btn main" data-act="promote" ${pk.ok?'':'disabled'}>

@@ -70,6 +70,15 @@ export const BESTIARY = {
 export const BOSS_KEYS = ['devil','revenant','ninehead'];
 
 // ————— 建筑掉落物(怪掉的,拿去营地造)—————
+// 灵米:灵田产物,可吃/卖/送人
+export const RICE = {
+  id:'lingmi', name:'灵 米', col:'#c9d8a0',
+  eat: { exp: 220, dao: 60, desc:'生吞一把。抵得两刻苦修。' },
+  feed: { exp: 1400, desc:'喂给修士,顶他半日功夫。' },
+  price: 45,
+  d:'灵田所出。粗粝,但有灵气。',
+};
+
 export const BUILDINGS = {
   bld_field:    { name:'灵田', icon:'🌾', cost:0, need:1, col:'#8a9a5a',
     desc:'委任族中农人开垦。约 10 分钟一熟,收灵米。',
@@ -77,21 +86,27 @@ export const BUILDINGS = {
   bld_furnace:  { name:'丹炉', icon:'⚗️', cost:0, need:1, col:'#c86a4a',
     desc:'安置在篝火旁。安排人值守炼丹,人多出丹快。',
     out:'pill', min:1, max:2 },
-  bld_tower:    { name:'哨塔', icon:'🗼', cost:0, need:1, col:'#7a8a9a',
-    desc:'瞭敌用。提升领地防袭,预警围攻。' },
-  bld_hall:     { name:'议事堂', icon:'🏛', cost:0, need:1, col:'#b072d8',
-    desc:'族人议事、定策。可容纳更多族人。' },
-  bld_barracks: { name:'演武场', icon:'⚔️', cost:0, need:1, col:'#b5342a',
-    desc:'操练族人。周期性提升全族战力。' },
-  bld_well:     { name:'灵井', icon:'💧', cost:0, need:1, col:'#4a9de0',
-    desc:'灵米产量与品质提升。' },
-  bld_market:   { name:'集市', icon:'🏪', cost:0, need:1, col:'#c9a227',
-    desc:'领地贸易。每日产出道行,且吸引散修投奔。' },
+  bld_tower:    { name:'哨塔', icon:'🗼', col:'#7a8a9a',
+    eff:{ ward:+45, warn:true },
+    desc:'瞭敌用。护栏 +45,并在围攻前预警(提前告知来犯方向)。' },
+  bld_hall:     { name:'议事堂', icon:'🏛', col:'#b072d8',
+    eff:{ popCap:+8 },
+    desc:'族人议事定策。人口上限 +8。' },
+  bld_barracks: { name:'演武场', icon:'⚔️', col:'#b5342a',
+    eff:{ atk:+18 },
+    desc:'操练族人。全族战力 +18(攻守都涨)。' },
+  bld_well:     { name:'灵井', icon:'💧', col:'#4a9de0',
+    eff:{ fieldMul:+0.5 },
+    desc:'灵水滋养。灵田产量 +50%。' },
+  bld_market:   { name:'集市', icon:'🏪', col:'#c9a227',
+    eff:{ trade:true, lure:0.06 },
+    desc:'贸易之地。每 10 分钟入账道行,且吸引散修投奔。' },
 };
 
 // 注册建材到背包系统(避免与 items.js 循环依赖)
-import { registerBuildings } from './items.js';
+import { registerBuildings, registerExtras } from './items.js';
 registerBuildings(BUILDINGS);
+registerExtras({ [RICE.id]: RICE });
 
 // ————— 领地晋升阶梯 —————
 // 参考《明日之后》聚落/《风起之地》营地:靠 建筑数 + 人口 + 篝火数 共同推进
