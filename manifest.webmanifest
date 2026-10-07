@@ -1,0 +1,29 @@
+{
+  "name": "轩轩修仙传 V0.76",
+  "short_name": "轩轩修仙传",
+  "description": "水墨武侠幸存者 · V0.76 · 努力学习",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#2a221d",
+  "theme_color": "#2a221d",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+// ===== 🖥️ UI agent 名下:全部屏幕(菜单/选人/升级三选一/暂停/结算) =====
+import { CHARACTERS } from '../game/player.js?v=17';
+import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
+import { SFX } from '../core/audio.js?v=17';
+
+const SCREENS = ['screen-menu', 'screen-select', 'screen-levelup', 'screen-pause', 'screen-over'];
+const TOGGLE_DEFS = [['sfx', '音效'], ['music', '音乐'], ['shake', '震动'], ['lowgfx', '流畅画质'], ['fpsShow', '帧率显示']];
+
+// 小尺寸像素图标 canvas(names 依序尝试,第一个绘制成功的生效)
+function spriteCanvas(names, px) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3); // 高像素版:3× 点阵需要更多物理像素
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(px * dpr));
+  c.height = c.width;
+  c.style.width = px + 'px';
+  c.style.height = px + 'px';
+  c.style.imageRendering = 'pixelated';
+  const x = c.getContext('2d');
+  x.imageSmoothingEnabled = false;
+  for (const name of (Array.isArray(names) ? names : [names])) {
+    try {
+      const sz = spriteSize(name) || { w: 16, h: 16 };
+      const m = Math.max(sz.w, sz.h, 1);
+      const s = Math.min(1.6, Math.max(1 / dpr, px * 0.84 / (m * SCALE)), px * 0.98 / (m * SCALE));
+      x.save(); x.scale(dpr, dpr);
+      drawSprite(x, name, px / 2, px / 2, { scale: s });
+      x.restore();
+      break;
+    } catch { /* 尝试下一候选 */ }
+  }
+  return c;
+}
+
+// 统一按钮绑定:防连点(300ms 内忽略)+ 点击音效;onclick 赋值覆盖旧回调,防重复绑定
+let _lastTap = -1e9;
+function bindTap(el, fn) {
+  el.onclick = () => {
+    const now = performance.now();
+    if (now - _lastTap < 300) return;
+    _lastTap = now;
+    SFX.play('click');
+    fn();
+  };
+}
+
+function fmtT(t) {
+  t = Math.max(0, Math.floor(t || 0));
+  return `${Math.floor(t / 60)}分${String(t % 60).padStart(2, '0')}秒`;
+}
+function mmss(t) {
+  t = Math.max(0, Math.floor(t || 0));
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+// 设置开关:label > checkbox + span,美化交给 CSS
+function buildToggles(container, data, onToggle, g) {
+  container.innerHTML = '';
+  for (const [key, labelText] of TOGGLE_DEFS) {
+    const label = labelText;
+    const l = document.createElement('label');
+    l.className = 'tg';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!data.settings[key];
+    cb.addEventListener('change', () => { SFX.play('click'); onToggle(key, cb.checked); });
+    const sp = document.createElement('span');
+    sp.textContent = label;
+    l.append(cb, sp);
+    container.appendChild(l);
+  }
+}
+
+export const Screens = {
+  g: null, current: null, el: {},
+  _lvKey: null, _lvHint: null, _pauseInfo: null, _selTok: 0, _rerollUsed: false,
+
+  init(g) {
+    this.g = g;
+    for (const id of SCREENS) this.el[id] = document.getElementById(id);
+  },
+
+  show(id) {
+    for (const k of SCREENS) this.el[k].classList.toggle('hidden', k !== id);
+    this.current = id;
+    this._unbindKeys();
+  },
+
+  hide() {
+    for (const k of SCREENS) this.el[k].classList.add('hidden');
+    this.current = null;
+    this._rerollUsed = false; // 面板关闭:刷新状态复位(下一局/下次升级重新可用)
+    this._unbindKeys();
+  },
+
+  _unbindKeys() {
+    if (this._lvKey) { window.removeEventListener('keydown', this._lvKey); this._lvKey = null; }
+  },
+
+  // ---------- 主菜单 ----------
+  buildMenu(cb) {
+    const d = this.g.save.data, b = d.best;
+    document.getElementById('menu-stats').innerHTML =
+      `最佳纪录:存活 <b>${fmtT(b.time)}</b> · 击杀 <b>${b.kills}</b> · 等级 <b>${b.level}</b>${b.victory ? ' · 🏆已通关' : ''}` +
+      `<br>总场次 <b>${d.totalRuns}</b> · 总击杀 <b>${d.totalKills}</b> · 金币 <b>🪙 ${d.gold}</b>`;
+    bindTap(document.getElementById('btn-play'), cb.onPlay);
+    buildToggles(document.getElementById('menu-toggles'), d, cb.onToggle, this.g);
+    this.show('screen-menu');
+  },
+
+  // ---------- 选人(点击未解锁且金币足够 → 直接购买解锁后立即开局) ----------
+  buildSelect(cb) {
+    const d = this.g.save.data;
+    const list = document.getElementById('char-list');
+    list.innerHTML = '';
+    const tok = ++this._selTok;
+
+    for (const [id, c] of Object.entries(CHARACTERS)) {
+      const unlocked = d.chars.includes(id);
+      const card = document.createElement('button');
+      card.className = 'card char-card' + (unlocked ? '' : ' locked');
+      card.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:10px;text-align:left;';
+      card.appendChild(spriteCanvas(['hero_face_' + id, c.sprite + '_0'], 48)); // 头像,缺脸图回退全身像
+
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:0;';
+      const attrs = [`生命 ${c.hp}`, `移速 ${Math.round(c.speed)}`];
+      if (c.armor) attrs.push(`护甲 +${c.armor}`);
+      if (c.cdMult && c.cdMult !== 1) attrs.push(`冷却 -${Math.round((1 - c.cdMult) * 100)}%`);
+      if (c.magnet) attrs.push(`磁吸 +${c.magnet}`);
+      if (c.damageTakenMult && c.damageTakenMult < 1) attrs.push(`减伤 ${Math.round((1 - c.damageTakenMult) * 100)}%`);
+      if (c.areaMult && c.areaMult > 1) attrs.push(`范围 +${Math.round((c.areaMult - 1) * 100)}%`);
+      if (c.xpMult && c.xpMult > 1) attrs.push(`经验 +${Math.round((c.xpMult - 1) * 100)}%`);
+      if (c.crit && c.crit > 0.1) attrs.push(`暴击 ${Math.round(c.crit * 100)}%`);
+      const cost = document.createElement('div');
+      cost.className = 'char-cost';
+
+      const render = owned => {
+        info.innerHTML =
+          `<div class="char-name">${c.name}</div>` +
+          `<div class="char-desc">${c.desc}</div>` +
+          (c.trait ? `<div class="char-trait">${c.trait}</div>` : '') +
+          `<div class="char-attrs" style="font-size:12px;color:#8b9bb4;margin-top:2px;">${attrs.join(' · ')}</div>`;
+        cost.innerHTML = owned ? '✔ 可用'
+          : `🔒 ${c.cost} 金币${d.gold >= c.cost ? ' · 点击解锁' : ' · 金币不足'}`;
+        info.appendChild(cost);
+      };
+      render(unlocked);
+      card.appendChild(info);
+
+      let owned = unlocked, picked = false;
+      bindTap(card, () => {
+        if (picked) return;
+        if (owned) { picked = true; cb.onPick(id, true); return; }
+        if (d.gold >= c.cost) {
+          // 直接购买解锁:扣款 + 存档 + 音效
+          d.gold -= c.cost;
+          d.chars.push(id);
+          this.g.save.commit();
+          SFX.play('coin');
+          owned = true;
+          card.classList.remove('locked');
+          render(true);
+          // 短暂展示解锁状态,再立即以此角色开局
+          setTimeout(() => {
+            if (!picked && this.current === 'screen-select' && tok === this._selTok) {
+              picked = true;
+              cb.onPick(id, true);
+            }
+          }, 380);
+        } else {
+          SFX.play('no');
+          card.classList.remove('shake');
+          void card.offsetWidth;
+          card.classList.add('shake');
+          setTimeout(() => card.classList.remove('shake'), 400);
+        }
+      });
+      list.appendChild(card);
+    }
+
+    bindTap(document.getElementById('btn-select-back'), () => { this._selTok++; cb.onBack(); });
+    this.show('screen-select');
+  },
+
+  // ---------- 升级三选一(第三参 onReroll 可选:每次升级附 1 次免费刷新,契约 v2.1-5) ----------
+  showLevelUp(choices, onPick, onReroll) {
+    const list = this.el['screen-levelup'].querySelector('#levelup-cards') || document.getElementById('levelup-cards');
+    list.innerHTML = '';
+    let done = false;
+    const pick = c => {
+      if (done) return;
+      done = true;
+      this._rerollUsed = false; // 本次升级已做出选择,链式升级的下一档重新享有刷新
+      try { this._unbindKeys(); } catch (e) {}
+      try { SFX.play(c && c.evo === true ? 'evolve' : 'click'); } catch (e) {} // 音效绝不阻断选择
+      onPick(c);
+    };
+
+    // 进化卡(evo===true)稳定置顶,其余保持原顺序
+    const order = choices.filter(c => c.evo === true).concat(choices.filter(c => c.evo !== true));
+
+    order.forEach((c, i) => {
+      const card = document.createElement('button');
+      card.className = 'card level-card' + (c.evo === true ? ' evo' : ''); // .evo = 朱砂描边+印泥脉动(美术 CSS)
+      card.style.animationDelay = i * 70 + 'ms'; // 入场 stagger(配合 CSS 动画)
+      if (c.rec) { // 组合技推荐角标(CONTRACT v2.2 §8)
+        card.style.position = 'relative';
+        const rec = document.createElement('span');
+        rec.className = 'rec-tag';
+        rec.textContent = '荐·' + c.rec;
+        rec.style.cssText = 'position:absolute;top:-9px;right:10px;padding:2px 7px;background:#b03a2e;color:#f2ecdd;' +
+          'font-size:11px;font-weight:700;letter-spacing:1px;border:1px solid #8c2f27;box-shadow:1px 1px 0 rgba(43,43,43,.4);';
+        card.appendChild(rec);
+      }
+      const ico = document.createElement('div');
+      ico.className = 'lv-icon';
+      ico.appendChild(spriteCanvas([c.icon], 56));
+      const nm = document.createElement('div');
+      nm.className = 'lv-name';
+      nm.textContent = c.evoName || c.name;
+      const ds = document.createElement('div');
+      ds.className = 'lv-desc';
+      ds.style.cssText = 'margin-top:2px;';
+      ds.textContent = c.evoDesc || c.desc;
+      card.append(ico, nm, ds);
+      bindTap(card, () => pick(c));
+      list.appendChild(card);
+    });
+
+    // 免费刷新按钮(仅当 main 传入 onReroll 时渲染;每次升级限 1 次,快捷键 R)
+    const panel = this.el['screen-levelup'].querySelector('.panel');
+    const stale = document.getElementById('btn-reroll');
+    if (stale) stale.remove(); // 清理上一次面板遗留(重建面板兼容)
+    const canReroll = typeof onReroll === 'function' && !this._rerollUsed;
+    const doReroll = () => {
+      if (done || this._rerollUsed || typeof onReroll !== 'function') return;
+      this._rerollUsed = true;
+      this._unbindKeys(); // R 键与按钮一并失效;main 重建面板后会重新挂新的
+      const b = document.getElementById('btn-reroll');
+      if (b) b.remove(); // 立即从面板移除,视觉上不可再点
+      SFX.play('click');
+      onReroll(); // main 重新 roll 并重建面板,不消耗选择机会
+    };
+    if (canReroll && panel) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-reroll';
+      btn.className = 'btn reroll-btn';
+      btn.textContent = '🔄 刷新 (R)';
+      // 内联兜底:小号、卡片下方居中、≥44px 触控(宣纸底墨框由现有 .btn 类提供,正式样式交美术 .reroll-btn)
+      btn.style.cssText = 'display:block;font-size:13px;padding:8px 20px;min-height:44px;margin:12px auto 0;';
+      bindTap(btn, doReroll);
+      list.insertAdjacentElement('afterend', btn); // 卡片下方
+    }
+
+    // 操作提示(一次性创建,复用节点)
+    if (panel) {
+      if (!this._lvHint) {
+        this._lvHint = document.createElement('p');
+        this._lvHint.className = 'menu-stats';
+      }
+      const touch = ('ontouchstart' in window);
+      this._lvHint.textContent = (touch ? '点击卡片完成选择' : '按 1 / 2 / 3 快速选择') +
+        (canReroll ? (touch ? ',或刷新选项' : ',R 刷新') : '');
+      panel.appendChild(this._lvHint);
+    }
+
+    this.show('screen-levelup'); // 先切屏,再挂键盘(show 内会清理旧监听)
+    this._lvKey = e => {
+      const i = '123'.indexOf(e.key);
+      if (i >= 0 && i < order.length) { pick(order[i]); return; } // 1/2/3 跟随屏幕显示顺序
+      if (canReroll && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r') doReroll(); // R = 免费刷新
+    };
+    window.addEventListener('keydown', this._lvKey);
+  },
+
+  // ---------- 暂停 ----------
+  buildPause(cb) {
+    bindTap(document.getElementById('btn-resume'), cb.onResume);
+    bindTap(document.getElementById('btn-quit'), cb.onQuit);
+    buildToggles(document.getElementById('pause-toggles'), this.g.save.data, cb.onToggle, this.g);
+    const g = this.g;
+    if (g.player) {
+      if (!this._pauseInfo) {
+        this._pauseInfo = document.createElement('p');
+        this._pauseInfo.className = 'menu-stats';
+      }
+      this._pauseInfo.textContent = `已坚持 ${mmss(g.time)} · 击杀 ${g.stats.kills} · Lv.${g.player.level}`;
+      const h2 = this.el['screen-pause'].querySelector('h2');
+      if (h2) h2.insertAdjacentElement('afterend', this._pauseInfo);
+    }
+    this.show('screen-pause');
+  },
+
+  // ---------- 结算 ----------
+  showResult(stats, cb) {
+    // 胜利/失败主题类名交给 CSS
+    const panel = this.el['screen-over'].querySelector('.panel');
+    if (panel) {
+      panel.classList.remove('victory', 'defeat');
+      panel.classList.add(cb.victory ? 'victory' : 'defeat');
+    }
+    document.getElementById('over-title').textContent = cb.victory ? '🏆 通关胜利!' : '💀 你倒下了';
+
+    // 网格化数据(主流程在结算前已把纪录写入存档,数值追平/超过即为新纪录)
+    const d = this.g.save.data;
+    const cells = [
+      { v: fmtT(stats.time), l: '存活时间', rec: d.best.time > 0 && Math.floor(stats.time) >= d.best.time },
+      { v: String(stats.kills), l: '击杀', rec: d.best.kills > 0 && stats.kills >= d.best.kills },
+      { v: 'Lv.' + stats.level, l: '等级', rec: d.best.level > 0 && stats.level >= d.best.level },
+      { v: '🪙 ' + stats.gold, l: '获得金币', rec: false },
+    ];
+    const ov = document.getElementById('over-stats');
+    ov.innerHTML = '';
+    ov.style.display = 'grid';
+    ov.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    ov.style.gap = '10px';
+    for (const c of cells) {
+      const cell = document.createElement('div');
+      cell.className = 'ostat';
+      const v = document.createElement('div');
+      v.className = 'ostat-v';
+      v.style.cssText = 'font-size:20px;font-weight:700;';
+      v.textContent = c.v + (c.rec ? ' ★' : '');
+      const l = document.createElement('div');
+      l.className = 'ostat-l';
+      l.style.cssText = 'font-size:12px;color:#8b9bb4;';
+      l.textContent = c.l + (c.rec ? '(新纪录)' : '');
+      cell.append(v, l);
+      ov.appendChild(cell);
+    }
+
+    document.getElementById('btn-endless').classList.toggle('hidden', !cb.endless);
+    bindTap(document.getElementById('btn-again'), cb.onAgain);
+    bindTap(document.getElementById('btn-endless'), cb.onEndless);
+    bindTap(document.getElementById('btn-menu'), cb.onMenu);
+    this.show('screen-over');
+  },
+};

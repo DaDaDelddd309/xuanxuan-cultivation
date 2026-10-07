@@ -1,0 +1,162 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2a221d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-180.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>轩轩修仙传 V0.76</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- HUD(局内) -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-bars">
+        <div class="bar hp"><div id="hud-hp" class="fill"></div><span id="hud-hp-text" class="bar-text">100/100</span></div>
+        <div class="bar xp"><div id="hud-xp" class="fill"></div></div>
+      </div>
+      <div class="hud-right">
+        <div id="hud-timer" class="timer">00:00</div>
+        <div class="hud-mini"><span id="hud-kills">💀 0</span><span id="hud-gold">🪙 0</span><span id="hud-level">Lv.1</span></div>
+      </div>
+      <button id="btn-pause" class="btn icon-btn" aria-label="暂停">⏸</button>
+    </div>
+    <div id="hud-boss" class="hidden">
+      <div class="bar boss"><div id="hud-boss-fill" class="fill"></div><span id="hud-boss-name" class="bar-text"></span></div>
+    </div>
+    <div id="hud-weapons"></div>
+  </div>
+
+  <!-- 虚拟摇杆 + 冲刺按钮 -->
+  <div id="joystick" class="hidden"><div id="joy-base"><div id="joy-knob"></div></div></div>
+  <button id="btn-dash" class="hidden" aria-label="冲刺（空格）" title="冲刺（Space）">⚡</button>
+
+  <div id="vignette" class="hidden"></div>
+
+  <!-- 全部屏幕(DOM 由 js/ui/screens.js 生成/填充) -->
+  <div id="screens">
+    <div id="screen-menu" class="screen">
+      <div class="panel menu-panel">
+        <h1 class="game-title">轩轩修仙传<br><small>V0.76 · 努力学习</small></h1>
+        <p id="menu-stats" class="menu-stats"></p>
+        <div class="menu-btns">
+          <button id="btn-play" class="btn primary big">开 始 游 戏</button>
+          <button id="btn-codex" class="btn big">组合图鉴</button>
+          <button id="btn-bestiary" class="btn big">怪物图鉴</button>
+        </div>
+        <div id="menu-toggles" class="toggles"></div>
+      </div>
+    </div>
+
+    <div id="screen-select" class="screen hidden">
+      <div class="panel">
+        <h2>选择角色</h2>
+        <div id="char-list" class="card-list"></div>
+        <button id="btn-select-back" class="btn">返 回</button>
+      </div>
+    </div>
+
+    <div id="screen-levelup" class="screen hidden">
+      <div class="panel small levelup-panel">
+        <h2 class="levelup-title">⬆ 升级!选择一项</h2>
+        <div id="levelup-cards" class="card-list"></div>
+      </div>
+    </div>
+
+    <div id="screen-codex" class="screen hidden">
+      <div class="panel codex-panel">
+        <h2>组合图鉴</h2>
+        <div id="codex-tabs"></div>
+        <div id="codex-stage"></div>
+        <div id="codex-info"></div>
+        <div id="codex-list"></div>
+        <button id="btn-codex-back" class="btn">返 回</button>
+      </div>
+    </div>
+
+    <div id="screen-bestiary" class="screen hidden">
+      <div class="panel codex-panel">
+        <h2>怪物图鉴</h2>
+        <div id="bestiary-tabs"></div>
+        <div id="bestiary-stage"></div>
+        <div id="bestiary-info"></div>
+        <div id="bestiary-list"></div>
+        <button id="btn-bestiary-back" class="btn">返 回</button>
+      </div>
+    </div>
+
+    <div id="screen-pause" class="screen hidden">
+      <div class="panel small">
+        <h2>已暂停</h2>
+        <div class="menu-btns">
+          <button id="btn-resume" class="btn primary big">继续游戏</button>
+          <button id="btn-quit" class="btn big">放弃本局</button>
+        </div>
+        <div id="pause-toggles" class="toggles"></div>
+      </div>
+    </div>
+
+    <div id="screen-over" class="screen hidden">
+      <div class="panel small">
+        <h2 id="over-title">游戏结束</h2>
+        <div id="over-stats" class="over-stats"></div>
+        <div class="menu-btns">
+          <button id="btn-again" class="btn primary big">再来一局</button>
+          <button id="btn-endless" class="btn big hidden">进入无尽</button>
+          <button id="btn-menu" class="btn big">回主菜单</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/main.js?v=17"></script>
+
+<script>
+/* ===== 诊断补丁 v1 · 仅报告，不修改游戏逻辑 ===== */
+window.__DIAG = { dpr: (window.devicePixelRatio||1), ua: navigator.userAgent.slice(0,80) };
+setTimeout(function(){
+  var c=document.getElementById('game'), out=[];
+  if(!c){ window.__DIAG.err='canvas 不存在'; return; }
+  var r=c.getBoundingClientRect();
+  out.push('canvas属性: '+c.width+'x'+c.height);
+  out.push('canvas显示: '+Math.round(r.width)+'x'+Math.round(r.height));
+  out.push('window.inner: '+window.innerWidth+'x'+window.innerHeight);
+  out.push('DPR: '+window.devicePixelRatio);
+  out.push('视口: '+document.visibilityState);
+  // 上下文健康检查
+  try{
+    var t=document.createElement('canvas'); t.width=t.height=10;
+    var tc=t.getContext('2d'); tc.fillStyle='#f00'; tc.fillRect(0,0,10,10);
+    var d=tc.getImageData(0,0,1,1).data;
+    out.push('上下文自检: '+(d[0]===255?'OK 红色正常':'失败 d0='+d[0]));
+    out.push('isSecureContext: '+window.isSecureContext);
+  }catch(e){ out.push('上下文异常: '+e.message); }
+  // 采样主画布
+  try{
+    var ctx=c.getContext('2d');
+    var px=ctx.getImageData(0,0,c.width,c.height).data;
+    var uniq={}, n=0;
+    for(var i=0;i<px.length;i+=4000){
+      var k=px[i]+','+px[i+1]+','+px[i+2];
+      uniq[k]=(uniq[k]||0)+1; n++;
+    }
+    var top=Object.keys(uniq).sort(function(a,b){return uniq[b]-uniq[a];}).slice(0,4);
+    out.push('画布主色: '+top.map(function(k){return '#'+k.split(',').map(function(v){return (+v).toString(16).padStart(2,'0');}).join('')+'('+Math.round(uniq[k]/n*100)+'%)';}).join(' '));
+  }catch(e){ out.push('读取画布失败: '+e.message); }
+  // 图集烘焙状态
+  if(window.__SPRITES_BAKED!==undefined) out.push('图集已烘焙: '+window.__SPRITES_BAKED);
+  out.push('ServiceWorker: '+(navigator.serviceWorker&&navigator.serviceWorker.controller?'已接管':'无/未接管'));
+  window.__DIAG.report = out.join('\n');
+}, 3000);
+</script>
+</body>
+</html>
