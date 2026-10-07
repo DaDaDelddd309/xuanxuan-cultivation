@@ -19,11 +19,12 @@ import { CHRONICLE } from './chronicle.js';
 import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY, ARCS } from './story.js';
 import { PHASES } from './ambience.js';
+import { QUEST } from './quest.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
 const PORTRAIT = { hero:'assets/portrait/hero.jpg', foe:'assets/portrait/foe.jpg', aunt:'assets/portrait/aunt.jpg' };
-const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['sys','存档']];
+const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
@@ -215,6 +216,18 @@ export const Hall = {
       case 'mine': { const r=BUILD.claimMine(v, v2); toast(r.msg); this.render(); break; }
       case 'tp': { const r=BUILD.teleportTo(v); toast(r.msg); this.render(); break; }
       case 'pact': { const r=BUILD.signPact('落云散修'); toast(r.msg); this.render(); break; }
+      // —— 支线 ——
+      case 'qtake': { const r=QUEST.take(v); toast(r.ok?`接下「${r.quest.title}」`:(r.msg||'接不了')); this.render(); break; }
+      case 'qdone': {
+        const k = v;
+        const sp = QUEST.specialPrompt(k);
+        if (sp) { this.askSpecial(k, sp); break; }
+        // 无特殊交互:直接给双结局选择
+        this.askPath(k);
+        break;
+      }
+      case 'qpath': { const r=QUEST.finish(v, +v2); if(!r.ok) toast(r.msg||'还没办成'); else this.showQuestDone(r);
+        this.render(); break; }
       case 'slot': {
         const inv = Object.keys(BUILDINGS).filter(b=>Bag.count(b)>0);
         if(!inv.length){toast('没有可用建材');break;}
@@ -293,6 +306,11 @@ export const Hall = {
               : b.arc === 'tomb' ? 'shijiang' : b.arc === 'jiangu' ? 'jiangu' : 'baize');
       toast(`${b.name} · ${b.beat+1}`, true);
       setTimeout(() => this.showStoryBeat(b), 500);
+    }
+    // —— 支线进度推进 ——
+    if (QUEST.autoTake()) QUEST.save();
+    for (const q of QUEST.activeList()) {
+      if (q.ready && !this._qShown) { this._qShown = q.key; setTimeout(()=>this.showQuestReady(q), 900); }
     }
     // —— 此地传说妖 ——
     const leg = LEGEND_LIST.filter(l => l.where === n.type);
@@ -444,6 +462,7 @@ export const Hall = {
       : tab === 'people'? this.vPeople(s)
       : tab === 'fam'   ? this.vFam()
       : tab === 'build' ? this.vBuild()
+      : tab === 'quest' ? this.vQuest()
       : tab === 'dex'   ? this.vDex()
       : tab === 'sys'   ? this.vSys()
       : this.vTitle(s);
@@ -796,6 +815,107 @@ export const Hall = {
     setTimeout(() => el.remove(), 16000);
   },
 
+  // ---------- 支线 ----------
+  vQuest() {
+    QUEST.autoTake();            // 见过妖就自动接,不要求玩家先去跑图
+    const act = QUEST.activeList();
+    const done = QUEST.doneList();
+    const avail = QUEST.availableList();
+    return `
+      <div class="xx-card">
+        <div class="xx-label">眼 下 的 事</div>
+        <div class="xx-dim">见过传说妖,它的来历就变成你的事。办成了,会来找你要个说法。</div>
+      </div>
+
+      ${act.length ? act.map(q=>`
+        <div class="xx-card" style="border-color:${q.ready?'rgba(201,162,39,.6)':'rgba(232,220,196,.12)'}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="xx-val" style="font-size:15px;color:var(--xx-gold)">${esc(q.title)}</div>
+            <div class="xx-dim">${q.ready?'可结案':Math.round(q.p*100)+'%'}</div>
+          </div>
+          <div class="xx-dim" style="margin-top:5px">${esc(q.desc)}</div>
+          ${q.ready
+            ? `<button class="xx-btn main" style="margin-top:10px" data-act="qdone" data-v="${q.key}">了 结 这 件 事</button>`
+            : `<div class="xx-bar" style="margin-top:9px"><i style="width:${q.p*100}%"></i></div>
+               <div class="xx-dim" style="margin-top:5px">${esc(q.tip)}</div>`}
+        </div>`).join('')
+        : '<div class="xx-dim" style="text-align:center;padding:14px">手上没有事。多走走,多遇见。</div>'}
+
+      ${avail.length ? `
+        <div class="xx-card"><div class="xx-label">可 以 接 下</div>
+        ${avail.map(l=>`<div class="xx-mem">
+          <div class="a"><div class="n">${esc(l.quest.title)}</div>
+          <div class="t">${esc(l.quest.desc)}</div></div>
+          <div class="act"><button class="xx-mbtn" data-act="qtake" data-v="${l.key}">接 下</button></div>
+        </div>`).join('')}</div>` : ''}
+
+      ${done.length ? `
+        <div class="xx-card"><div class="xx-label">了 结 过 的</div>
+        ${done.map(d=>`<div style="margin-bottom:6px">
+          <div class="xx-dim" style="color:var(--xx-jade)">${esc(d.title)} ·
+            ${d.path===1?'其一':'其二'}</div></div>`).join('')}</div>` : ''}`;
+  },
+
+  showQuestReady(q) { toast(`「${q.title}」可结案了。往修仙阁 → 支线`); },
+  // 双结局选择
+  askPath(k) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">${esc(LEGEND[k].quest.title)}</div>
+      <div class="xx-sc-t">${esc(LEGEND[k].quest.desc)}</div>
+      <div class="xx-sc-go" style="cursor:pointer" data-p="1">其一</div>
+      <div class="xx-sc-go" style="cursor:pointer" data-p="2">其二</div>
+      <div class="xx-sc-x">再想想</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+      const r=QUEST.finish(k, +b.dataset.p);
+      el.remove();
+      if(r.ok) this.showQuestDone(r); else toast(r.msg||'还没办成');
+      this.render();
+    });
+    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
+  },
+  // 特殊结局(白泽问答 / 剑骨观剑 等)
+  askSpecial(k, sp) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
+      <div class="xx-sc-t" style="font-size:16px">${esc(sp.q)}</div>
+      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px" data-p="1">${esc(sp.a1)}</div>
+      <div class="xx-sc-go" style="cursor:pointer" data-p="2">${esc(sp.a2)}</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+      const path = +b.dataset.p;
+      const r = QUEST.finish(k, path);
+      el.remove();
+      if (r.ok) {
+        const txt = path===1?sp.r1:sp.r2;
+        const e2 = document.createElement('div');
+        e2.className='xx-storycard';
+        e2.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
+          <div class="xx-sc-t">${esc(txt)}</div>
+          <div class="xx-sc-r" style="color:var(--xx-gold)">${(r.reward.text||[]).map(esc).join(' · ')||'得了一份缘法。'}</div>
+          <div class="xx-sc-x">知道了</div>`;
+        document.getElementById('app').appendChild(e2);
+        e2.querySelector('.xx-sc-x').onclick=()=>e2.remove();
+        setTimeout(()=>e2.remove(),16000);
+      } else toast(r.msg||'还没办成');
+      this.render();
+    });
+  },
+  showQuestDone(res) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">${esc(res.quest.title)} · ${res.path===1?'其一':'其二'}</div>
+      <div class="xx-sc-t">${esc(res.quest.desc)}</div>
+      <div class="xx-sc-r" style="color:var(--xx-gold)">
+        ${(res.reward.text||[]).map(esc).join(' · ') || '得了一份缘法。'}</div>
+      <div class="xx-sc-x">收下</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+
   // ---------- 领地建造 ----------
   showStoryBeat(b) {
     const el = document.createElement('div');
@@ -817,6 +937,107 @@ export const Hall = {
       <div class="xx-sc-t">${esc(l.lore)}</div>
       <div class="xx-sc-r">${esc(l.tell)}</div>
       <div class="xx-sc-x">记住了</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+
+  // ---------- 支线 ----------
+  vQuest() {
+    QUEST.autoTake();            // 见过妖就自动接,不要求玩家先去跑图
+    const act = QUEST.activeList();
+    const done = QUEST.doneList();
+    const avail = QUEST.availableList();
+    return `
+      <div class="xx-card">
+        <div class="xx-label">眼 下 的 事</div>
+        <div class="xx-dim">见过传说妖,它的来历就变成你的事。办成了,会来找你要个说法。</div>
+      </div>
+
+      ${act.length ? act.map(q=>`
+        <div class="xx-card" style="border-color:${q.ready?'rgba(201,162,39,.6)':'rgba(232,220,196,.12)'}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="xx-val" style="font-size:15px;color:var(--xx-gold)">${esc(q.title)}</div>
+            <div class="xx-dim">${q.ready?'可结案':Math.round(q.p*100)+'%'}</div>
+          </div>
+          <div class="xx-dim" style="margin-top:5px">${esc(q.desc)}</div>
+          ${q.ready
+            ? `<button class="xx-btn main" style="margin-top:10px" data-act="qdone" data-v="${q.key}">了 结 这 件 事</button>`
+            : `<div class="xx-bar" style="margin-top:9px"><i style="width:${q.p*100}%"></i></div>
+               <div class="xx-dim" style="margin-top:5px">${esc(q.tip)}</div>`}
+        </div>`).join('')
+        : '<div class="xx-dim" style="text-align:center;padding:14px">手上没有事。多走走,多遇见。</div>'}
+
+      ${avail.length ? `
+        <div class="xx-card"><div class="xx-label">可 以 接 下</div>
+        ${avail.map(l=>`<div class="xx-mem">
+          <div class="a"><div class="n">${esc(l.quest.title)}</div>
+          <div class="t">${esc(l.quest.desc)}</div></div>
+          <div class="act"><button class="xx-mbtn" data-act="qtake" data-v="${l.key}">接 下</button></div>
+        </div>`).join('')}</div>` : ''}
+
+      ${done.length ? `
+        <div class="xx-card"><div class="xx-label">了 结 过 的</div>
+        ${done.map(d=>`<div style="margin-bottom:6px">
+          <div class="xx-dim" style="color:var(--xx-jade)">${esc(d.title)} ·
+            ${d.path===1?'其一':'其二'}</div></div>`).join('')}</div>` : ''}`;
+  },
+
+  showQuestReady(q) { toast(`「${q.title}」可结案了。往修仙阁 → 支线`); },
+  // 双结局选择
+  askPath(k) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">${esc(LEGEND[k].quest.title)}</div>
+      <div class="xx-sc-t">${esc(LEGEND[k].quest.desc)}</div>
+      <div class="xx-sc-go" style="cursor:pointer" data-p="1">其一</div>
+      <div class="xx-sc-go" style="cursor:pointer" data-p="2">其二</div>
+      <div class="xx-sc-x">再想想</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+      const r=QUEST.finish(k, +b.dataset.p);
+      el.remove();
+      if(r.ok) this.showQuestDone(r); else toast(r.msg||'还没办成');
+      this.render();
+    });
+    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
+  },
+  // 特殊结局(白泽问答 / 剑骨观剑 等)
+  askSpecial(k, sp) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
+      <div class="xx-sc-t" style="font-size:16px">${esc(sp.q)}</div>
+      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px" data-p="1">${esc(sp.a1)}</div>
+      <div class="xx-sc-go" style="cursor:pointer" data-p="2">${esc(sp.a2)}</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+      const path = +b.dataset.p;
+      const r = QUEST.finish(k, path);
+      el.remove();
+      if (r.ok) {
+        const txt = path===1?sp.r1:sp.r2;
+        const e2 = document.createElement('div');
+        e2.className='xx-storycard';
+        e2.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
+          <div class="xx-sc-t">${esc(txt)}</div>
+          <div class="xx-sc-r" style="color:var(--xx-gold)">${(r.reward.text||[]).map(esc).join(' · ')||'得了一份缘法。'}</div>
+          <div class="xx-sc-x">知道了</div>`;
+        document.getElementById('app').appendChild(e2);
+        e2.querySelector('.xx-sc-x').onclick=()=>e2.remove();
+        setTimeout(()=>e2.remove(),16000);
+      } else toast(r.msg||'还没办成');
+      this.render();
+    });
+  },
+  showQuestDone(res) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">${esc(res.quest.title)} · ${res.path===1?'其一':'其二'}</div>
+      <div class="xx-sc-t">${esc(res.quest.desc)}</div>
+      <div class="xx-sc-r" style="color:var(--xx-gold)">
+        ${(res.reward.text||[]).map(esc).join(' · ') || '得了一份缘法。'}</div>
+      <div class="xx-sc-x">收下</div>`;
     document.getElementById('app').appendChild(el);
     el.querySelector('.xx-sc-x').onclick = () => el.remove();
     setTimeout(() => el.remove(), 16000);
