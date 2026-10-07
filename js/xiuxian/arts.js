@@ -108,3 +108,10 @@ export function artFull(id) {
   return SUPER_ARTS[id] ? SUPER_ARTS[id].text : (ARTS[id] ? ARTS[id].d : '');
 }
 export function isSuper(id) { return !!SUPER_ARTS[id]; }
+// 已融合出的超武 id 集合(给战斗层判断加成/冷却用)
+export function superSet(arts) {
+  const out = {};
+  for (const k in arts || {}) if (SUPER_ARTS[k] && arts[k] > 0) out[k] = 1;
+  return out;
+}
+export const SUPER_ARTS_EXPORT = SUPER_ARTS;

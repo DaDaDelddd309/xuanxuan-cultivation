@@ -5,7 +5,7 @@
 import { Cult } from './index.js';
 import { makeEnemy, playerAct, enemyAct, availableArts, canUseArt, isDead, playerDead } from './battle.js';
 import { REALMS } from './realms.js';
-import { artName, artFull } from './arts.js';
+import { artName, artFull, superSet, isSuper } from './arts.js';
 import { BGM } from './relations.js';
 
 const BG = { duel:'assets/bg/duel.jpg', cave:'assets/bg/cave.jpg', sect:'assets/bg/sect.jpg' };
@@ -43,7 +43,7 @@ export const Duel = {
         name: '轩轩', title: `${REALMS[pIdx].name}${ps.layer}层`,
         img: cfg.hero.img,
         hpMax: 100 + pIdx * 30,
-        hp: 100 + pIdx * 30, arts: ps.arts, isSuper: ps.artifacts,
+        hp: 100 + pIdx * 30, arts: ps.arts, isSuper: superSet(ps.arts),
         cooldown: {}, dmgReduce: 0,
       },
       round: 0, over: false,
@@ -210,9 +210,15 @@ export const Duel = {
     this.turnFlash('你的回合');
     sk.innerHTML = list.map(id => {
       const cd = S.hero.cooldown[id] || 0;
-      return `<button class="xx-sk" data-art="${id}">
+      const sup = isSuper(id);
+      const lv = S.hero.arts[id] || 0;
+      // 伤害预估,让超武的强度可见
+      const mul = sup ? 2.2 : 1 + (Math.max(0, lv-1)) * 0.15;
+      const est = Math.max(1, Math.round((10 + lv * 4) * mul) - S.e.def);
+      return `<button class="xx-sk ${sup ? 'sup' : ''}" data-art="${id}">
+        ${sup ? '<span class="xx-sk-tag">超武</span>' : ''}
         <div class="xx-sk-n">${esc(artName(id))}</div>
-        <div class="xx-sk-c">${cd > 0 ? `冷却 ${cd}` : artFull(id).slice(0, 8)}</div>
+        <div class="xx-sk-c">${cd > 0 ? `冷却 ${cd}` : `威力 ${est}`}</div>
       </button>`;
     }).join('');
     sk.classList.add('on');

@@ -11,9 +11,14 @@ import { Duel } from './duel.js';
 import { STONES, STONE_LIST, SCROLL_LIST, SCROLLS, GOODS, Bag, DAY, OVERFLOW_RATE, scrollForExp } from './items.js';
 import { CAMP, CAMP_TIERS, offlineReport } from './camp.js';
 import { Merchant } from './merchant.js';
+import { ENCOUNTERS } from './lore.js';
+import { COMPANION } from './companion.js';
+import { Profile, Seed } from './profile.js';
+import { FAMILY } from './family.js';
+import { CHRONICLE } from './chronicle.js';
 
 const PORTRAIT = { hero:'assets/portrait/hero.jpg', foe:'assets/portrait/foe.jpg', aunt:'assets/portrait/aunt.jpg' };
-const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号']];
+const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
@@ -99,8 +104,11 @@ export const Hall = {
       case 'back': this.close(); break;
       case 'meditate': {
         const g = addExp(s, 40);
+        const yr = CHRONICLE.day();
+        if (yr) { Cult.get().dao += 200; toast(`第${yr.year}年:${yr.ev}`); }
         Cult.commit(); this.render();
-        toast(`吐纳 ${g} 点修为`); break;
+        if (!yr) toast(`吐纳 ${g} 点修为`);
+        break;
       }
       case 'break': {
         const chk = canBreakthrough(s);
@@ -181,6 +189,47 @@ export const Hall = {
         toast(msg || '无效'); this.render(); break;
       }
       case 'merchant': Merchant.maybeShow(); break;
+      // —— 家族 ——
+      case 'found': {
+        const inp = document.getElementById('xx-famname');
+        const nm = inp ? inp.value : (v || '轩氏');
+        const r = FAMILY.found(nm);
+        toast(r.msg); this.render(); break;
+      }
+      case 'fam': { const r=FAMILY.interact(v2,v); toast(r.msg); this.render(); break; }
+      case 'birth': { const r=FAMILY.birth(); toast(r.msg); this.render(); break; }
+      case 'yield': { const y=FAMILY.yieldDay();
+        FAMILY.s.wealth += y.dao;
+        Cult.get().dao += y.dao; Cult.get().exp += y.exp;
+        if(y.stone) Bag.add('stone_1', y.stone);
+        if(y.pill) Bag.s.items.pill_zhuji=(Bag.s.items.pill_zhuji||0)+y.pill;
+        Cult.commit(); toast(`族产:道行+${y.dao} 源石+${y.stone} 丹+${y.pill} 修为+${y.exp}`);
+        this.render(); break; }
+      case 'call': { const r=FAMILY.callHelp(); toast(r.msg); this.render(); break; }
+      case 'attack': { const r=FAMILY.resolveAttack(); toast(r.msg); this.render(); break; }
+      case 'setseed': {
+        const si = document.getElementById('xx-seed');
+        const v = si ? si.value : '';
+        Seed.set(v);
+        Cult.commit(); this.render();
+        toast(`新的一世:${Seed.cur}`); break;
+      }
+      case 'copycode': {
+        const ta = document.getElementById('xx-code');
+        ta.select();
+        try { navigator.clipboard ? navigator.clipboard.writeText(ta.value)
+          : document.execCommand('copy'); toast('存档码已复制'); }
+        catch { toast('长按上方文字手动复制'); }
+        break;
+      }
+      case 'import': {
+        const ii = document.getElementById('xx-in');
+        if (!ii) { toast('没有输入框'); break; }
+        const r = Profile.import(ii.value);
+        toast(r.msg);
+        if (r.ok) setTimeout(() => location.reload(), 900);
+        break;
+      }
     }
   },
 
@@ -210,10 +259,15 @@ export const Hall = {
       if (st) Bag.add(st.id, st.n);
       Cult.commit();
       Merchant.maybeShow();
+      // 奇遇判定(后台推进,不打断)
+      const enc = this.rollEncounter(s);
       this.render();
+      const encTxt = enc ? ` · ${enc.name}` : '';
       toast(`遭遇散妖,道行 +${gain}`
         + (herb ? ' · 拾得七叶草' : '')
-        + (st ? ` · ${STONES[st.id].name}×${st.n}` : ''));
+        + (st ? ` · ${STONES[st.id].name}×${st.n}` : '')
+        + encTxt);
+      if (enc) this.logEncounter(enc, s);
       return;
     }
 
@@ -238,7 +292,9 @@ export const Hall = {
         const stoneTxt = st ? ` · 得${STONES[st.id].name}×${st.n}` : '';
         toast(`胜!道行 +${r.dao}${r.pill ? ' · 得丹' : ''}${stoneTxt}`);
         Merchant.maybeShow();
+        const enc = this.rollEncounter(s2);
         this.render();
+        if (enc) this.logEncounter(enc, s2);
       },
       onLose: (choice) => { this.applyDefeat(choice); },
     });
@@ -325,7 +381,33 @@ export const Hall = {
       : tab === 'bag'   ? this.vBag(s)
       : tab === 'arts'  ? this.vArts(s)
       : tab === 'people'? this.vPeople(s)
+      : tab === 'fam'   ? this.vFam()
+      : tab === 'sys'   ? this.vSys()
       : this.vTitle(s);
+  },
+
+  // ---------- 奇遇(后台推进,不打断操作) ----------
+  rollEncounter(s) {
+    if (Math.random() > 0.34) return null;
+    const pool = ENCOUNTERS.filter(e => e.type !== 'choice');
+    if (!pool.length) return null;
+    let total = pool.reduce((a,e)=>a+e.weight,0);
+    let r = Math.random() * total, pick = pool[0];
+    for (const e of pool) { r -= e.weight; if (r <= 0) { pick = e; break; } }
+    const fx = pick.effect || {};
+    if (fx.dao) s.dao += fx.dao;
+    if (fx.insight) s.insight = (s.insight||0) + fx.insight;
+    if (fx.herb) s.pills.pill_zhuji = (s.pills.pill_zhuji||0) + fx.herb;
+    if (fx.hp === 1) s.hp = (s.hp||0) + 1;   // 标记
+    if (fx.demonSeed) COMPANION.addAff(-2);  // 败者之剑:亲密度微降
+    Cult.commit();
+    return pick;
+  },
+  logEncounter(enc, s) {
+    const log = s.encLog || (s.encLog = []);
+    log.unshift({ id:enc.id, name:enc.name, text:enc.text, log:enc.log, t:Date.now() });
+    if (log.length > 40) log.length = 40;
+    Cult.commit();
   },
 
   // ---------- 境界 ----------
@@ -360,6 +442,8 @@ export const Hall = {
       <div class="xx-grid">
         <div class="xx-card"><div class="xx-label">道行</div><div class="xx-big">${s.dao}</div></div>
         <div class="xx-card"><div class="xx-label">击杀</div><div class="xx-big">${s.totalKills}</div></div>
+        <div class="xx-card" style="grid-column:1/-1"><div class="xx-label">年 表</div>
+          <div class="xx-dim">${esc(CHRONICLE.stamp())}</div></div>
       </div>
       <button class="xx-btn" data-act="meditate">吐 纳 修 炼</button>
       <button class="xx-btn main" data-act="break" ${chk.ok ? '' : 'disabled'}>
@@ -527,6 +611,111 @@ export const Hall = {
       <button class="xx-btn" data-act="merchant">招 呼 路 过 的 商 人</button>`;
   },
 
+  // ---------- 家族 ----------
+  vFam() {
+    const f = FAMILY.s;
+    if (!f.founded) {
+      return `<div class="xx-card"><div class="xx-label">宗 族</div>
+        <div class="xx-val">尚未立族</div>
+        <div class="xx-dim" style="margin-top:6px">家是一切的根。有家,才有传承。</div>
+        <div class="xx-numrow" style="margin-top:12px">
+          <input id="xx-famname" value="轩氏" maxlength="6"
+            style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(201,162,39,.4);
+            border-radius:3px;padding:10px;color:var(--xx-paper);font-size:15px;
+            font-family:inherit;text-align:center;outline:none;letter-spacing:3px">
+        </div>
+        <button class="xx-btn main" data-act="found">立 族</button></div>`;
+    }
+    const mem = f.members.map(m => {
+      const p = FAMILY.member(m.partner);
+      return `<div class="xx-mem">
+        <div class="a">
+          <div class="n">${esc(m.name)}<span style="color:${m.col};margin-left:6px;font-size:11px">${esc(m.roleName)}</span></div>
+          <div class="t">${m.lv} 层 · 忠 ${m.aff}${p?' · 配偶 '+esc(p.name):''}</div>
+        </div>
+        <div class="act">
+          <button class="xx-mbtn" data-act="fam" data-v="talk" data-v2="${m.uid}">叙话</button>
+          <button class="xx-mbtn" data-act="fam" data-v="gift" data-v2="${m.uid}">赠源石</button>
+          <button class="xx-mbtn" data-act="fam" data-v="train" data-v2="${m.uid}">督修</button>
+        </div></div>`;
+    }).join('') || '<div class="xx-dim">族中无人。</div>';
+
+    return `
+      <div class="xx-card">
+        <div class="xx-label">${esc(CHRONICLE.stamp())}</div>
+        <div class="xx-big">${esc(f.name)} · 第 ${f.gen} 代</div>
+        <div class="xx-dim" style="margin-top:6px">
+          族人 ${f.members.length} · 资产 ${f.wealth} · 领地 ${f.land.length} 处 ·
+          战功 ${f.defended}/${f.attacks} · 族力 ${FAMILY.power()}</div>
+      </div>
+      <div class="xx-card">
+        <div class="xx-label">年 表</div>
+        ${CHRONICLE.s.log.slice(0,4).map(l=>`<div class="xx-dim" style="margin-bottom:5px">
+          <span class="xx-gold">第${l.year}年</span> ${esc(l.ev)}</div>`).join('') ||
+          '<div class="xx-dim">太平无事。江湖就是这样开始的。</div>'}
+      </div>
+      <div class="xx-card">
+        <div class="xx-label">族 人</div>${mem}
+      </div>
+      <div class="xx-grid">
+        <button class="xx-btn" data-act="birth" ${FAMILY.canBirth()?'':'disabled'}>延 续 香 火</button>
+        <button class="xx-btn" data-act="yield">族 产 结 算</button>
+        <button class="xx-btn" data-act="call">求 援 友 盟</button>
+        <button class="xx-btn" data-act="attack">巡 视 领 地</button>
+      </div>
+      <div class="xx-dim" style="text-align:center">
+        繁衍需两名未婚族人 + 200 资产 · 领地越多,被围攻越频繁,战力要求越高</div>`;
+  },
+
+  // ---------- 存档(种子 / 存档码)----------
+  vSys() {
+    const code = Profile.export();
+    return `
+      <div class="xx-card">
+        <div class="xx-label">世 界 种 子</div>
+        <div class="xx-big">${esc(Seed.cur)}</div>
+        <div class="xx-dim" style="margin-top:6px">
+          同一种子 = 同一个世界:奇遇、掉落、商人、怨灵、营地来客,全部一致。
+          换种子 = 换一世。存档只存进度,不存世界,所以很省。
+        </div>
+        <div class="xx-numrow" style="margin-top:12px">
+          <input id="xx-seed" value="${esc(Seed.cur)}" maxlength="12"
+            style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(201,162,39,.4);
+            border-radius:3px;padding:10px;color:var(--xx-paper);font-size:15px;
+            font-family:inherit;text-align:center;outline:none;letter-spacing:2px">
+        </div>
+        <button class="xx-btn" data-act="setseed">换 一 世</button>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">存 档 码 (${Profile.size()} 字节)</div>
+        <div class="xx-dim" style="margin-bottom:10px">
+          整份存档压成一段字。复制存到备忘录,换设备粘贴回来就恢复。
+          清缓存也不怕。
+        </div>
+        <textarea id="xx-code" readonly style="width:100%;height:110px;background:rgba(0,0,0,.45);
+          border:1px solid rgba(201,162,39,.35);border-radius:3px;padding:9px;
+          color:var(--xx-paper);font-size:10px;font-family:monospace;outline:none;
+          resize:none;line-height:1.5">${esc(code)}</textarea>
+        <button class="xx-btn" data-act="copycode">复 制 存 档 码</button>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">导 入 存 档</div>
+        <textarea id="xx-in" placeholder="粘贴存档码…" style="width:100%;height:80px;
+          background:rgba(0,0,0,.45);border:1px solid rgba(232,220,196,.25);border-radius:3px;
+          padding:9px;color:var(--xx-paper);font-size:10px;font-family:monospace;outline:none;
+          resize:none;line-height:1.5"></textarea>
+        <button class="xx-btn main" data-act="import">导 入 并 恢 复</button>
+      </div>
+
+      <div class="xx-dim" style="text-align:center;line-height:1.9">
+        境界 · 炼气${Cult.get().layer}层 / 道行 ${Cult.get().dao}<br>
+        灵伴 · ${esc(COMPANION.s.name || '未遇')}(${({kiss:'相守',cold:'冷淡',ghost:'纠缠'})[COMPANION.s.route] || '—'})<br>
+        称号 · ${Cult.titles.list().length} 枚
+      </div>`;
+  },
+
   // ---------- 行囊 ----------
   vBag() {
     const items = Bag.s.items || {};
@@ -577,6 +766,15 @@ export const Hall = {
           <p class="xx-gold" style="margin-top:5px">${esc(c.arc)}</p>
         </div>
       </div>`).join('')
+      + (Cult.get().encLog && Cult.get().encLog.length ? `
+        <div class="xx-card"><div class="xx-label">行 脚 日 记</div>
+        ${Cult.get().encLog.slice(0,6).map(e => `
+          <div style="margin-bottom:9px">
+            <div class="xx-val" style="font-size:13px;color:var(--xx-gold)">${esc(e.name)}</div>
+            <div class="xx-dim" style="margin-top:2px">${esc(e.text)}</div>
+            <div class="xx-dim" style="color:var(--xx-jade)">${esc(e.log)}</div>
+          </div>`).join('')}
+        </div>` : '')
       + `<div class="xx-card"><div class="xx-label">世 界</div>
         <div class="xx-val">${esc(LORE.title)} · ${esc(LORE.era)}</div>
         <div class="xx-dim" style="margin-top:6px">${esc(LORE.intro)}</div></div>

@@ -244,6 +244,13 @@ import { Hall } from './xiuxian/ui.js';
 import { Bag, DAY } from './xiuxian/items.js';
 import { CAMP, offlineReport } from './xiuxian/camp.js';
 import { Merchant } from './xiuxian/merchant.js';
+import { COMPANION } from './xiuxian/companion.js';
+import { Ritual } from './xiuxian/ritual.js';
+import { Bond } from './xiuxian/bond.js';
+import { Profile, Seed } from './xiuxian/profile.js';
+import { Titles, Nemesis } from './xiuxian/relations.js';
+import { FAMILY } from './xiuxian/family.js';
+import { CHRONICLE } from './xiuxian/chronicle.js';
 
 (function bootCult() {
   const bind = () => {
@@ -255,6 +262,52 @@ import { Merchant } from './xiuxian/merchant.js';
     // 离线收益:进游戏先结算篝火
     const off = offlineReport();
     if (off && off.dao > 0) setTimeout(() => Hall.showOffline(off), 900);
+    // 开局仪式:未命名 → 弹
+    COMPANION.load();
+    Bond.init();
+    Profile.load();
+    FAMILY.load();
+    CHRONICLE.load();
+    // 统一存档:进游戏先收集,页面隐藏/关闭时落盘
+    const mods = { Cult, Nemesis, Titles, Bag, CAMP, DAY, Merchant, COMPANION };
+    Profile.collect(mods);
+    const autosave = () => Profile.collect(mods);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) autosave(); });
+    window.addEventListener('pagehide', autosave);
+    window.addEventListener('beforeunload', autosave);
+    // 暴露给 UI(存档码/换种子)
+    window.__xx = { Profile, Seed, mods, FAMILY, CHRONICLE };
+    setTimeout(() => Ritual.start(false), off && off.dao > 0 ? 2600 : 700);
+    // 灵伴/怨灵/篝火守卫:每帧推进
+    let _bondT = 0, _idleT = 0;
+    engine.addAlways(dt => {
+      _bondT += dt; _idleT += dt;
+      if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden(); }
+      if (_idleT > 24) {
+        _idleT = 0;
+        if (COMPANION.canHug()) Bond.showHug();
+        else Bond.idle();
+      }
+      // 自动拾取(kiss 路线):一次一个,效率不高
+      if (COMPANION.s.pick.on && engine.player && engine.pickups) {
+        for (let i = engine.pickups.length - 1; i >= 0; i--) {
+          const k = engine.pickups[i];
+          const d = Math.hypot(engine.player.x - k.x, engine.player.y - k.y);
+          if (COMPANION.autoPick(dt, d)) {
+            const p = engine.player;
+            if (k.kind === 'gem') p.addXp(k.xp);
+            else if (k.kind === 'coin') engine.stats.gold += Math.round(k.gold * p.stats.goldMult);
+            else if (k.kind === 'meat') { p.hp = Math.min(p.stats.maxHp, p.hp + k.heal);
+              engine.spawnText(p.x, p.y-30, '+' + k.heal + ' 气血', { color:'#63c74d', size:14 }); }
+            else if (k.kind === 'chest') { p.addXp(60); engine.stats.gold += 45;
+              p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp*0.3);
+              engine.spawnText(p.x, p.y-36, '宝宝帮你开了箱', { color:'#ffd319', size:14 }); }
+            engine.remove(engine.pickups, i);
+            break;   // 一次只捡一个
+          }
+        }
+      }
+    });
     const b = document.getElementById('btn-cult');
     if (b && !b._bound) {
       b._bound = true;

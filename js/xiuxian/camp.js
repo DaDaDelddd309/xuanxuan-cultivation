@@ -31,8 +31,16 @@ export const CAMP = {
   },
 
   load() {
-    try { const r = localStorage.getItem(K); if (r) this.s = { ...this.s, ...JSON.parse(r) }; }
-    catch {}
+    try {
+      const r = localStorage.getItem(K);
+      if (r) {
+        const d = JSON.parse(r) || {};
+        const def = JSON.parse(JSON.stringify(this.s));
+        this.s = { ...def, ...d };
+        for (const k in def) if (this.s[k] === undefined) this.s[k] = def[k];
+        if (!Array.isArray(this.s.members)) this.s.members = [];
+      }
+    } catch {}
     return this.s;
   },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); } catch {} },

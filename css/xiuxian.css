@@ -348,3 +348,147 @@
 .xx-off h3{font-size:22px;letter-spacing:6px;color:var(--xx-gold);margin:0 0 4px;
   font-family:"Songti SC",serif;font-weight:400}
 .xx-off .sub{font-size:11px;color:rgba(232,220,196,.45);letter-spacing:2px;margin-bottom:20px}
+
+/* ===== 开局仪式 ===== */
+.xx-ritual{position:absolute;inset:0;z-index:200;background:
+  radial-gradient(circle at 50% 30%,#2a2018 0%,#140f0c 55%,#0a0706 100%);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.xx-ritual.hidden{display:none}
+.rt-sky{position:absolute;inset:0;pointer-events:none;opacity:.6;
+  background:radial-gradient(circle at 20% 30%,rgba(232,220,196,.06),transparent 50%),
+             radial-gradient(circle at 80% 70%,rgba(181,52,42,.05),transparent 50%)}
+.rt-body{position:relative;width:100%;max-width:420px;padding:20px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;max-height:100%}
+
+/* 卡通小灵 */
+.rt-char{position:relative;width:150px;height:190px;flex-shrink:0;margin-bottom:6px;
+  animation:rtFloat 3.4s ease-in-out infinite}
+@keyframes rtFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.rt-head{position:absolute;left:50%;top:8px;transform:translateX(-50%);
+  width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle at 38% 30%,#fff6e8,#f0dcc4 70%);
+  box-shadow:0 6px 22px rgba(0,0,0,.55),inset 0 -6px 14px rgba(190,150,120,.28);z-index:3}
+.rt-hair{position:absolute;left:50%;top:-6px;transform:translateX(-50%);
+  width:118px;height:60px;border-radius:60px 60px 20px 20px;z-index:4;
+  background:linear-gradient(180deg,#2b2028,#1a1218);
+  box-shadow:0 3px 12px rgba(0,0,0,.5)}
+.rt-hair::before{content:'';position:absolute;left:50%;top:-14px;transform:translateX(-50%);
+  width:34px;height:26px;border-radius:50% 50% 30% 30%;
+  background:linear-gradient(180deg,#3a2c36,#1a1218)}
+.rt-ear{position:absolute;top:36px;width:16px;height:22px;border-radius:50%;
+  background:#f0dcc4;z-index:2}
+.rt-ear.l{left:-9px}.rt-ear.r{right:-9px}
+.rt-eye{position:absolute;top:40px;width:15px;height:19px;border-radius:50%;
+  background:#2a1c20;z-index:5;overflow:hidden}
+.rt-eye.l{left:20px}.rt-eye.r{right:20px}
+.rt-eye i{position:absolute;left:50%;top:2px;transform:translateX(-50%);
+  width:5px;height:6px;border-radius:50%;background:#fff}
+.rt-char.blink .rt-eye{animation:rtBlink .18s 2}
+@keyframes rtBlink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.08)}}
+.rt-blush{position:absolute;top:62px;width:16px;height:9px;border-radius:50%;
+  background:rgba(226,120,110,.42);z-index:5;filter:blur(1px)}
+.rt-blush.l{left:13px}.rt-blush.r{right:13px}
+.rt-mouth{position:absolute;left:50%;top:66px;transform:translateX(-50%);
+  width:12px;height:8px;border-bottom:2.5px solid #a8514a;border-radius:0 0 12px 12px;z-index:5}
+.rt-body-c{position:absolute;left:50%;top:96px;transform:translateX(-50%);
+  width:92px;height:84px;border-radius:44px 44px 16px 16px;z-index:2;
+  background:linear-gradient(180deg,#e8dcc4,#c8b494);
+  box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.rt-body-c::after{content:'';position:absolute;left:50%;top:8px;transform:translateX(-50%);
+  width:20px;height:20px;border-radius:50%;background:rgba(181,52,42,.28)}
+.rt-arm{position:absolute;top:104px;width:18px;height:56px;border-radius:12px;z-index:1;
+  background:linear-gradient(180deg,#e0d0b4,#bfa88a)}
+.rt-arm.l{left:34px;transform:rotate(12deg);animation:rtArm 2.6s ease-in-out infinite}
+.rt-arm.r{right:34px;transform:rotate(-12deg)}
+@keyframes rtArm{0%,100%{transform:rotate(12deg)}50%{transform:rotate(24deg)}}
+
+/* 对白 */
+.rt-box{width:100%;background:rgba(12,9,8,.93);border:1px solid rgba(201,162,39,.4);
+  border-radius:4px;padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.rt-who{font-size:12px;color:var(--xx-gold);letter-spacing:4px;margin-bottom:9px;
+  display:flex;align-items:center;gap:8px}
+.rt-who::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(201,162,39,.4),transparent)}
+.rt-ask{font-size:15.5px;line-height:1.85;color:var(--xx-paper);white-space:pre-line;
+  font-family:"Songti SC",serif;min-height:56px}
+.rt-input{margin-top:12px}
+.rt-input input{width:100%;background:rgba(0,0,0,.42);border:1px solid rgba(201,162,39,.42);
+  border-radius:3px;padding:12px;color:var(--xx-paper);font-size:16px;font-family:inherit;
+  letter-spacing:2px;text-align:center;outline:none}
+.rt-input input:focus{border-color:var(--xx-cinnabar);box-shadow:0 0 0 2px rgba(181,52,42,.2)}
+.rt-hint{font-size:11.5px;color:rgba(232,220,196,.42);margin-top:8px;text-align:center;letter-spacing:1px}
+.rt-opts{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.rt-opt{background:rgba(232,220,196,.06);border:1px solid rgba(232,220,196,.24);
+  color:var(--xx-paper);border-radius:3px;padding:12px;font-size:14.5px;cursor:pointer;
+  letter-spacing:2px;font-family:inherit;transition:.18s;text-align:center}
+.rt-opt:active{background:rgba(181,52,42,.7);transform:scale(.98)}
+.rt-opt:last-child{border-color:rgba(181,52,42,.45);color:#e8a0a0}
+.rt-foot{margin-top:14px}
+.rt-go{width:100%;background:linear-gradient(135deg,rgba(181,52,42,.9),rgba(120,32,26,.9));
+  border:1px solid var(--xx-cinnabar);color:#fff;border-radius:3px;padding:13px;
+  font-size:15px;letter-spacing:5px;cursor:pointer;font-family:inherit}
+
+/* ===== 贴边选项卡 ===== */
+.bd-hug{position:absolute;right:3%;bottom:16%;width:min(250px,72%);z-index:76;
+  background:rgba(14,11,9,.97);border:1px solid rgba(232,196,150,.55);border-radius:4px;
+  padding:13px;box-shadow:0 8px 26px rgba(0,0,0,.7);
+  opacity:0;transform:translateX(120%);transition:.42s cubic-bezier(.2,.8,.25,1);pointer-events:none}
+.bd-hug.on{opacity:1;transform:translateX(0);pointer-events:auto}
+.bd-line{font-size:13.5px;color:#f0dcc4;line-height:1.75;margin-bottom:11px;
+  font-family:"Songti SC",serif;letter-spacing:.5px}
+.bd-hug-opt{display:block;width:100%;background:rgba(232,220,196,.07);
+  border:1px solid rgba(232,220,196,.22);color:var(--xx-paper);border-radius:3px;
+  padding:9px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;
+  letter-spacing:1px;transition:.16s}
+.bd-hug-opt:active{background:rgba(181,52,42,.7);transform:scale(.98)}
+
+/* 自说自话气泡 */
+.bd-bub{position:absolute;left:50%;top:13%;transform:translateX(-50%) translateY(-8px);
+  max-width:78%;background:rgba(12,9,8,.94);border:1px solid rgba(201,162,39,.5);
+  border-radius:16px;padding:9px 17px;color:var(--xx-paper);font-size:13.5px;
+  letter-spacing:1px;z-index:74;opacity:0;pointer-events:none;transition:.4s;
+  font-family:"Songti SC",serif;text-align:center;line-height:1.6}
+.bd-bub.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.bd-bub::after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);
+  border:7px solid transparent;border-top-color:rgba(12,9,8,.94);border-bottom:none}
+.bd-bub.ok{border-color:rgba(201,162,39,.7);color:#f2e2c0}
+.bd-bub.dark{border-color:rgba(181,52,42,.85);color:#f0b8b0;
+  box-shadow:0 0 24px rgba(181,52,42,.3)}
+
+/* ===== 怨灵闪屏特写(不打断) ===== */
+.bd-flash{position:absolute;inset:0;z-index:72;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .18s}
+.bd-flash.on{opacity:1}
+.bd-flash::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(100deg,rgba(10,7,6,0) 0%,rgba(20,6,6,.9) 40%,
+    rgba(181,52,42,.5) 50%,rgba(20,6,6,.9) 60%,rgba(10,7,6,0) 100%);
+  animation:bdSweep .5s ease-out}
+@keyframes bdSweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.bd-flash-art{font-size:130px;color:rgba(181,52,42,.32);font-family:"Songti SC",serif;
+  letter-spacing:20px;text-shadow:0 0 40px rgba(181,52,42,.6);line-height:1}
+.bd-flash-t{font-size:13px;color:rgba(232,220,196,.6);letter-spacing:8px;margin-top:4px}
+.bd-flash-s{font-size:19px;color:var(--xx-paper);letter-spacing:4px;margin-top:14px;
+  font-family:"Songti SC",serif;text-shadow:0 2px 16px #000}
+.bd-flash-c{font-size:30px;color:var(--xx-cinnabar);letter-spacing:6px;margin-top:12px;
+  font-family:"Songti SC",serif;text-shadow:0 0 26px rgba(181,52,42,.8),0 2px 8px #000}
+
+/* ===== 篝火护栏 ===== */
+.bd-ward{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);z-index:70;
+  background:rgba(10,8,7,.9);border:1px solid rgba(201,162,39,.45);border-radius:3px;
+  padding:7px 15px;text-align:center;opacity:0;transition:.4s;pointer-events:none}
+.bd-ward.on{opacity:1}
+.bd-ward-t{font-size:12.5px;color:var(--xx-gold);letter-spacing:4px}
+.bd-ward-s{font-size:10.5px;color:rgba(232,220,196,.55);margin-top:3px;letter-spacing:1px}
+
+/* 怨灵 HUD */
+.bd-ghost-hud{position:absolute;left:3%;top:5.5%;z-index:70;max-width:60%;
+  background:rgba(10,8,7,.88);border:1px solid rgba(181,52,42,.5);border-radius:3px;
+  padding:6px 11px;font-size:11.5px;color:#e8b0a8;letter-spacing:1px;opacity:0;
+  transition:.4s;pointer-events:none;line-height:1.5}
+.bd-ghost-hud.on{opacity:1}
+.bd-ghost-hud b{color:var(--xx-cinnabar);font-weight:400}
+
+.xx-sk{position:relative}
+.xx-sk.sup{border-color:var(--xx-cinnabar);background:linear-gradient(135deg,rgba(60,20,16,.97),rgba(24,12,10,.97))}
+.xx-sk-tag{position:absolute;top:-7px;left:6px;font-size:9px;padding:1px 5px;border-radius:2px;
+  background:var(--xx-cinnabar);color:#fff;letter-spacing:1px}
