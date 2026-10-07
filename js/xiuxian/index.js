@@ -79,6 +79,10 @@ export const Cult = {
   bgm: BGM,
 
   init() {
+    // 存档必须在这里读回来。
+    // 坑(V0.90 修):init 以前只 load 了 nemesis/titles,没 load 自己 ——
+    // 结果每次刷新页面,修为/境界/丹药/神通全归零,存档里写回的也是 0。
+    this.load();
     this.nemesis.load();
     this.titles.load();
     unlockAudio();

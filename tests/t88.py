@@ -7,17 +7,35 @@ with sync_playwright() as p:
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
-    pg.goto('http://127.0.0.1:8894/',wait_until='networkidle')
+    pg.goto('http://127.0.0.1:%s/' % __import__('os').environ.get('XX_TEST_PORT','8894'),wait_until='networkidle')
     pg.evaluate("()=>localStorage.clear()")
     pg.reload(wait_until='networkidle'); time.sleep(2.5)
+    def unblock(pg, tries=6):
+        """清掉挡住页面的全屏层(仪式/结算卡)。测试里任何点击前都该先调。"""
+        for _ in range(tries):
+            if not pg.evaluate("()=>!!document.querySelector('.xx-ritual,.xx-storycard')"): return
+            pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
+            time.sleep(0.35)
+
+
     ok=lambda n,c: print(('  ✅ ' if c else '  ❌ ')+n) or (None if c else fails.append(n))
-    ok("标题 V0.88", 'V0.88' in pg.title())
+    # 统一开场:清档 + 关掉仪式弹窗(命名灵伴/立宗),否则会挡住后续点击
+    pg.evaluate("()=>localStorage.clear()")
+    pg.reload(wait_until='networkidle'); time.sleep(1.5)
+    # 仪式弹窗(命名灵伴)必须走完或整个关掉,不能关一半——半关状态会留下输入框却没有选项
+    pg.evaluate("()=>{const e=document.querySelector('.xx-ritual');if(e)e.remove();}")
+    time.sleep(0.4)
+    # 标题版本必须和 index.html 源码一致(不写死版本号,免得每次升版都改测试)
+    _src = pg.evaluate("()=>{const t=document.querySelector('title').textContent;const m=t.match(/V(\\d+\\.\\d+)/);return m?m[1]:''}")
+    _ui  = pg.evaluate("()=>{const e=document.querySelector('.game-title small');const m=e.textContent.match(/V(\\d+\\.\\d+)/);return m?m[1]:''}")
+    ok(f"标题版本一致({_src})", _src and _src==_ui)
     if pg.evaluate("()=>!!document.getElementById('rt-name')"):
         pg.fill('#rt-name','小桃'); pg.click('#rt-go'); time.sleep(0.5)
         pg.click('.rt-opt'); time.sleep(0.5)
         if pg.evaluate("()=>!!document.getElementById('rt-ok')"): pg.click('#rt-ok'); time.sleep(0.5)
+    unblock(pg)
     pg.click('#btn-cult'); time.sleep(1.2)
-    pg.click('[data-tab=quest]'); time.sleep(0.8)
+    unblock(pg); pg.click('[data-tab=quest]'); time.sleep(0.8)
     print("【支线页里的叙事线】")
     # 开一条叙事线并走完
     r=pg.evaluate("""async()=>{
@@ -29,7 +47,7 @@ with sync_playwright() as p:
               done:!!STORY.s.done.hongyi, readyN:STORY.readyList().length};
     }""")
     ok(f"走完4环 beat={r['beat']} 待结案={r['ready']}", r['ready'] is True and r['done'] is False)
-    pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.9)
+    unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.9)
     t=pg.inner_text('#xx-body')
     ok("支线页显示待了结区块", '看 完 了' in t)
     ok("显示叙事线名", '红 嫁 衣' in t or '红嫁衣' in t)
@@ -37,7 +55,7 @@ with sync_playwright() as p:
     pg.screenshot(path='/workspace/probe/shot_sfinal.png')
     print("【选结局发奖】")
     d0=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().dao}")
-    pg.click('[data-act=sfinal]'); time.sleep(1.0)
+    unblock(pg); pg.click('[data-act=sfinal]'); time.sleep(1.0)
     ok("弹出结局选择", pg.evaluate("()=>!!document.querySelector('.xx-storycard')"))
     ok("两个结局选项", pg.evaluate("()=>document.querySelectorAll('.xx-sc-go[data-p]').length")==2)
     pg.screenshot(path='/workspace/probe/shot_epchoice.png')
@@ -47,7 +65,7 @@ with sync_playwright() as p:
     ok("弹出奖励结算", pg.evaluate("()=>document.querySelectorAll('.xx-storycard').length")>0)
     pg.screenshot(path='/workspace/probe/shot_epdone.png')
     pg.evaluate("()=>document.querySelectorAll('.xx-storycard').forEach(e=>e.remove())")
-    pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.8)
+    unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.8)
     t=pg.inner_text('#xx-body')
     ok("结案后不再待选", pg.evaluate("()=>document.querySelectorAll('[data-act=sfinal]').length")==0)
     ok("结案按钮消失", '看 完 了' not in t)
@@ -60,10 +78,11 @@ with sync_playwright() as p:
       STORY.see('dengshi'); QUEST.autoTake();
       Cult.get().visited.n10=true; Cult.get().visited.n3=true; Cult.commit(); QUEST.save();
     }""")
-    pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.9)
+    unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.9)
     ok("传说妖支线可结", pg.evaluate("()=>document.querySelectorAll('[data-act=qdone]').length")>0)
     print("【局内】")
     pg.evaluate("()=>document.querySelector('.xx-back')?.click()"); time.sleep(0.5)
+    unblock(pg)
     pg.click('#btn-play'); time.sleep(0.8)
     pg.click('#char-list > *'); time.sleep(2.5)
     for i in range(8): pg.keyboard.press('KeyD'); time.sleep(0.2)

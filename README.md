@@ -112,10 +112,34 @@ python -m http.server 8894
 | 文档 | 内容 |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块分层、数据流、扩展指南 |
-| [CHANGELOG.md](CHANGELOG.md) | V0.76 → V0.86 完整演进 |
+| [CHANGELOG.md](CHANGELOG.md) | V0.76 → V0.90 完整演进 |
 | [ROADMAP.md](ROADMAP.md) | 待做清单 + 设计思路 |
 | [AGENTS.md](AGENTS.md) | **给接手的 AI agent:架构约束、踩坑清单、验证方法** |
 | [NOTES.md](NOTES.md) | 历史遗留问题与注意事项 |
+
+---
+
+## 跑测试
+
+```bash
+bash tests/run-all.sh        # 逻辑测试 + 静态检查 (~510 项,秒级)
+bash tests/run-browser.sh    # 浏览器全流程 (Playwright,较慢)
+```
+
+**部署前必跑两个。** 只跑逻辑测试不够 ——
+V0.88 的「结局无限刷奖励」和 V0.89 的「修仙阁白屏」逻辑测试都是全绿的,
+只有浏览器才炸得出来。原因见 [`AGENTS.md`](AGENTS.md) 第零点五节。
+
+`run-all.sh` 除逻辑测试外还跑三个静态检查,
+它们抓的是 `node --check` 抓不到的语义问题:
+
+| 检查 | 抓什么 |
+|---|---|
+| `lint-imports.mjs` | 重复 import → ES module 加载失败,页面白屏且零报错 |
+| `lint-precache.mjs` | sw.js 预缓存重复项 / 指向不存在的文件 → SW install 整体失败 |
+| `lint-version.mjs` | 版本号在 4 处不一致 |
+| `lint-methods.mjs` | 调用了 `this.xxx()` 但方法没定义 |
+| `lint-testversion.mjs` | 测试里写死了版本号(每次升版都要改测试,漏改就假失败) |
 
 ---
 
@@ -134,3 +158,6 @@ python -m http.server 8894
 - 仙人墓目前只是地图上一个点,没有地下层
 - 境界上限化神,化神之上(渡劫/仙人)未开放
 - 没有坐骑/宠物系统
+## 技术债
+
+见 [`TECHDEBT.md`](TECHDEBT.md)。

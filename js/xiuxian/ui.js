@@ -1031,6 +1031,48 @@ export const Hall = {
   },
 
   showQuestReady(q) { toast(`「${q.title}」可结案了。往修仙阁 → 支线`); },
+  // 叙事线结案:二选一(墓里补完半句话走 askTombWords,这里管地表叙事线)
+  askStoryPath(k) {
+    const arc = ARCS[k];
+    const last = arc.beats[arc.beats.length-1];
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-n">${esc(arc.name)} · 了 结</div>
+      <div class="xx-sc-t">事到头了。剩下的,是你的选择。</div>
+      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px;font-size:13px;line-height:1.7"
+        data-p="1"><b style="color:var(--xx-gold)">${esc(last.epilogue)}</b><br>
+        <span class="xx-dim">${esc((ARC_REWARD[k]||[])[0] ? '道行 +' + (ARC_REWARD[k][0].dao||0) : '')}</span></div>
+      <div class="xx-sc-go" style="cursor:pointer;margin-top:10px;font-size:13px;line-height:1.7"
+        data-p="2"><b style="color:var(--xx-gold)">${esc(last.epilogue2)}</b><br>
+        <span class="xx-dim">${esc((ARC_REWARD[k]||[])[1] ? '道行 +' + (ARC_REWARD[k][1].dao||0) : '')}</span></div>
+      <div class="xx-sc-x">再想想</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+      const path = +b.dataset.p;
+      el.remove();
+      // 先结案(记录结局/写日志/移出活跃),由 finish 内部发奖
+      const r = STORY.finish(k, path, (rw) => QUEST.grant(rw, path));
+      if (!r.ok) { toast(r.msg || '还不行'); this.render(); return; }
+      this.showStoryDone({ name:r.name, path, reward:r.reward, text:r.text });
+      this.render();
+    });
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+  },
+
+  // 结局结算卡
+  showStoryDone(r) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    const rw = r.reward && r.reward.text && r.reward.text.length ? r.reward.text : ['得了一份缘法。'];
+    el.innerHTML = `<div class="xx-sc-n">${esc(r.name)} · ${r.path===1?'其一':'其二'}</div>
+      <div class="xx-sc-t">${esc(r.text||'')}</div>
+      <div class="xx-sc-r" style="color:var(--xx-gold)">${rw.map(esc).join(' · ')}</div>
+      <div class="xx-sc-x">收下</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick = () => el.remove();
+    setTimeout(() => el.remove(), 16000);
+  },
+
   // 双结局选择
   askPath(k) {
     const el = document.createElement('div');

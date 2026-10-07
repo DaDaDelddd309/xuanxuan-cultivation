@@ -8,12 +8,105 @@
 ## 零、先做这件事
 
 ```bash
-node scripts/t80.mjs && node scripts/t81.mjs && node scripts/t82.mjs \
-  && node scripts/t83.mjs && node scripts/t84.mjs && node scripts/t85.mjs \
-  && node scripts/t86.mjs
+bash tests/run-all.sh        # 逻辑测试 + 静态检查,~510 项,秒级
+bash tests/run-browser.sh    # 浏览器全流程(Playwright),较慢
 ```
 
-七个逻辑测试,全绿是基线。**改任何东西之前先跑一次**,知道哪些是本来就红的。
+全绿是基线。**改任何东西之前先跑一次**,知道哪些是本来就红的。
+
+`run-all.sh` 里除了 7 个 `.mjs` 逻辑测试(t80-t90),还跑 5 个静态检查:
+
+| 检查 | 抓什么 |
+|---|---|
+| `lint-imports.mjs` | 重复 import 声明 —— **会让整个 ES module 加载失败,页面白屏且零报错** |
+| `lint-precache.mjs` | sw.js 预缓存重复项 / 指向不存在的文件(会让 SW install 整体失败) |
+| `lint-version.mjs` | 版本号在 index.html / manifest / sw.js 之间不一致 |
+| `lint-methods.mjs` | 调用了 `this.xxx()` 但方法没定义(V0.89 实际踩过,点按钮毫无反应) |
+| `lint-testversion.mjs` | 测试里写死版本号(升版后假失败,V0.86/87/88/89 各中一次) |
+
+这五个 lint 不是可选项。V0.88/V0.89/V0.90 的严重 bug 全部是 `node --check` 查不出来的语义问题。
+
+---
+
+## 零点五、最近两个版本踩的坑(V0.88 / V0.89)
+
+这批 bug 有共同点:**语法完全正确,`node --check` 全过,逻辑测试也全绿,只有真跑浏览器才炸。**
+
+连同上面四个 lint 在内,`run-all.sh` 抓到的都是**语义**问题 —— 语法没问题,行为不对。
+
+### 0. 存档:每个模块都得 `load()`,包括它自己
+
+**V0.77 到 V0.90 的 P0 bug。** `Cult.init()` 以前只 load 了 nemesis/titles,
+没 load 自己。结果每次刷新页面,修为/境界/丹药/神通全归零,还会把 0 写回存档。
+
+```js
+// ❌ 以为 init 会自动读存档
+init() { this.nemesis.load(); this.titles.load(); }
+
+// ✅ 每个模块启动都要读回自己的存档
+init() { this.load(); this.nemesis.load(); this.titles.load(); }
+```
+
+**给带存档的模块写测试,必须有往返断言**:
+```js
+s.exp = 7777; commit(); load(); assert(s.exp === 7777);
+```
+否则逻辑测试从空档开始跑,永远测不到 —— 这个 bug 藏了 13 个版本。
+
+### 1. 写了但没接上
+
+```js
+// ❌ 结局选择只发奖,从不调 finish()
+// 后果:叙事线永远标记不了完成,结案后还在列表里 → 可无限刷奖励
+const g = QUEST.grant(rw, path);        // 发了
+// STORY.finish(k, path, grant)          // ← 这行漏了
+```
+
+**教训**:新增的函数如果没人调用,`node --check` 和单测都发现不了。
+写完 grep 一下函数名,确认有调用点。
+
+### 2. 缺 import 导致静默失败
+
+```js
+// ❌ quest.js 缺 import { BUILDINGS }
+// 后果:Bag.add('bld_field') 返回 false,建筑类奖励发不出去,没有报错
+// 道具发了,建筑没发,玩家只看到少了一样东西
+```
+
+**教训**:`Bag.add` 失败是**静默的**。新增物品类型后,验证 `Bag.add` 返回 true。
+
+### 3. 导出名用错
+
+```js
+// ❌ STORY.ARCS —— ARCS 是独立导出,不在 STORY 上
+// 后果:点击结案直接报错,弹窗不出现
+import { STORY, ARCS } from './story.js';
+```
+
+### 4. 重构误伤(最隐蔽的一种)
+
+V0.89 清理 `ui.js` 的 188 行重复代码时,把 `askStoryPath` / `showStoryDone` 一起删了 ——
+它们 V0.88 才加,正好被包在重复块里。
+点「了结」**毫无反应**,`this.askStoryPath is not a function` 只在浏览器控制台。
+
+**教训**:清理重复代码前,先 `grep -c "方法名"` 确认真实定义数。
+两份内容相同 ≠ 两份都是唯一的那份。
+
+### 5. 重复定义(写重了)
+
+V0.89 在 `ui.js` 里发现 7 个方法被定义两遍,整整 188 行。
+JS 对象字面量里**后者静默覆盖前者**,功能"看起来完全正常"。
+
+**教训**:改大文件后跑 `grep -oP "^  \K\w+(?=\()" js/xiuxian/ui.js | sort | uniq -d`,看有没有重名。
+
+### 6. 重复 import(直接白屏)
+
+```js
+// ❌ ui.js 里 import { QUEST } 写了两遍
+// 后果:SyntaxError → 整个修仙阁打不开,页面上没有任何提示
+```
+
+**教训**:已加 `tests/lint-imports.mjs` 长期防回归。`node --check` 抓不到这个。
 
 ---
 
@@ -266,16 +359,27 @@ load() {
 
 ## 七、当前版本状态
 
-**V0.86 · 秘闻**
+**V0.90 · 存档修复**
 
-逻辑测试 322 项(1 项断言问题,逻辑已独立验证),浏览器 24 项,全绿。
+- 逻辑测试 **510 项**全绿(t80-t90)+ 5 个静态检查
+- 浏览器测试 **5 套**全流程通过,0 JS 错误
+- 线上:`https://dadadelddd309.github.io/xuanxuan-cultivation/`
 
-**已知未完成**(详见 ROADMAP):
-- 支线任务追踪与奖励结算(有文本有结局,但不能领奖)
-- 仙人墓地下层(墓只是地图上一个点)
-- 境界上限化神(渡劫/仙人未开放)
-- 坐骑/宠物系统
-- 部分 `Math.random()` 未迁移到种子
+**已完成**:
+- ✅ 存档持久化修复(V0.77 起的老 bug,V0.90 修)
+- ✅ 支线任务系统(8 条传说妖支线,追踪/双结局/发奖)
+- ✅ 叙事线与支线打通(共用结局,发奖只发一次)
+- ✅ 仙人墓地下层(5 房间,墓主身份揭晓,结局刻碑文)
+
+**未完成**(详见 [`ROADMAP.md`](ROADMAP.md)):
+- 坐骑 / 宠物
+- 昼夜生态表(现在只改倍率,不改种类)
+- 化神之上(渡劫 / 仙人)
+- 更多传说妖与叙事线
+- 结局的长期影响(碑文是第一步,还没影响 NPC 对话)
+
+**技术债**:见 [`TECHDEBT.md`](TECHDEBT.md)。
+其中 `ui.js` 1394 行待拆、存档键分散在 5 个模块、部分 `Math.random()` 未迁移到种子。
 
 ---
 
@@ -283,6 +387,8 @@ load() {
 
 见 [`DEPLOY.md`](DEPLOY.md)。要点:
 - 仓库 `DaDaDelddd309/xuanxuan-cultivation`
-- 通过 GitHub REST API 推(沙箱里 git SSL 有问题)
+- **部署前必跑** `bash tests/run-browser.sh`(只跑逻辑测试不够,见第零点五节)
+- 升版本号要改 4 处:`index.html` ×2、`manifest.webmanifest`、`sw.js`
+  (`lint-version.mjs` 会验,漏改直接红)
 - 部署完要**等 GitHub Pages 构建完再验证**,通常 30-60 秒
 - commit message 现在会自动读 `index.html` 里的版本号

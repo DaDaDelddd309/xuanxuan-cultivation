@@ -7,11 +7,24 @@ with sync_playwright() as p:
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
-    pg.goto('http://127.0.0.1:8894/',wait_until='networkidle'); time.sleep(1.5)
+    pg.goto('http://127.0.0.1:%s/' % __import__('os').environ.get('XX_TEST_PORT','8894'),wait_until='networkidle'); time.sleep(1.5)
+    def unblock(pg, tries=6):
+        """清掉挡住页面的全屏层(仪式/结算卡)。测试里任何点击前都该先调。"""
+        for _ in range(tries):
+            if not pg.evaluate("()=>!!document.querySelector('.xx-ritual,.xx-storycard')"): return
+            pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
+            time.sleep(0.35)
+
+
     ok=lambda n,c: print(('  ✅ ' if c else '  ❌ ')+n) or (None if c else fails.append(n))
+    pg.evaluate("()=>localStorage.clear()")
+    pg.reload(wait_until='networkidle'); time.sleep(1.5)
     print("【原版回归】")
-    ok("标题 V0.79", 'V0.79' in pg.title())
+    _s=pg.evaluate("()=>{const m=document.title.match(/V(\\d+\\.\\d+)/);return m?m[1]:''}")
+    _u=pg.evaluate("()=>{const e=document.querySelector('.game-title small');const m=e.textContent.match(/V(\\d+\\.\\d+)/);return m?m[1]:''}")
+    ok(f"标题版本一致({_s})", _s and _s==_u)
     ok("修仙阁入口", pg.evaluate("()=>!!document.getElementById('btn-cult')"))
+    unblock(pg)
     pg.click('#btn-play'); time.sleep(0.7)
     pg.click('#char-list > *'); time.sleep(2)
     for i in range(14):
@@ -23,11 +36,17 @@ with sync_playwright() as p:
       for(let i=0;i<d.length;i+=400)if(Math.abs(d[i]-240)>14)n++;return (n/(d.length/400)*100)}""")
     ok(f"Canvas 渲染 {px:.1f}%", px>5)
     print("【修仙阁】")
+    # 局内出来后会弹仪式(命名灵伴/立宗),先关掉再进修仙阁
+    pg.evaluate("async()=>{const m=await import('/js/xiuxian/ritual.js');m.Ritual.close();}")
+    time.sleep(0.6)
     pg.evaluate("()=>{document.getElementById('btn-quit')?.click()}"); time.sleep(0.6)
     pg.evaluate("()=>{document.getElementById('btn-pause')?.click()}"); time.sleep(0.5)
     pg.click('#btn-resume'); time.sleep(0.4)
     pg.reload(wait_until='networkidle'); time.sleep(1.6)
-    pg.click('#btn-cult'); time.sleep(1.2)
+    pg.evaluate("async()=>{try{const m=await import('/js/xiuxian/ritual.js');m.Ritual.close();}catch(e){}}")
+    time.sleep(0.5)
+    unblock(pg)
+    pg.click('#btn-cult'); time.sleep(1.5)
     ok("打开", pg.evaluate("()=>!document.querySelector('.xx-screen').classList.contains('hidden')"))
     ok("境界渲染", pg.evaluate("()=>document.querySelectorAll('#xx-body .xx-card').length")>0)
     for t in ['map','arts','people','title','realm']:
@@ -35,7 +54,7 @@ with sync_playwright() as p:
         n=pg.evaluate("()=>document.querySelectorAll('#xx-body *').length")
         ok(f"标签 {t} ({n}节点)", n>5)
     # 地图移动
-    pg.click('[data-tab=map]'); time.sleep(0.4)
+    unblock(pg); pg.click('[data-tab=map]'); time.sleep(0.4)
     before=pg.evaluate("()=>document.querySelector('.xx-node.cur')?.dataset.v")
     pg.evaluate("()=>{const n=[...document.querySelectorAll('.xx-node:not(.locked)')].find(x=>x.dataset.v!==document.querySelector('.xx-node.cur').dataset.v); n?.click()}")
     time.sleep(0.7)
@@ -44,13 +63,17 @@ with sync_playwright() as p:
     ok("野地不打断(回合制未弹)", pg.evaluate("()=>!document.querySelector('.xx-duel')||document.querySelector('.xx-duel').classList.contains('hidden')"))
     ok("修仙阁仍在", pg.evaluate("()=>!document.querySelector('.xx-screen').classList.contains('hidden')"))
     # 吐纳 + 存档持久化
-    pg.click('[data-tab=realm]'); time.sleep(0.3)
-    pg.click('[data-act=meditate]'); time.sleep(0.5)
-    dao=pg.evaluate("()=>document.querySelectorAll('.xx-big')[1]?.textContent")
+    unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3)
+    unblock(pg); pg.click('[data-act=meditate]'); time.sleep(0.5)
+    # 吐纳加的是修为(exp),道行(dao)只在年表推进时才涨 —— 查 exp 才对
+    dao=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().exp}")
     pg.reload(wait_until='networkidle'); time.sleep(1.5)
-    pg.click('#btn-cult'); time.sleep(0.9)
-    dao2=pg.evaluate("()=>document.querySelectorAll('.xx-big')[1]?.textContent")
-    ok(f"存档持久化 {dao}→{dao2}", dao==dao2 and dao not in (None,'0'))
+    pg.evaluate("async()=>{try{const m=await import('/js/xiuxian/ritual.js');m.Ritual.close();}catch(e){}}")
+    time.sleep(0.5)
+    unblock(pg)
+    pg.click('#btn-cult'); time.sleep(1.5)
+    dao2=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().exp}")
+    ok(f"存档持久化 exp {dao}→{dao2}", dao==dao2 and dao not in (None,'0'))
     print("【回合制】")
     r=pg.evaluate("""async()=>{
       const {Duel}=await import('/js/xiuxian/duel.js');
