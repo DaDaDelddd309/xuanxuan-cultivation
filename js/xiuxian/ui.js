@@ -20,6 +20,7 @@ import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY, ARCS } from './story.js';
 import { PHASES } from './ambience.js';
 import { QUEST } from './quest.js';
+import { ARC_REWARD } from './story.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
@@ -218,6 +219,12 @@ export const Hall = {
       case 'pact': { const r=BUILD.signPact('落云散修'); toast(r.msg); this.render(); break; }
       // —— 支线 ——
       case 'qtake': { const r=QUEST.take(v); toast(r.ok?`接下「${r.quest.title}」`:(r.msg||'接不了')); this.render(); break; }
+      case 'sfinal': this.askStoryPath(v); break;
+      case 'spath': {
+        const r=STORY.finish(v, +v2, (rw)=>QUEST.grant(rw, +v2));
+        if(!r.ok){ toast(r.msg||'还不行'); break; }
+        this.showStoryDone(r); this.render(); break;
+      }
       case 'qdone': {
         const k = v;
         const sp = QUEST.specialPrompt(k);
@@ -841,6 +848,31 @@ export const Hall = {
         </div>`).join('')
         : '<div class="xx-dim" style="text-align:center;padding:14px">手上没有事。多走走,多遇见。</div>'}
 
+      ${(() => {
+        const ready = STORY.readyList();
+        if (!ready.length) return '';
+        return `<div class="xx-card" style="border-color:rgba(181,52,42,.45)">
+          <div class="xx-label">看 完 了 · 等 你 选</div>
+          <div class="xx-dim" style="margin-bottom:9px">事到末尾了。选哪一条路,得你自己定。</div>
+          ${ready.map(r=>`<div style="margin-bottom:11px">
+            <div class="xx-val" style="font-size:14px;color:var(--xx-gold)">${esc(r.name)}</div>
+            <button class="xx-btn main" style="margin:8px 0 0" data-act="sfinal" data-v="${r.key}">了 结</button>
+          </div>`).join('')}</div>`;
+      })()}
+
+      ${(() => {
+        const act = STORY.activeList().filter(a=>!STORY.readyFinish(a.key));
+        if (!act.length) return '';
+        return `<div class="xx-card"><div class="xx-label">听 说 的 事</div>
+          <div class="xx-dim" style="margin-bottom:8px">还没走到头。去该去的地方看看。</div>
+          ${act.map(a=>`<div style="margin-bottom:8px">
+            <div class="xx-val" style="font-size:13px;color:var(--xx-paper)">${esc(a.name)}
+              <span class="xx-dim">(${a.beat+1}/${a.total})</span></div>
+            <div class="xx-dim" style="margin-top:2px">下一处:${esc(a.next?a.next.node:'')}</div>
+            <div class="xx-bar" style="margin-top:6px"><i style="width:${(a.beat/a.total)*100}%"></i></div>
+          </div>`).join('')}</div>`;
+      })()}
+
       ${avail.length ? `
         <div class="xx-card"><div class="xx-label">可 以 接 下</div>
         ${avail.map(l=>`<div class="xx-mem">
@@ -857,6 +889,42 @@ export const Hall = {
   },
 
   showQuestReady(q) { toast(`「${q.title}」可结案了。往修仙阁 → 支线`); },
+  // 叙事线结案:二选一
+  askStoryPath(k) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-n">${esc(ARCS[k].name)} · 了 结</div>
+      <div class="xx-sc-t">事到头了。剩下的,是你的选择。</div>
+      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px;font-size:13px;line-height:1.6"
+        data-p="1">${esc(ARCS[k].beats[ARCS[k].beats.length-1].epilogue)}</div>
+      <div class="xx-sc-go" style="cursor:pointer;margin-top:10px;font-size:13px;line-height:1.6"
+        data-p="2">${esc(ARCS[k].beats[ARCS[k].beats.length-1].epilogue2)}</div>
+      <div class="xx-sc-x">再想想</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+      const path = +b.dataset.p;
+      el.remove();
+      // 先结案(记录结局/写日志/移出活跃),由 finish 内部发奖
+      const r = STORY.finish(k, path, (rw) => QUEST.grant(rw, path));
+      if (!r.ok) { toast(r.msg || '还不行'); this.render(); return; }
+      this.showStoryDone({ name:r.name, path, reward:r.reward, text:r.text });
+      this.render();
+    });
+    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
+  },
+  showStoryDone(r) {
+    const el=document.createElement('div');
+    el.className='xx-storycard';
+    el.innerHTML=`<div class="xx-sc-n">${esc(r.name)} · ${r.path===1?'其一':'其二'}</div>
+      <div class="xx-sc-t">${esc(r.text||'')}</div>
+      <div class="xx-sc-r" style="color:var(--xx-gold)">
+        ${(r.reward&&r.reward.text&&r.reward.text.length)?r.reward.text.map(esc).join(' · '):'得了一份缘法。'}</div>
+      <div class="xx-sc-x">收下</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
+    setTimeout(()=>el.remove(),16000);
+  },
+
   // 双结局选择
   askPath(k) {
     const el = document.createElement('div');
@@ -967,6 +1035,31 @@ export const Hall = {
                <div class="xx-dim" style="margin-top:5px">${esc(q.tip)}</div>`}
         </div>`).join('')
         : '<div class="xx-dim" style="text-align:center;padding:14px">手上没有事。多走走,多遇见。</div>'}
+
+      ${(() => {
+        const ready = STORY.readyList();
+        if (!ready.length) return '';
+        return `<div class="xx-card" style="border-color:rgba(181,52,42,.45)">
+          <div class="xx-label">看 完 了 · 等 你 选</div>
+          <div class="xx-dim" style="margin-bottom:9px">事到末尾了。选哪一条路,得你自己定。</div>
+          ${ready.map(r=>`<div style="margin-bottom:11px">
+            <div class="xx-val" style="font-size:14px;color:var(--xx-gold)">${esc(r.name)}</div>
+            <button class="xx-btn main" style="margin:8px 0 0" data-act="sfinal" data-v="${r.key}">了 结</button>
+          </div>`).join('')}</div>`;
+      })()}
+
+      ${(() => {
+        const act = STORY.activeList().filter(a=>!STORY.readyFinish(a.key));
+        if (!act.length) return '';
+        return `<div class="xx-card"><div class="xx-label">听 说 的 事</div>
+          <div class="xx-dim" style="margin-bottom:8px">还没走到头。去该去的地方看看。</div>
+          ${act.map(a=>`<div style="margin-bottom:8px">
+            <div class="xx-val" style="font-size:13px;color:var(--xx-paper)">${esc(a.name)}
+              <span class="xx-dim">(${a.beat+1}/${a.total})</span></div>
+            <div class="xx-dim" style="margin-top:2px">下一处:${esc(a.next?a.next.node:'')}</div>
+            <div class="xx-bar" style="margin-top:6px"><i style="width:${(a.beat/a.total)*100}%"></i></div>
+          </div>`).join('')}</div>`;
+      })()}
 
       ${avail.length ? `
         <div class="xx-card"><div class="xx-label">可 以 接 下</div>

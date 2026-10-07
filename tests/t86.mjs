@@ -62,15 +62,18 @@ S.STORY.arrive(arcs[0].node);
 let last=null;
 for(let i=1;i<arcs.length;i++) last=S.STORY.arrive(arcs[i].node);
 t('最后一环有 last 标记', last&&last[0]&&last[0].last===true);
-t('完成后转 done', !!S.STORY.s.done.hongyi);
-t('从活跃移除', !S.STORY.s.active.hongyi);
+// V0.88 起:走到最后一环不再自动结案,等玩家选结局(见 t88)
+t('看完不自动结案', !S.STORY.s.done.hongyi);
+t('仍在活跃等选择', !!S.STORY.s.active.hongyi);
+t('readyFinish 为真', S.STORY.readyFinish('hongyi')===true);
+t('最后一环带两个结局', !!(last&&last[0]&&last[0].ep1&&last[0].ep2));
 // 双结局
-const e1=S.STORY.finish('hongyi',1);
+const e1=S.STORY.finish('hongyi',1,null);
 t('结局1', e1&&e1.text===arcs[arcs.length-1].epilogue);
 S.STORY.start('jiangu');
 const arcs2=S.ARCS.jiangu.beats;
 for(const b of arcs2) S.STORY.arrive(b.node);
-const e2=S.STORY.finish('jiangu',2);
+const e2=S.STORY.finish('jiangu',2,null);
 t('结局2不同', e2&&e2.text===arcs2[arcs2.length-1].epilogue2);
 
 console.log('\n=== 流言(商人/鬼火的素材) ===');

@@ -1,4 +1,5 @@
 // ===== 叙事引擎 · 世界在运转 =====
+// 奖励:结案时二选一发放。数值按线的分量给,传说线最重。
 // 核心:不是随机抽事件,而是世界按「剧本」推进。
 // 一个事件发生 → 产生余波 → 余波改变地图/流言/可刷的怪 → 再产生下一环。
 // 每条线都有 3~4 环,玩家介入能改结局。
@@ -6,6 +7,15 @@
 const K = 'xx_story_v086';
 
 // —— 剧本:每条线一个「剧情」,多环推进 ——
+// 每条线的结案奖励(path 1 / path 2)
+export const ARC_REWARD = {
+  hongyi:   [{dao:900, scroll:'scroll_2'}, {dao:600, item:'bld_field', scroll:'scroll_2'}],
+  laolao:   [{dao:2600, scroll:'scroll_3'}, {dao:1800, item:'xi_sui', scroll:'scroll_3'}],
+  tomb:     [{dao:3000, scroll:'scroll_4'}, {dao:2200, item:'bld_tower', scroll:'scroll_4'}],
+  jiangu:   [{dao:2000, item:'stone_3'}, {dao:2400, scroll:'scroll_3', item:'stone_3'}],
+  auspicious:[{dao:1600, scroll:'scroll_4'}, {dao:2800, item:'stone_4', scroll:'scroll_4'}],
+};
+
 export const ARCS = {
   // 一、红衣女鬼:由一桩旧婚事引发
   hongyi: {
@@ -158,14 +168,17 @@ export const STORY = {
       if (!b) continue;
       if (b.node === nodeId) {
         // 只有当玩家"知道"这一环才会推进(第一环自动,后续需玩家做过什么)
+        const isLast = i >= arc.beats.length - 1;
         out.push({ arc:key, name:arc.name, beat:i, text:b.text, reveal:b.reveal,
-                   last: i >= arc.beats.length-1 });
+                   last: isLast,
+                   ep1: isLast ? arc.beats[i].epilogue  : null,
+                   ep2: isLast ? arc.beats[i].epilogue2 : null });
         this.s.beat[key] = i + 1;
         this.logLine(arc.name, b.text);
         if (b.reveal) this.pushRumor(b.reveal);
-        if (this.s.beat[key] >= arc.beats.length) {
+        // 最后一环不自动结案:留给玩家选结局(见 finish)
+        if (!isLast && this.s.beat[key] >= arc.beats.length) {
           delete this.s.active[key];
-          this.s.done[key] = { at:this.s.t, epilogue: arc.beats[arc.beats.length-1].epilogue };
         }
       }
     }
@@ -173,17 +186,28 @@ export const STORY = {
     return out;
   },
 
-  // 结案:玩家选了哪条路
-  finish(key, path) {
+  // 待结案:最后一环已看完,但还没选结局
+  readyFinish(key) {
     const arc = ARCS[key];
-    if (!arc) return null;
+    if (!arc) return false;
+    if (this.s.done[key]) return false;
+    return (this.s.beat[key] || 0) >= arc.beats.length;
+  },
+  // 结案:玩家选了哪条路 → 发奖
+  finish(key, path, grant) {
+    const arc = ARCS[key];
+    if (!arc) return { ok:false, msg:'无此线' };
+    if (this.s.done[key]) return { ok:false, msg:'已了结' };
+    if (!this.readyFinish(key)) return { ok:false, msg:'还没看完。' };
     const last = arc.beats[arc.beats.length-1];
     const txt = path === 1 ? last.epilogue : last.epilogue2;
+    const rw = (ARC_REWARD[key] || [])[path-1] || null;
+    const reward = (rw && grant) ? grant(rw) : { text: rw ? [] : [] };
     this.s.done[key] = { at:this.s.t, epilogue:txt, path };
     delete this.s.active[key];
     this.logLine(arc.name, '【结案】' + txt);
     this.save();
-    return { name:arc.name, text:txt };
+    return { ok:true, name:arc.name, text:txt, reward };
   },
 
   // 流言池(商人/鬼火会念)
@@ -212,6 +236,17 @@ export const STORY = {
   reset() {
     this.s = { active:{}, done:{}, beat:{}, rumors:[], log:[], met:{}, t:0 };
     this.save();
+  },
+  // 待结案的线(看完最后一环,等玩家选结局)
+  readyList() {
+    return Object.keys(this.s.active)
+      .filter(k => this.readyFinish(k))
+      .map(k => ({
+        key:k, name:ARCS[k].name,
+        ep1: ARCS[k].beats[ARCS[k].beats.length-1].epilogue,
+        ep2: ARCS[k].beats[ARCS[k].beats.length-1].epilogue2,
+        mob: ARCS[k].mob,
+      }));
   },
   activeList() {
     return Object.keys(this.s.active).map(k => ({

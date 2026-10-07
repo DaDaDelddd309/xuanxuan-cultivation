@@ -5,6 +5,7 @@ import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY } from './story.js';
 import { Cult } from './index.js';
 import { Bag, STONES, SCROLLS, GOODS } from './items.js';
+import { BUILDINGS } from './bestiary.js';   // 触发建材注册(Bag 白名单)
 
 const K = 'xx_quest_v087';
 
@@ -106,7 +107,7 @@ export const QUEST = {
         got.text.push(`${sc.name} ×1`); }
     }
     if (rw.item) { Bag.add(rw.item, 1); got.item = rw.item;
-      got.text.push(`${(STONES[rw.item]||GOODS[rw.item]||{name:rw.item}).name} ×1`); }
+      got.text.push(`${(STONES[rw.item]||GOODS[rw.item]||BUILDINGS[rw.item]||{name:rw.item}).name} ×1`); }
     if (rw.special) { got.special = rw.special; Cult.get().dao += path===1?0:300;
       if (path===2) got.text.push('道行 +300'); }
     Cult.commit();
