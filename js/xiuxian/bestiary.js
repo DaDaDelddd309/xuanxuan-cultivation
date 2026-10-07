@@ -145,6 +145,8 @@ export const NPCS = {
   },
   momocha: {
     name:'么么茶', form:'茶 摊', img:'assets/portrait/momocha.jpg', route:'fixed',
+    passive:'被动:全局挂机收益 +25% · 可委灵田(产量 ×1.8)',
+    recruit:'开服即在队,无需招募',
     desc:'落云镇那个茶摊的少年。三文钱一碗,粗茶。',
     bio:'你第一次喝到他家的茶,是在逃亡的路上。他没问你从哪来,只问你喝不喝。\n' +
         '后来他跟来了。他说:"跟着你,生意会更好。"',

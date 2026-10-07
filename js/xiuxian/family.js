@@ -15,6 +15,7 @@ const ROLES = [
   { k:'miner',    name:'矿师', col:'#c9a227', d:'下矿。产源石。', power:2 },
   { k:'scholar',  name:'修士', col:'#4a9de0', d:'修行。为家族贡献修为。', power:2 },
   { k:'elder',    name:'长老', col:'#b86fd0', d:'坐镇。降低家族被袭风险。', power:1 },
+  { k:'farmer',   name:'茶摊', col:'#c9a227', d:'侍弄灵田,产量远超常人。', power:2 },
 ];
 
 export const FAMILY = {
@@ -54,13 +55,28 @@ export const FAMILY = {
     if (this.s.founded) return { ok:false, msg:'已立族。' };
     this.s.founded = true;
     this.s.name = (name||'').trim() || '轩氏';
-    // 立族送一个族人
+    this.addMomocha();      // 么么茶固定在队
     this.addMember('elder');
     this.save();
     return { ok:true, msg:`${this.s.name} 立族了。` };
   },
 
   // —— 族人 ——
+  // 么么茶:固定队友。开服即在队,不走随机生成。
+  addMomocha() {
+    if (this.s.members.some(m => m.npc === 'momocha')) return null;
+    const m = {
+      uid:'npc_momocha', gen:0, npc:'momocha',
+      name:'么么茶', role:'farmer', roleName:'茶摊', col:'#c9a227',
+      desc:'开服即在队。全局挂机收益 +25%,灵田产量 ×1.8。',
+      lv:3, aff:100, partner:null, born:Date.now(),
+    };
+    this.s.members.push(m);
+    this.save();
+    return m;
+  },
+  momocha() { return this.s.members.find(m => m.npc === 'momocha') || null; },
+
   addMember(forceRole) {
     const uid = 'f' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
     const role = forceRole
@@ -92,7 +108,7 @@ export const FAMILY = {
   },
   birth() {
     if (!this.s.founded) return { ok:false, msg:'尚未立族。' };
-    const free = this.s.members.filter(m=>!m.partner);
+    const free = this.s.members.filter(m=>!m.partner && m.npc!=='momocha');
     if (free.length < 2) return { ok:false, msg:'族中无未婚配对,人口凋零。' };
     if (this.s.wealth < 200) return { ok:false, msg:'家族资产不足 200。' };
     const a = free[0], b = free[1];
@@ -114,6 +130,7 @@ export const FAMILY = {
   interact(uid, kind) {
     const m = this.member(uid);
     if (!m) return { ok:false, msg:'无此族人。' };
+    if (m.npc === 'momocha') return { ok:false, msg:'么么茶不是你能安排的。他自己会沏茶。' };
     const COST = { talk:20, gift:60, train:120 };
     if (this.s.wealth < COST[kind]) return { ok:false, msg:`家族资产不足 ${COST[kind]}` };
     this.s.wealth -= COST[kind];
@@ -133,6 +150,7 @@ export const FAMILY = {
   yieldDay() {
     let stone = 0, pill = 0, dao = 0, exp = 0;
     for (const m of this.s.members) {
+      if (m.npc === 'momocha') { dao += 260; continue; }   // 固定贡献
       const P = 1 + m.lv * 0.25;
       if (m.role === 'miner') stone += Math.round(2 * P);
       else if (m.role === 'alchemist') pill += Math.round(0.6 * P);

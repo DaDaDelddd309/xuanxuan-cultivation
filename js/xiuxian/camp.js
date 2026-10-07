@@ -7,6 +7,11 @@
 
 import { STONES, Bag, DAY } from './items.js';
 
+// 么么茶是否在队(避免循环依赖,由 main.js 注入)
+let MOMOCHA_IN = false;
+export function setMomocha(v) { MOMOCHA_IN = !!v; }
+export const momochaIn = () => MOMOCHA_IN;
+
 const K = 'xx_camp_v080';
 
 // 营地阶位
@@ -141,6 +146,8 @@ export const CAMP = {
       out.dao = Math.floor(out.dao * b);
       out.exp = Math.floor(out.exp * b);
       if (DAY.isNight()) out.dao = Math.floor(out.dao * 1.2);
+      // 么么茶被动:茶摊开着,大家都有口热水喝 → 收益 +25%
+      if (MOMOCHA_IN) { out.dao = Math.floor(out.dao * 1.25); out.exp = Math.floor(out.exp * 1.25); }
 
       // 低阶石产出随阶位提升
       const sRoll = Math.random();

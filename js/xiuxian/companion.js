@@ -303,6 +303,26 @@ export const COMPANION = {
     return 70 + CAMP.tier().lv * 22;
   },
 
+  // —— 怨灵附身:真实强化场上怪 ——
+  // 返回倍率给主循环;没有附身返回 1
+  hostBuff() {
+    const g = this.s.ghost;
+    if (!g.on || g.phase !== 'possessing') return 1;
+    // 附身期间所有怪都吃强化:血 +60%,伤害 +45%,速度 +25%
+    return 1.6;
+  },
+  hostDmg() {
+    const g = this.s.ghost;
+    if (!g.on || g.phase !== 'possessing') return 1;
+    return 1.45;
+  },
+  hostSpd() {
+    const g = this.s.ghost;
+    if (!g.on || g.phase !== 'possessing') return 1.25;
+    return 1.25;
+  },
+  possessing() { return this.s.ghost.on && this.s.ghost.phase === 'possessing'; },
+
   // 供主循环读:本帧是否让玩家拾取
   autoPick(dt, dist) {
     const p = this.s.pick;

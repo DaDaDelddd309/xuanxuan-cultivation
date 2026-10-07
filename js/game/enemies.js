@@ -59,10 +59,22 @@ const MAX_ENEMY_PROJECTILES = 128;
 const MAX_ENEMY_ZONES = 24;
 const ENEMY_RECYCLE_D2 = 1100 * 1100;
 
+// —— 外部强化钩子(怨灵附身等):mod = {hp,dmg,spd} ——
+export const ENEMY_MOD = { hp: 1, dmg: 1, spd: 1 };
+export function setEnemyMod(m) {
+  ENEMY_MOD.hp = (m && m.hp) || 1;
+  ENEMY_MOD.dmg = (m && m.dmg) || 1;
+  ENEMY_MOD.spd = (m && m.spd) || 1;
+}
+
 export function spawnEnemy(g, typeId, x, y, o = {}) {
   const t = ENEMY_TYPES[typeId];
   if (!t) return null;
   const elite = !!o.elite, mini = !!o.mini;
+  o = Object.assign({}, o);
+  if (ENEMY_MOD.hp  !== 1) o.hpMult    = (o.hpMult    || 1) * ENEMY_MOD.hp;
+  if (ENEMY_MOD.dmg !== 1) o.dmgMult   = (o.dmgMult   || 1) * ENEMY_MOD.dmg;
+  if (ENEMY_MOD.spd !== 1) o.speedMult = (o.speedMult || 1) * ENEMY_MOD.spd;
   const hpM = (o.hpMult || 1) * (elite ? 6 : 1) * (mini ? 0.35 : 1);
   const baseHp = t.hp * (elite ? 6 : 1) * (mini ? 0.35 : 1);
   const hp = safeHp(o.hpOverride !== undefined ? o.hpOverride : t.hp * hpM, baseHp);

@@ -10,6 +10,7 @@ import { initMap } from './game/map.js?v=17';
 import { initParticles } from './game/particles.js?v=17';
 import { initCombat, combatState } from './game/enemies.js?v=17';
 import { initSpawner, setEndless } from './game/spawner.js?v=17';
+import * as Enemies from './game/enemies.js?v=17';
 import { initBoss } from './game/boss.js?v=17';
 import { initPickups } from './game/pickups.js?v=17';
 import { rollChoices, applyChoice } from './game/upgrades.js?v=17';
@@ -252,6 +253,8 @@ import { Titles, Nemesis } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';
 import { CHRONICLE } from './xiuxian/chronicle.js';
 import { BUILD } from './xiuxian/build.js';
+import { setMomocha } from './xiuxian/camp.js';
+import { BESTIARY } from './xiuxian/bestiary.js';
 
 (function bootCult() {
   const bind = () => {
@@ -270,6 +273,7 @@ import { BUILD } from './xiuxian/build.js';
     FAMILY.load();
     CHRONICLE.load();
     BUILD.load();
+    setMomocha(!!FAMILY.momocha());
     // 统一存档:进游戏先收集,页面隐藏/关闭时落盘
     const mods = { Cult, Nemesis, Titles, Bag, CAMP, DAY, Merchant, COMPANION };
     Profile.collect(mods);
@@ -278,14 +282,60 @@ import { BUILD } from './xiuxian/build.js';
     window.addEventListener('pagehide', autosave);
     window.addEventListener('beforeunload', autosave);
     // 暴露给 UI(存档码/换种子)
-    window.__xx = { Profile, Seed, mods, FAMILY, CHRONICLE };
+    window.__xx = { Profile, Seed, mods, FAMILY, CHRONICLE, BUILD, COMPANION,
+                    get ward(){ return COMPANION.wardRadius(); } };
+
+    // —— 怨灵附身:通过 enemies.js 的官方钩子强化全场怪 ——
+    Enemies.setEnemyMod(COMPANION.possessing()
+      ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() }
+      : null);
+    // 篝火护栏:火在时,怪不能进圈
+    engine.addUpdater(dt => {
+      const ward = COMPANION.wardRadius();
+      if (!ward || !g0().enemies) return;
+      const p = g0().player;
+      if (!p) return;
+      for (const e of g0().enemies) {
+        const dx = e.x - p.x, dy = e.y - p.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < ward && d > 0) {
+          // 硬推出护栏:源石护栏内绝对安全
+          e.x = p.x + dx / d * ward;
+          e.y = p.y + dy / d * ward;
+        }
+      }
+    });
+    function g0() { return window.__g || engine; }
     setTimeout(() => Ritual.start(false), off && off.dao > 0 ? 2600 : 700);
+    // 建筑真实掉落:敌人死亡时掷建材
+    Bus.on('enemy-death', e => {
+      const kind = _kindOf(e);
+      const g1 = BUILD.onKill(kind) || BUILD.onKillTier(e.boss ? 2 : e.elite ? 1 : 0);
+      if (g1 && engine.player) {
+        engine.spawnText(engine.player.x, engine.player.y - 44,
+          g1.icon + ' 获得 ' + g1.name, { color:'#c9a227', size: 14, life: 2.2 });
+      }
+    });
+    // 原版敌人 typeId → 修仙图谱 key
+    function _kindOf(e) {
+      const n = (e.name || '').toLowerCase();
+      if (e.boss) return 'devil';
+      if (e.elite) return 'yao';
+      if (n.includes('狼') || n.includes('兽')) return 'wanderer';
+      return 'guard';
+    }
     // 灵伴/怨灵/篝火守卫:每帧推进
     let _bondT = 0, _idleT = 0;
     engine.addAlways(dt => {
       _bondT += dt; _idleT += dt;
       if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden();
-        if (BUILD.s.placed.length) BUILD.tickAll(); }
+        if (BUILD.s.placed.length) BUILD.tickAll();
+        setMomocha(!!FAMILY.momocha());
+        // 怨灵附身状态同步到敌人模块
+        Enemies.setEnemyMod(COMPANION.possessing()
+          ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() }
+          : null);
+      }
       if (_idleT > 24) {
         _idleT = 0;
         if (COMPANION.canHug()) Bond.showHug();

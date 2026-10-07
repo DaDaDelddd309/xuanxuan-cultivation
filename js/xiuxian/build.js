@@ -7,11 +7,12 @@
 //  · 灵田按 10 分钟一熟,产量受 族人属性 + 区域怪物密度 影响
 //  · 晋升看 建筑数 + 人口 + 篝火数
 
-import { BUILDINGS, TIERS } from './bestiary.js';
+import { BUILDINGS, TIERS, BESTIARY } from './bestiary.js';
 import { CAMP } from './camp.js';
 import { FAMILY } from './family.js';
 import { Cult } from './index.js';
 import { Bag, DAY } from './items.js';
+import { momochaIn } from './camp.js';
 
 const K = 'xx_build_v083';
 export const FIELD_PERIOD = 10 * 60 * 1000;   // 灵田 10 分钟一熟(按需求)
@@ -86,6 +87,35 @@ export const BUILD = {
     return { ok:true, msg:`${BUILDINGS[it.bid].name} 已拆除,材料返还。` };
   },
 
+  // —— 战斗掉落:按击杀的怪类型掷建材 ——
+  // 由 main.js 在 enemy-death 时调用
+  onKill(kind) {
+    const m = BESTIARY[kind];
+    if (!m) return null;
+    let out = null;
+    for (const d of m.drops) {
+      if (!BUILDINGS[d.id]) continue;          // 只处理建筑类
+      if (Math.random() < d.p) {
+        Bag.add(d.id, 1);
+        out = { id:d.id, name:BUILDINGS[d.id].name, icon:BUILDINGS[d.id].icon };
+      }
+    }
+    if (out) this.save();
+    return out;
+  },
+  // 按原版敌人档位(0散妖 1精英 2Boss)兜底给建材
+  onKillTier(tier) {
+    const T = [[], [ 'bld_well' ], [ 'bld_furnace','bld_field' ]];
+    const pool = T[tier] || [];
+    if (!pool.length) return null;
+    const bid = pool[Math.floor(Math.random()*pool.length)];
+    if (Math.random() < (tier>=2 ? 0.06 : 0.03)) {
+      Bag.add(bid, 1);
+      return { id:bid, name:BUILDINGS[bid].name, icon:BUILDINGS[bid].icon };
+    }
+    return null;
+  },
+
   // —— 值守(多派人 → 效率提升)——
   // 效率公式:单人 1.0,两人 1.6,三人 2.1,四人 2.5(递减)
   efficiency(n) {
@@ -153,16 +183,19 @@ export const BUILD = {
     const eff = this.efficiency(inst.workers.length);
     if (eff <= 0) return { n:0, text:'无人值守' };
     // 属性加成:族人等级
-    let attr = 0;
+    let attr = 0, momo = false;
     for (const w of inst.workers) {
       const m = FAMILY.member(w.uid);
-      if (m) attr += 1 + m.lv * 0.3;
+      if (!m) continue;
+      if (m.npc === 'momocha') { momo = true; continue; }   // 么么茶不吃等级加成,走专属
+      attr += 1 + m.lv * 0.3;
     }
     attr = inst.workers.length ? attr / inst.workers.length : 0;
     const dens = this.fieldBonus();
     const night = DAY.isNight() ? 1.15 : 1.0;
-    const n = Math.max(1, Math.round((2 + Math.random()*3) * eff * (1+attr*0.2) * dens * night));
-    return { n, text:`${dens>1.4?'灵气躁动,产量高':'普通'}` };
+    let n = Math.max(1, Math.round((2 + Math.random()*3) * eff * (1+attr*0.2) * dens * night));
+    if (momo) n = Math.round(n * 1.8);      // 么么茶侍弄灵田,产量 ×1.8
+    return { n, text: momo ? '么么茶侍弄,产量大增' : (dens>1.4?'灵气躁动,产量高':'普通') };
   },
   // 灵田成熟判定(每次结算调用)
   tickField(bidx) {

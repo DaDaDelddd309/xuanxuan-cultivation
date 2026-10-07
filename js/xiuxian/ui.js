@@ -654,6 +654,15 @@ export const Hall = {
     }
     const mem = f.members.map(m => {
       const p = FAMILY.member(m.partner);
+      if (m.npc === 'momocha') {
+        return `<div class="xx-mem" style="border-color:rgba(201,162,39,.5)">
+          <div class="a">
+            <div class="n">${esc(m.name)}<span style="color:${m.col};margin-left:6px;font-size:11px">${esc(m.roleName)}</span>
+              <span class="xx-gold" style="font-size:9px;margin-left:5px">同道</span></div>
+            <div class="t" style="color:var(--xx-gold)">全局挂机收益 +25% · 灵田产量 ×1.8 · 族产固定 +260 道行</div>
+          </div>
+        </div>`;
+      }
       return `<div class="xx-mem">
         <div class="a">
           <div class="n">${esc(m.name)}<span style="color:${m.col};margin-left:6px;font-size:11px">${esc(m.roleName)}</span></div>
