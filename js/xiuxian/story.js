@@ -70,7 +70,8 @@ export const ARCS = {
       { at:2, node:'n8', text:'石将背上的字被凿掉了一半。剩下的半句是:「此生不悔」。',
         rumor:'石将不让任何人碰那半句话。碰了,就得补完。',
         reveal:'原话是「此生不悔,奈何无人共」。' },
-      { at:3, node:'n8', text:'石将让你补完。你手上现在有两半句话。',
+      // 最后一环不在地面上:得亲自走进墓里,走到石将跟前
+      { at:3, room:'sj', text:'石将侧过身,让出半步。它等你。',
         rumor:'补哪半,决定了你在这个故事里是谁。',
         reveal:'不悔的人独活。共过的人,一起死。',
         epilogue:'你补了「奈何无人共」。墓门开了。里面没有尸骨,只有一张空席。',
@@ -160,13 +161,20 @@ export const STORY = {
 
   // 玩家到了某节点 → 检查是否有线该推进
   arrive(nodeId) {
+    return this._advance(nodeId, 'node');
+  },
+  // 墓内房间触发(见 tomb.js)
+  arriveRoom(roomId) {
+    return this._advance(roomId, 'room');
+  },
+  _advance(nodeId, key2) {
     const out = [];
     for (const key of Object.keys(this.s.active)) {
       const arc = ARCS[key];
       const i = this.s.beat[key] || 0;
       const b = arc.beats[i];
       if (!b) continue;
-      if (b.node === nodeId) {
+      if (b[key2] === nodeId) {
         // 只有当玩家"知道"这一环才会推进(第一环自动,后续需玩家做过什么)
         const isLast = i >= arc.beats.length - 1;
         out.push({ arc:key, name:arc.name, beat:i, text:b.text, reveal:b.reveal,

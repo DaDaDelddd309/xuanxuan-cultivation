@@ -62,6 +62,9 @@ export const GOODS = {
   tai_xu:   { id:'tai_xu',   name:'太虚丹',   col:'#e0a83c', price:90000,
               use:s => { s.exp += 200000; return '丹药入腹,仿佛苦修了十年。'; },
               d:'一粒抵十年苦修。仙人也就吃得起了。' },
+  beiwen:   { id:'beiwen',   name:'碑文拓片', col:'#9a9285', price:0, noSell:true,
+              use:() => '拓片上的字断在「此生」处。后面没有了。',
+              d:'墓主自己拓的。拓到一半,纸没了。' },
 };
 export const GOODS_LIST = Object.values(GOODS);
 

@@ -6,6 +6,7 @@ import { STORY } from './story.js';
 import { Cult } from './index.js';
 import { Bag, STONES, SCROLLS, GOODS } from './items.js';
 import { BUILDINGS } from './bestiary.js';   // 触发建材注册(Bag 白名单)
+import { TOMB } from './tomb.js';            // 石将支线在墓里结案
 
 const K = 'xx_quest_v087';
 
@@ -17,7 +18,7 @@ export const QUEST_COND = {
   dangkang:{ type:'visit',  where:['n2','n1'], need:2, tip:'跟着白牛,它往山里去' },
   qingqiong:{type:'boss',  where:['n8'],      tip:'古战场,青穹每次都会经过' },
   jiangu:  { type:'visit',  where:['n8'],      need:1, tip:'断剑冢,看它演完那一招' },
-  shijiang:{ type:'visit',  where:['n8'],      need:1, tip:'仙人墓,石将守着半句话' },
+  shijiang:{ type:'tomb',   key:'shijiang',   tip:'走进墓里,到石将跟前' },
   dengshi: { type:'visit',  where:['n10','n3'], need:2, tip:'村外(n10)与南道(n3)的坟场' },
 };
 
@@ -80,10 +81,20 @@ export const QUEST = {
     }
     if (c.type === 'peace') return STORY.met(c.key) ? 1 : 0;
     if (c.type === 'boss')  return p.visited['n8'] ? 1 : 0;
+    if (c.type === 'tomb') return TOMB.s.done ? 1 : 0;   // 石将那条线在墓里结
     return 0;
   },
   // 条件是否达成
   ready(key) { return this.progress(key) >= 1; },
+
+  // 墓里结案后,同步了结石将支线(结局一致,不重复发奖)
+  settleShijiang(path) {
+    if (!this.s.active.includes('shijiang') || this.s.done.shijiang) return false;
+    this.s.active = this.s.active.filter(k=>k!=='shijiang');
+    this.s.done.shijiang = { path, at:Date.now(), inTomb:true };
+    this.save();
+    return true;
+  },
 
   // —— 结案:双结局 ——
   finish(key, path) {

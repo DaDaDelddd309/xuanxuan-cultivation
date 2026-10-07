@@ -571,3 +571,12 @@
 .xx-sc-x:active{background:rgba(201,162,39,.28)}
 .xx-dxx.unseen img{filter:grayscale(1) brightness(.35);position:relative}
 .xx-dxx.unseen .xx-dxx-b{opacity:.55}
+
+/* ---- 仙人墓 · 地下层 ---- */
+.xx-map .xx-node.tomb{width:34px;height:34px;font-size:12px}
+.xx-map .xx-node.tomb .xx-fogq{color:rgba(154,146,133,.55);font-size:13px}
+.xx-story-t{font-size:14px;color:var(--xx-paper);line-height:2;
+  font-family:"Songti SC",serif;letter-spacing:.6px}
+.xx-story-b{font-size:13px;color:var(--xx-jade);line-height:1.9;
+  padding-left:11px;border-left:2px solid rgba(74,157,224,.42);
+  font-family:"Songti SC",serif}

@@ -234,3 +234,7 @@ python3 scripts/t86.py      # 叙事专项
 ```
 
 **每次改动后至少跑一遍 t80-t86 + 对应的浏览器测试。**
+### `js/xiuxian/tomb.js`(V0.89 新增)
+仙人墓独立地下层。`ROOMS` 是纯数据,`TOMB` 是状态机。
+与 `story.js` 的关系:墓里 `settle('sj')` 触发叙事线最后一环,`finish(path)` 回写结局。
+与 `quest.js` 的关系:支线「半句话」靠 `TOMB.s.done` 判定完成。无循环依赖(quest → tomb 单向)。

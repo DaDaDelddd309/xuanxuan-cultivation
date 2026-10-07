@@ -38,7 +38,10 @@ t('每环都有揭示(reveal)', Object.values(S.ARCS).every(a=>a.beats.every(b=>
 t('每线有双结局', Object.values(S.ARCS).every(a=>{
   const last=a.beats[a.beats.length-1];
   return last.epilogue&&last.epilogue2&&last.epilogue!==last.epilogue2;}));
-t('每环都锚定地图节点', Object.values(S.ARCS).every(a=>a.beats.every(b=>/^n\d+$/.test(b.node))));
+// V0.89:「半句话」最后一环移进仙人墓(见 t89),不再锚定地图节点
+t('每环都锚定(地面节点或墓内房间)', Object.values(S.ARCS).every(a=>a.beats.every(b=>b.node||b.room)));
+t('墓内那环标了 room', S.ARCS.tomb.beats[3].room==='sj' && !S.ARCS.tomb.beats[3].node);
+t('前3环仍在地表', S.ARCS.tomb.beats.slice(0,3).every(b=>b.node==='n8'));
 t('每线关联一只妖', Object.values(S.ARCS).every(a=>L.LEGEND[a.mob]||['hongyi','laolao','shijiang','jiangu','baize'].includes(a.mob)));
 
 console.log('\n=== 叙事推进 ===');

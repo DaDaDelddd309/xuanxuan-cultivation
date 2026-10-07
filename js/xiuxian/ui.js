@@ -21,6 +21,7 @@ import { STORY, ARCS } from './story.js';
 import { PHASES } from './ambience.js';
 import { QUEST } from './quest.js';
 import { ARC_REWARD } from './story.js';
+import { TOMB, ROOMS as TOMB_ROOMS, WORDS as TOMB_WORDS } from './tomb.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
@@ -220,6 +221,15 @@ export const Hall = {
       // —— 支线 ——
       case 'qtake': { const r=QUEST.take(v); toast(r.ok?`接下「${r.quest.title}」`:(r.msg||'接不了')); this.render(); break; }
       case 'sfinal': this.askStoryPath(v); break;
+      case 'tomb-enter': {
+        if (TOMB.s.in) { this.tab='map'; this.render(); break; }
+        const r = TOMB.enter();
+        if (!r.ok) { toast(r.msg||'去不了'); break; }
+        this.tab='map'; this.tombRoom('dk'); break;
+      }
+      case 'tomb-go': this.tombRoom(v); break;
+      case 'tomb-words': this.askTombWords(); break;
+      case 'tomb-leave': TOMB.leave(); this.render(); toast('你从墓道走了出去'); break;
       case 'spath': {
         const r=STORY.finish(v, +v2, (rw)=>QUEST.grant(rw, +v2));
         if(!r.ok){ toast(r.msg||'还不行'); break; }
@@ -462,7 +472,7 @@ export const Hall = {
       t.classList.toggle('on', t.dataset.tab === tab));
     bodyEl.innerHTML =
       tab === 'realm' ? this.vRealm(s)
-      : tab === 'map'   ? this.vMap(s)
+      : tab === 'map'   ? (TOMB.s.in ? this.vTomb() : this.vMap(s))
       : tab === 'camp'  ? this.vCamp(s)
       : tab === 'bag'   ? this.vBag(s)
       : tab === 'arts'  ? this.vArts(s)
@@ -592,7 +602,21 @@ export const Hall = {
           <div class="xx-dim" style="margin-top:2px">${esc(a.next ? a.next.text : '')}</div>
           <div class="xx-dim" style="margin-top:2px;color:var(--xx-jade)">往 ${a.next?a.next.node:''} 去</div>
         </div>`).join('')}</div>` : '';
-    return storyHdr + `<div class="xx-map">${edges}${nodes}</div>
+    // 仙人墓:不在图上,挂在遗迹(n8)底下
+    const tombGate = TOMB.s.done
+      ? `<div class="xx-card" style="margin-bottom:12px">
+           <div class="xx-label">仙 人 墓</div>
+           <div class="xx-dim" style="line-height:1.8;white-space:pre-wrap">${esc(TOMB.epitaph())}</div>
+         </div>`
+      : (TOMB.known() ? `
+      <div class="xx-card" style="margin-bottom:12px;border-color:rgba(181,52,42,.5)">
+        <div class="xx-label">仙 人 墓</div>
+        <div class="xx-dim" style="margin-bottom:9px">
+          古战场遗迹底下,有一座没在图上的墓。${TOMB.s.seen.length?`你已经走过 ${TOMB.s.seen.length} 处。`:'你还没进去过。'}</div>
+        <button class="xx-btn main" data-act="tomb-enter">${TOMB.s.in?'继 续 往 下 走':'下 墓'}</button>
+      </div>` : '');
+
+    return tombGate + storyHdr + `<div class="xx-map">${edges}${nodes}</div>
       <div class="xx-card" style="margin-top:14px">
         <div class="xx-label">当前位置</div>
         <div class="xx-val">${esc(cur.name || cur.id)} · ${typeName}</div>
@@ -601,6 +625,124 @@ export const Hall = {
       <div class="xx-dim" style="text-align:center;line-height:1.9">
         点亮相邻节点即可前往 · 秘境界/妖巢点「占」纳入领地开矿<br>
         ${BUILD.canTeleport() ? `阵法旗已立,可点「传」前往已到之处(每次 ${BUILD.teleportCost()} 道行)` : '领地至村落LV2 可布阵法旗传送'}</div>`;
+  },
+
+  // ---------- 仙人墓 · 地下层 ----------
+  // 独立视图:墓里没有大地图,只有相邻的几间屋子
+  vTomb() {
+    const cur = TOMB.room();
+    if (!cur) return `<div class="xx-card"><div class="xx-label">仙 人 墓</div>
+      <div class="xx-dim">你不在墓里。</div>
+      <button class="xx-btn main" style="margin-top:10px" data-act="tomb-enter">下 墓</button></div>`;
+
+    // 平面图:已走过的显示名字,没走过的只给个位置
+    const g = 5;
+    const pos = r => ({ x: 4 + (r.x / 3) * 92, y: 10 + (r.y / 2) * 74 });
+    let edges = '', nodes = '';
+    const drawn = new Set();
+    for (const r of TOMB_ROOMS) for (const to of r.edge) {
+      const pair = [r.id, to].sort().join('-');
+      if (drawn.has(pair)) continue;
+      drawn.add(pair);
+      const a = pos(r), b = pos(TOMB_ROOMS.find(x=>x.id===to));
+      const len = Math.hypot(b.x-a.x, b.y-a.y), ang = Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
+      edges += `<div class="xx-edge" style="left:${a.x}%;top:${a.y}%;width:${len}%;
+        transform:rotate(${ang}deg)"></div>`;
+    }
+    for (const r of TOMB_ROOMS) {
+      const p = pos(r);
+      const seen = TOMB.seen(r.id);
+      const here = cur.id === r.id;
+      const canGo = cur.edge.includes(r.id);
+      const cls = ['xx-node','tomb'];
+      if (here) cls.push('cur');
+      else if (!seen) cls.push('fog');
+      if (!here && !canGo) cls.push('locked');
+      const mark = here ? '◆' : seen ? '●' : '?';
+      const label = seen ? esc(r.name) : '未 至';
+      nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
+        ${canGo&&!here?`data-act="tomb-go" data-v="${r.id}"`:''}>
+        <div class="xx-fogq" style="${seen&&!here?'display:none':''}">${mark}</div>
+        <div class="xx-node-lb">${label}</div></div>`;
+    }
+
+    const pr = TOMB.progress();
+    // 石将前 → 补完那半句话
+    const guard = cur.guard && !TOMB.s.done
+      ? `<button class="xx-btn main" style="width:100%;margin-top:12px" data-act="tomb-words">补 完 那 半 句 话</button>`
+      : '';
+    const canEnd = cur.end && !TOMB.s.done
+      ? `<div class="xx-dim" style="margin-top:10px;text-align:center">这里就是尽头了。</div>` : '';
+
+    return `<div class="xx-card">
+        <div class="xx-label">仙 人 墓</div>
+        <div class="xx-dim">已至 ${pr.seen} / ${pr.total} 处 · 越往里,字越少</div>
+      </div>
+      <div class="xx-map" style="height:190px">${edges}${nodes}</div>
+      <div class="xx-card" style="border-color:rgba(181,52,42,.4)">
+        <div class="xx-label">${esc(cur.name)}</div>
+        <div class="xx-story-t" style="white-space:pre-wrap;line-height:2">${esc(cur.text)}</div>
+        ${cur.beat?`<div class="xx-story-b" style="margin-top:9px">${esc(cur.beat)}</div>`:''}
+        ${guard}
+        ${canEnd}
+        <div style="display:flex;gap:8px;margin-top:12px">
+          ${cur.edge.map(t=>`<button class="xx-btn" style="flex:1"
+            data-act="tomb-go" data-v="${t}">往 ${esc(TOMB_ROOMS.find(x=>x.id===t).name.replace(/\s/g,''))}</button>`).join('')}
+        </div>
+        <button class="xx-btn" style="width:100%;margin-top:8px" data-act="tomb-leave">出 墓</button>
+      </div>`;
+  },
+
+  // 进入某间房:结算内容并展示
+  tombRoom(id) {
+    TOMB.move(id);
+    const s = TOMB.settle(id);
+    this.render();
+    if (!s) return;
+    // 侧室/主墓的收获提示
+    if (s.gift && s.gift.text.length) toast('得了 ' + s.gift.text.join(' · '));
+    // 叙事线最后一环的提示
+    if (s.arcBeat) {
+      toast('石将侧过身,让出半步。');
+    }
+  },
+
+  // 补完半句话 —— 只能在石将跟前做
+  askTombWords() {
+    if (!TOMB.canFinish()) { toast('你还没走到石将跟前'); return; }
+    const el = document.createElement('div');
+    el.className = 'xx-storycard legend';
+    el.innerHTML = `<div class="xx-sc-n">半 句 话</div>
+      <div class="xx-sc-t">石将背上,「此生不悔」四个字还缺一半。<br>你手上有两个补法。</div>
+      ${TOMB_WORDS.map(w=>`<div class="xx-sc-go" style="cursor:pointer;margin-top:13px;
+        font-size:13px;line-height:1.7" data-w="${w.path}">
+        <b style="color:var(--xx-gold)">${esc(w.text)}</b><br>
+        <span class="xx-dim">${esc(w.note)}</span></div>`).join('')}
+      <div class="xx-sc-x">再想想</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{
+      const path = +b.dataset.w;
+      const r = TOMB.finish(path);
+      el.remove();
+      if (!r.ok) { toast(r.msg||'还不行'); this.render(); return; }
+      QUEST.settleShijiang(path);
+      this.tombEnding(r);
+    });
+    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
+  },
+
+  // 墓的结局演出
+  tombEnding(r) {
+    const el = document.createElement('div');
+    el.className = 'xx-storycard';
+    el.innerHTML = `<div class="xx-sc-n">此 生 不 悔 · ${esc(r.words)}</div>
+      <div class="xx-sc-t" style="white-space:pre-wrap">${esc(r.note)}</div>
+      <div class="xx-sc-t" style="white-space:pre-wrap;margin-top:10px;color:var(--xx-paper)">${esc(r.after)}</div>
+      ${r.reward&&r.reward.text.length?`<div class="xx-sc-r" style="color:var(--xx-gold)">${esc(r.reward.text.join(' · '))}</div>`:''}
+      <div class="xx-sc-x">走出墓去</div>`;
+    document.getElementById('app').appendChild(el);
+    el.querySelector('.xx-sc-x').onclick=()=>{ el.remove(); this.render(); };
+    setTimeout(()=>{ el.remove(); this.render(); }, 20000);
   },
 
   // ---------- 神通 / 悟道 ----------
@@ -797,194 +939,6 @@ export const Hall = {
         繁衍需两名未婚族人 + 200 资产 · 领地越多,被围攻越频繁,战力要求越高</div>`;
   },
 
-  showStoryBeat(b) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">${esc(b.name)}</div>
-      <div class="xx-sc-t">${esc(b.text)}</div>
-      ${b.reveal?`<div class="xx-sc-r">${esc(b.reveal)}</div>`:''}
-      ${b.last?`<div class="xx-sc-go">此线已至尽头。去「${esc(ARCS[b.arc].mob)}」处了结。</div>`:''}
-      <div class="xx-sc-x">知道了</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-    setTimeout(() => el.remove(), 16000);
-  },
-  showLegend(l) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.innerHTML = `<div class="xx-sc-img"><img src="${l.img}"></div>
-      <div class="xx-sc-n">${esc(l.name)}</div>
-      <div class="xx-sc-t">${esc(l.lore)}</div>
-      <div class="xx-sc-r">${esc(l.tell)}</div>
-      <div class="xx-sc-x">记住了</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-    setTimeout(() => el.remove(), 16000);
-  },
-
-  // ---------- 支线 ----------
-  vQuest() {
-    QUEST.autoTake();            // 见过妖就自动接,不要求玩家先去跑图
-    const act = QUEST.activeList();
-    const done = QUEST.doneList();
-    const avail = QUEST.availableList();
-    return `
-      <div class="xx-card">
-        <div class="xx-label">眼 下 的 事</div>
-        <div class="xx-dim">见过传说妖,它的来历就变成你的事。办成了,会来找你要个说法。</div>
-      </div>
-
-      ${act.length ? act.map(q=>`
-        <div class="xx-card" style="border-color:${q.ready?'rgba(201,162,39,.6)':'rgba(232,220,196,.12)'}">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div class="xx-val" style="font-size:15px;color:var(--xx-gold)">${esc(q.title)}</div>
-            <div class="xx-dim">${q.ready?'可结案':Math.round(q.p*100)+'%'}</div>
-          </div>
-          <div class="xx-dim" style="margin-top:5px">${esc(q.desc)}</div>
-          ${q.ready
-            ? `<button class="xx-btn main" style="margin-top:10px" data-act="qdone" data-v="${q.key}">了 结 这 件 事</button>`
-            : `<div class="xx-bar" style="margin-top:9px"><i style="width:${q.p*100}%"></i></div>
-               <div class="xx-dim" style="margin-top:5px">${esc(q.tip)}</div>`}
-        </div>`).join('')
-        : '<div class="xx-dim" style="text-align:center;padding:14px">手上没有事。多走走,多遇见。</div>'}
-
-      ${(() => {
-        const ready = STORY.readyList();
-        if (!ready.length) return '';
-        return `<div class="xx-card" style="border-color:rgba(181,52,42,.45)">
-          <div class="xx-label">看 完 了 · 等 你 选</div>
-          <div class="xx-dim" style="margin-bottom:9px">事到末尾了。选哪一条路,得你自己定。</div>
-          ${ready.map(r=>`<div style="margin-bottom:11px">
-            <div class="xx-val" style="font-size:14px;color:var(--xx-gold)">${esc(r.name)}</div>
-            <button class="xx-btn main" style="margin:8px 0 0" data-act="sfinal" data-v="${r.key}">了 结</button>
-          </div>`).join('')}</div>`;
-      })()}
-
-      ${(() => {
-        const act = STORY.activeList().filter(a=>!STORY.readyFinish(a.key));
-        if (!act.length) return '';
-        return `<div class="xx-card"><div class="xx-label">听 说 的 事</div>
-          <div class="xx-dim" style="margin-bottom:8px">还没走到头。去该去的地方看看。</div>
-          ${act.map(a=>`<div style="margin-bottom:8px">
-            <div class="xx-val" style="font-size:13px;color:var(--xx-paper)">${esc(a.name)}
-              <span class="xx-dim">(${a.beat+1}/${a.total})</span></div>
-            <div class="xx-dim" style="margin-top:2px">下一处:${esc(a.next?a.next.node:'')}</div>
-            <div class="xx-bar" style="margin-top:6px"><i style="width:${(a.beat/a.total)*100}%"></i></div>
-          </div>`).join('')}</div>`;
-      })()}
-
-      ${avail.length ? `
-        <div class="xx-card"><div class="xx-label">可 以 接 下</div>
-        ${avail.map(l=>`<div class="xx-mem">
-          <div class="a"><div class="n">${esc(l.quest.title)}</div>
-          <div class="t">${esc(l.quest.desc)}</div></div>
-          <div class="act"><button class="xx-mbtn" data-act="qtake" data-v="${l.key}">接 下</button></div>
-        </div>`).join('')}</div>` : ''}
-
-      ${done.length ? `
-        <div class="xx-card"><div class="xx-label">了 结 过 的</div>
-        ${done.map(d=>`<div style="margin-bottom:6px">
-          <div class="xx-dim" style="color:var(--xx-jade)">${esc(d.title)} ·
-            ${d.path===1?'其一':'其二'}</div></div>`).join('')}</div>` : ''}`;
-  },
-
-  showQuestReady(q) { toast(`「${q.title}」可结案了。往修仙阁 → 支线`); },
-  // 叙事线结案:二选一
-  askStoryPath(k) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.innerHTML = `<div class="xx-sc-n">${esc(ARCS[k].name)} · 了 结</div>
-      <div class="xx-sc-t">事到头了。剩下的,是你的选择。</div>
-      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px;font-size:13px;line-height:1.6"
-        data-p="1">${esc(ARCS[k].beats[ARCS[k].beats.length-1].epilogue)}</div>
-      <div class="xx-sc-go" style="cursor:pointer;margin-top:10px;font-size:13px;line-height:1.6"
-        data-p="2">${esc(ARCS[k].beats[ARCS[k].beats.length-1].epilogue2)}</div>
-      <div class="xx-sc-x">再想想</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
-      const path = +b.dataset.p;
-      el.remove();
-      // 先结案(记录结局/写日志/移出活跃),由 finish 内部发奖
-      const r = STORY.finish(k, path, (rw) => QUEST.grant(rw, path));
-      if (!r.ok) { toast(r.msg || '还不行'); this.render(); return; }
-      this.showStoryDone({ name:r.name, path, reward:r.reward, text:r.text });
-      this.render();
-    });
-    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
-  },
-  showStoryDone(r) {
-    const el=document.createElement('div');
-    el.className='xx-storycard';
-    el.innerHTML=`<div class="xx-sc-n">${esc(r.name)} · ${r.path===1?'其一':'其二'}</div>
-      <div class="xx-sc-t">${esc(r.text||'')}</div>
-      <div class="xx-sc-r" style="color:var(--xx-gold)">
-        ${(r.reward&&r.reward.text&&r.reward.text.length)?r.reward.text.map(esc).join(' · '):'得了一份缘法。'}</div>
-      <div class="xx-sc-x">收下</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
-    setTimeout(()=>el.remove(),16000);
-  },
-
-  // 双结局选择
-  askPath(k) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">${esc(LEGEND[k].quest.title)}</div>
-      <div class="xx-sc-t">${esc(LEGEND[k].quest.desc)}</div>
-      <div class="xx-sc-go" style="cursor:pointer" data-p="1">其一</div>
-      <div class="xx-sc-go" style="cursor:pointer" data-p="2">其二</div>
-      <div class="xx-sc-x">再想想</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
-      const r=QUEST.finish(k, +b.dataset.p);
-      el.remove();
-      if(r.ok) this.showQuestDone(r); else toast(r.msg||'还没办成');
-      this.render();
-    });
-    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
-  },
-  // 特殊结局(白泽问答 / 剑骨观剑 等)
-  askSpecial(k, sp) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
-      <div class="xx-sc-t" style="font-size:16px">${esc(sp.q)}</div>
-      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px" data-p="1">${esc(sp.a1)}</div>
-      <div class="xx-sc-go" style="cursor:pointer" data-p="2">${esc(sp.a2)}</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
-      const path = +b.dataset.p;
-      const r = QUEST.finish(k, path);
-      el.remove();
-      if (r.ok) {
-        const txt = path===1?sp.r1:sp.r2;
-        const e2 = document.createElement('div');
-        e2.className='xx-storycard';
-        e2.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
-          <div class="xx-sc-t">${esc(txt)}</div>
-          <div class="xx-sc-r" style="color:var(--xx-gold)">${(r.reward.text||[]).map(esc).join(' · ')||'得了一份缘法。'}</div>
-          <div class="xx-sc-x">知道了</div>`;
-        document.getElementById('app').appendChild(e2);
-        e2.querySelector('.xx-sc-x').onclick=()=>e2.remove();
-        setTimeout(()=>e2.remove(),16000);
-      } else toast(r.msg||'还没办成');
-      this.render();
-    });
-  },
-  showQuestDone(res) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">${esc(res.quest.title)} · ${res.path===1?'其一':'其二'}</div>
-      <div class="xx-sc-t">${esc(res.quest.desc)}</div>
-      <div class="xx-sc-r" style="color:var(--xx-gold)">
-        ${(res.reward.text||[]).map(esc).join(' · ') || '得了一份缘法。'}</div>
-      <div class="xx-sc-x">收下</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-    setTimeout(() => el.remove(), 16000);
-  },
-
-  // ---------- 领地建造 ----------
   showStoryBeat(b) {
     const el = document.createElement('div');
     el.className = 'xx-storycard';

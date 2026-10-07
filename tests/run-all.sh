@@ -2,7 +2,7 @@
 # 逻辑测试全跑。任一失败即退出。
 cd "$(dirname "$0")/.." || exit 1
 fail=0
-for t in t80 t81 t82 t83 t84 t85 t86 t87 t88; do
+for t in t80 t81 t82 t83 t84 t85 t86 t87 t88 t89; do
   f=""
   [ -f "tests/$t.mjs" ] && f="tests/$t.mjs"
   [ -z "$f" ] && [ -f "tests/$t.js" ] && f="tests/$t.js"
@@ -18,5 +18,6 @@ for t in t80 t81 t82 t83 t84 t85 t86 t87 t88; do
   fi
 done
 echo ""
+node tests/lint-imports.mjs || fail=$((fail+1))
 if [ $fail -eq 0 ]; then echo "✅ 全部通过"; else echo "❌ 有失败"; fi
 exit $fail
