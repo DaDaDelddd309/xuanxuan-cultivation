@@ -58,10 +58,15 @@ function makeCtx() {
 }
 
 function makeCanvas() {
+  // 关键:同一个 canvas 多次 getContext('2d') 必须返回**同一个** ctx。
+  // 真实浏览器就是这样(同一上下文重复取),而且引擎会缓存 ctx 复用。
+  // 早先这里每次都 new 一个 Proxy,于是 engine.ctx !== canvas.getContext(),
+  // 所有"主画布调用了没有"的统计全是假的 —— 白白查了两轮。
+  let _ctx = null;
   const c = {
     width: 960, height: 640,
     style: {},
-    getContext() { const x = makeCtx(); x.canvas = c; return x; },
+    getContext() { if (!_ctx) { _ctx = makeCtx(); _ctx.canvas = c; } return _ctx; },
     addEventListener() {}, removeEventListener() {},
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 960, height: 640, right: 960, bottom: 640 }),
   };
