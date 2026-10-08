@@ -273,6 +273,7 @@ import { Merchant } from './xiuxian/merchant.js';
 import { COMPANION } from './xiuxian/companion.js';
 import { CompanionActor, runEventLines } from './xiuxian/companion-actor.js';
 import { installSpine } from './xiuxian/spine.js';
+import { CLOCK } from './xiuxian/clock.js';
 import { Director, stepWard, resetWard, resetEmber, tickEmber, emberPoints } from './game/director.js';
 import { MOUNT } from './xiuxian/mount.js';
 import { SPIRIT } from './xiuxian/spirit.js';
@@ -325,7 +326,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     window.addEventListener('pagehide', autosave);
     window.addEventListener('beforeunload', autosave);
     // 暴露给 UI(存档码/换种子)
-    window.__xx = { Profile, Seed, mods, FAMILY, CHRONICLE, BUILD, COMPANION,
+    window.__xx = { Profile, Seed, mods, FAMILY, CHRONICLE, BUILD, COMPANION, Bag, CLOCK,
                     get ward(){ return COMPANION.wardRadius(); } };
 
     // —— 怨灵附身:通过 enemies.js 的官方钩子强化全场怪 ——

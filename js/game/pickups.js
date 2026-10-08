@@ -4,6 +4,9 @@ import { PAL } from '../core/palette.js';
 import { Bus } from '../core/engine.js?v=17';
 import { Director } from './director.js';   // V0.99:捡宝石 = 加生成压力 + 当场兑现同档怪
 
+// 源石掉率(XX-CACHE-001)。想调手感只改这里。
+const STONE_DROP = { elite: 0.30, mob: 0.004 };  // Boss 必掉,不走概率
+
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 
 export function initPickups(g) {
@@ -18,6 +21,27 @@ export function initPickups(g) {
       const nChest = e.boss ? 2 : 1;
       for (let i = 0; i < nChest; i++)
         g.addPickup({ kind: 'chest', x: e.x + (i - (nChest - 1) / 2) * 26, y: e.y + 10, sprite: 'chest', r: 12, t: 0 });
+    }
+
+    // ===== 源石(V0.99 · XX-CACHE-001)=====
+    // owner 的规则:「源石不是经验宝石,那是类似打了精英怪才有概率掉落的,
+    //                boss 必然掉落一颗」
+    //
+    // 修的是什么:篝火(CAMP)完全靠源石当燃料,但局内**从来没掉过源石** ——
+    // 玩家只能去修仙阁用道行兑换,于是「打怪→源石→篝火」这条链是断的。
+    // 精英怪概率掉、Boss 必掉,这条链才闭合。
+    //
+    // 源石不是经验:捡起来给的是修仙阁的资源(照旧走存档),局内不给 xp。
+    const r = Math.random();
+    const stoneId = e.boss ? 'stone_3' : e.elite ? 'stone_2' : 'stone_1';
+    const mkStone = () => g.addPickup({ kind: 'stone', id: stoneId, x: e.x, y: e.y + 18,
+      sprite: 'stone', r: 11, t: 0, count: 1 });
+    if (e.boss) {
+      mkStone();                                   // Boss 必掉
+    } else if (e.elite && r < STONE_DROP.elite) {
+      mkStone();                                   // 精英概率掉
+    } else if (r < STONE_DROP.mob) {
+      mkStone();                                   // 普通怪极低概率 —— 挂机久了总能凑够一根火
     }
   });
 
@@ -64,6 +88,17 @@ export function initPickups(g) {
         k.x += dx / d * v * dt; k.y += dy / d * v * dt;
       }
       if (d < 18) { // 拾取
+        if (k.kind === 'stone') {
+          // 源石 → 直接进修仙阁背包。它是篝火燃料,不是局内资源。
+          // 走 XX 层(全局可达),不需要把背包传进局内。
+          const BR = globalThis.__xx && globalThis.__xx.Bag;
+          if (BR && BR.add(k.id || 'stone_1', k.count || 1)) {
+            g.spawnText(k.x, k.y - 24, '源石 +' + (k.count || 1), { color: PAL.gold, size: 13, life: 1.1 });
+            Bus.emit('sfx', 'pickup');
+            g.remove(g.pickups, i); continue;
+          }
+          // 背包没就绪(极少见):留在地上,不吞掉
+        }
         if (k.kind === 'gem') {
           p.addXp(k.xp);
           // V0.99 核心闭环:捡宝石 → 加压力 → 当场刷出同档位的妖物。
