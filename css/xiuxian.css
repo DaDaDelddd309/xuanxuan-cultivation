@@ -713,3 +713,22 @@
   border-bottom:1px solid rgba(232,220,196,.06)}
 .xx-mk-sell:last-child{border-bottom:none}
 .xx-mk-sell .xx-btn{padding:5px 10px;font-size:11px;margin:0;width:auto}
+
+/* ===== 功法升星(V0.99 · XX-META-004)===== */
+.xx-art .xx-tag.star{background:none;border:none;color:var(--xx-gold);
+  letter-spacing:1px;font-size:11px;padding:0}
+.xx-art-up{margin-top:5px;font-size:10px;letter-spacing:.5px;
+  color:rgba(201,162,39,.85);border-top:1px solid rgba(201,162,39,.18);padding-top:4px}
+.xx-art-up.lock{color:rgba(232,220,196,.3);border-top-color:rgba(232,220,196,.08)}
+.xx-art-up.maxed{color:rgba(232,220,196,.42);border-top-color:rgba(232,220,196,.1)}
+
+/* ===== 合成(V0.99 · XX-META-005)===== */
+.xx-cf-row{border:1px solid rgba(232,220,196,.08);border-radius:var(--xx-r);
+  padding:9px 10px;margin-bottom:7px;opacity:.62}
+.xx-cf-row.ok{opacity:1;border-color:rgba(201,162,39,.3)}
+.xx-cf-t{font-size:12.5px;color:var(--xx-paper);letter-spacing:.5px}
+.xx-cf-t .xx-gold{margin-left:5px}
+.xx-cf-d{font-size:10.5px;color:rgba(232,220,196,.45);margin-top:2px;line-height:1.5}
+.xx-cf-b{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.xx-cf-b .xx-btn{padding:5px 11px;font-size:11px;margin:0;width:auto}
+.xx-cf-b .xx-btn:disabled{opacity:.55}

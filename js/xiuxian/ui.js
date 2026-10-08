@@ -18,6 +18,8 @@ import { COMPANION } from './companion.js';
 import { CLOCK } from './clock.js';
 import { MARKET, MARKET_GOODS } from './market.js';   // V0.99 局外集市
 import { TAVERN, MATES } from './tavern.js';   // V0.99 酒馆同伴
+import { ARTSTAR, STAR_NOTES_ALL } from './artstar.js';   // V0.99 功法升星
+import { CRAFT } from './craft.js';             // V0.99 合成
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
@@ -156,6 +158,23 @@ export const Hall = {
         toast('货郎换了一批新的');
         this.render();
         break;
+      // ===== 合成(XX-META-005)=====
+      case 'craft-do': {
+        const r6 = CRAFT.do(+v, Bag, id => (STONES[id] || {}).name);
+        toast(r6.msg);
+        this.render();
+        break;
+      }
+      // ===== 功法升星(XX-META-004)=====
+      case 'art-star': {
+        const meta = Object.assign({ base: 260 * ((ARTS[v] || {}).max || 5) }, ARTS[v] || {});
+        const r5 = ARTSTAR.up(v, meta,
+          (n) => { const g = MARKET.gold(); if (g < n) return false; globalThis.__g.save.data.gold = g - n; return true; },
+          (n) => Bag.take('scroll_2', n) || Bag.take('scroll_1', n));
+        toast(r5.ok ? (r5.note ? `${r5.msg} · ${r5.note}` : r5.msg) : r5.msg);
+        this.render();
+        break;
+      }
       // ===== 酒馆(XX-META-003)=====
       case 'mk-recruit': {
         const r3 = TAVERN.recruit();
@@ -918,11 +937,19 @@ export const Hall = {
       if (lv >= a.max) cls.push('max');
       if (a.fused) cls.push('fused');
       const sel = this.picking === k;
+      // 局外升星(XX-META-004):神通页顺手能花钱升星
+      const star = ARTSTAR.stars(k);
+      const c = ARTSTAR.cost(k, Object.assign({ base: 260 * (a.max || 5) }, a));
+      const canStar = lv > 0 && c;
       return `<div class="${cls.join(' ')}" ${lv ? `data-act="enlighten" data-v="${k}"` : ''}>
         ${a.fused ? '<span class="xx-tag">超武</span>' : lv >= a.max ? '<span class="xx-tag gold">满</span>' : ''}
+        ${star ? `<span class="xx-tag star" data-act="art-star" data-v="${k}">${'★'.repeat(star)}</span>` : ''}
         <div class="xx-art-n">${esc(a.name)}</div>
         <div class="xx-art-b">${lv || '—'}</div>
         <div class="xx-art-lv">${sel ? '已选' : a.d.slice(0, 6)}</div>
+        ${canStar ? `<div class="xx-art-up" data-act="art-star" data-v="${k}">升星 · ${c.gold}金 + ${c.books}书</div>` : ''}
+        ${!lv ? '<div class="xx-art-up lock">尚未习得</div>' : ''}
+        ${lv > 0 && !c ? '<div class="xx-art-up maxed">已满星</div>' : ''}
       </div>`;
     }).join('');
     return h + `<div class="xx-grid3">${grid}</div>`;
@@ -1574,12 +1601,42 @@ export const Hall = {
       </div>
       <div class="xx-mk-grid">${cards || '<div class="xx-dim">货架空了,换一批。</div>'}</div>
       <button class="xx-btn main" data-act="mk-refresh">换 一 批 货</button>
+      ${this.vCraft()}
       ${sellable ? `<div class="xx-card" style="margin-top:12px">
         <div class="xx-label">出 售</div>
         <div class="xx-dim" style="margin-bottom:7px">行囊里的源石,折半收。囤太多不如换成别的。</div>
         ${sellable}
       </div>` : ''}
       ${this.vTavern()}`;
+  },
+
+  // ---------- 合成(XX-META-005)----------
+  // 高阶源石原本只能靠 Boss 掉或花 1200 金买,和「打怪→源石→篝火」的主循环脱节。
+  // 这里让低阶源石 + 催化剂 → 高阶源石,把那条链闭上。
+  vCraft() {
+    const rows = CRAFT.recipes().map((r, i) => {
+      const chk = CRAFT.can(r, Bag);
+      const fromN = (STONES[r.from] || {}).name || r.from;
+      const toN = (STONES[r.to] || {}).name || r.to;
+      const catN = (GOODS[r.cat] || {}).name || r.cat;
+      return `<div class="xx-cf-row${chk.ok ? ' ok' : ''}">
+        <div class="xx-cf-t">${esc(fromN)} ×${r.n} + ${esc(catN)} ×${r.catN}
+          <span class="xx-gold">→ ${esc(toN)}</span></div>
+        <div class="xx-cf-d">${esc(r.d)}</div>
+        <div class="xx-cf-b">
+          <span class="xx-dim" style="font-size:10px">持有 ${chk.fromHave}/${r.n} · 催化 ${chk.catHave}/${r.catN}</span>
+          <button class="xx-btn" data-act="craft-do" data-v="${i}" ${chk.ok ? '' : 'disabled'}>
+            ${chk.ok ? '合 成' : esc(chk.miss)}
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="xx-card" style="margin-top:12px">
+      <div class="xx-label">合 成</div>
+      <div class="xx-dim" style="margin-bottom:8px">低阶源石熔成高阶。有损耗,但攒石头就有了用处。
+        太虚源石(6 级)不参与合成 —— 那是 boss 的东西。</div>
+      ${rows}
+    </div>`;
   },
 
   // ---------- 酒馆(XX-META-003)----------
