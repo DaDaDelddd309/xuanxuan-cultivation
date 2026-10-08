@@ -34,7 +34,7 @@ const XX = [
   'js/xiuxian/ambience.js', 'js/xiuxian/bestiary.js', 'js/xiuxian/build.js',
   'js/xiuxian/legend.js', 'js/xiuxian/profile.js', 'js/xiuxian/quest.js',
   'js/xiuxian/story.js', 'js/xiuxian/spine.js',
-  'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js',
+  'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js', 'js/xiuxian/market.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/foe.jpg', 'assets/portrait/aunt.jpg',

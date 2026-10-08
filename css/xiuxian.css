@@ -693,3 +693,23 @@
   margin-top: 7px; font-size: 12px; letter-spacing: .5px;
   color: var(--xx-jade);
 }
+
+
+/* ===== 集市(V0.99 · XX-META-001)===== */
+.xx-mk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:10px}
+@media (max-width:420px){.xx-mk-grid{grid-template-columns:1fr}}
+.xx-mk-card{border:1px solid var(--xx-line-1);border-radius:var(--xx-r);
+  background:var(--xx-bg-1);padding:11px;display:flex;flex-direction:column;gap:5px}
+.xx-mk-card.sold{opacity:.42}
+.xx-mk-card.sold .xx-mk-n{text-decoration:line-through}
+.xx-mk-n{font-size:14px;color:var(--xx-paper);letter-spacing:1px}
+.xx-mk-d{font-size:11px;color:rgba(232,220,196,.55);line-height:1.5;flex:1}
+.xx-mk-b{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px}
+.xx-mk-b .xx-gold{font-size:13px}
+.xx-mk-b .xx-btn{padding:6px 12px;font-size:12px;margin:0}
+.xx-mk-b .xx-btn:disabled{opacity:.4}
+.xx-mk-sell{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:6px 0;font-size:12px;color:rgba(232,220,196,.7);
+  border-bottom:1px solid rgba(232,220,196,.06)}
+.xx-mk-sell:last-child{border-bottom:none}
+.xx-mk-sell .xx-btn{padding:5px 10px;font-size:11px;margin:0;width:auto}

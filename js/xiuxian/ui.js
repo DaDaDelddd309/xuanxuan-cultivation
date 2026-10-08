@@ -15,7 +15,8 @@ import { CAMP, CAMP_TIERS, offlineReport } from './camp.js';
 import { Merchant } from './merchant.js';
 import { ENCOUNTERS } from './lore.js';
 import { COMPANION } from './companion.js';
-import { CLOCK } from './clock.js';   // V0.99:修仙时长/年月统一读时钟
+import { CLOCK } from './clock.js';
+import { MARKET, MARKET_GOODS } from './market.js';   // V0.99 局外集市   // V0.99:修仙时长/年月统一读时钟
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
@@ -39,7 +40,7 @@ const PORTRAIT = {
   merchant:'assets/portrait/merchant.jpg',
   foe:'assets/portrait/foe.jpg', hero:'assets/portrait/knight.jpg', aunt:'assets/portrait/companion.jpg',
 };
-const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
+const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['market','集市'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
@@ -136,6 +137,24 @@ export const Hall = {
   act(a, v, v2, slot) {
     const s = Cult.get();
     switch (a) {
+      // ===== 集市(V0.99 · XX-META-001)=====
+      case 'mk-buy': {
+        const r = MARKET.buy(+v);
+        toast(r.msg);
+        this.render();
+        break;
+      }
+      case 'mk-sell': {
+        const r2 = MARKET.sellStone(v, 1);
+        toast(r2.msg);
+        this.render();
+        break;
+      }
+      case 'mk-refresh':
+        MARKET.refresh();
+        toast('货郎换了一批新的');
+        this.render();
+        break;
       case 'back': this.close(); break;
       case 'meditate': {
         // addExp 返回的是 {levels, broke},不是数字。
@@ -573,6 +592,7 @@ export const Hall = {
       : tab === 'map'   ? (TOMB.s.in ? this.vTomb() : this.vMap(s))
       : tab === 'camp'  ? this.vCamp(s)
       : tab === 'bag'   ? this.vBag(s)
+      : tab === 'market'? this.vMarket(s)
       : tab === 'arts'  ? this.vArts(s)
       : tab === 'people'? this.vPeople(s)
       : tab === 'fam'   ? this.vFam()
@@ -1489,6 +1509,62 @@ export const Hall = {
         境界 · 炼气${Cult.get().layer}层 / 道行 ${Cult.get().dao}<br>
         灵伴 · ${esc(COMPANION.s.name || '未遇')}<br>
         称号 · ${Cult.titles.list().length} 枚
+      </div>`;
+  },
+
+  // ---------- 集市(V0.99 · XX-META-001)----------
+  // owner 指出的大空缺:局后除了结算数字什么都没有,攒的钱只能开角色。
+  // 这里给三个去处:买东西、卖闲置、换一批货。
+  vMarket(s) {
+    if (!MARKET.loaded) MARKET.load();
+    const gold = MARKET.gold();
+    const stock = MARKET.stock();
+    const cards = stock.map((slot, i) => {
+      const it = MARKET_GOODS[slot.key];
+      if (!it) return '';
+      const afford = gold >= it.price;
+      return `<div class="xx-mk-card${slot.sold ? ' sold' : ''}">
+        <div class="xx-mk-n">${esc(it.name)}<span class="xx-dim"> ${it.tier} 阶</span></div>
+        <div class="xx-mk-d">${esc(it.desc)}</div>
+        <div class="xx-mk-b">
+          <span class="xx-gold">${it.price} 金</span>
+          <button class="xx-btn" data-act="mk-buy" data-v="${i}" ${(slot.sold || !afford) ? 'disabled' : ''}>
+            ${slot.sold ? '已售出' : afford ? '买 下' : `还差 ${it.price - gold}`}
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+
+    // 行囊里可卖的源石(折价回收)
+    const sellable = ['stone_1','stone_2','stone_3','stone_4','stone_5','stone_6']
+      .filter(id => (Bag.count(id) || 0) > 0)
+      .map(id => {
+        const g = MARKET_GOODS[id];
+        const back = g ? Math.round(g.price * 0.5) : 20;
+        return `<div class="xx-mk-sell">
+          <span>${esc(STONES[id].name)} ×${Bag.count(id)}</span>
+          <button class="xx-btn" data-act="mk-sell" data-v="${id}">卖 1 颗 · ${back} 金</button>
+        </div>`;
+      }).join('');
+
+    return `
+      <div class="xx-card">
+        <div class="xx-label">集 市</div>
+        <div class="xx-dim">打来的妖物换成钱,钱换成下一局需要的东西。</div>
+        <div style="margin-top:7px"><span class="xx-gold" style="font-size:15px">${gold} 金</span></div>
+      </div>
+      <div class="xx-mk-grid">${cards || '<div class="xx-dim">货架空了,换一批。</div>'}</div>
+      <button class="xx-btn main" data-act="mk-refresh">换 一 批 货</button>
+      ${sellable ? `<div class="xx-card" style="margin-top:12px">
+        <div class="xx-label">出 售</div>
+        <div class="xx-dim" style="margin-bottom:7px">行囊里的源石,折半收。囤太多不如换成别的。</div>
+        ${sellable}
+      </div>` : ''}
+      <div class="xx-card" style="margin-top:12px">
+        <div class="xx-label">酒 馆</div>
+        <div class="xx-dim">${MARKET.s.mates && Object.values(MARKET.s.mates).reduce((a,b)=>a+b,0) > 0
+          ? '你手上有同行之约。招揽同伴进下一局 —— 他们会真的上场,不是加个数值。'
+          : '集市上偶尔能买到「同行之约」。有了它,这里会站着一个肯跟你走的人。'}</div>
       </div>`;
   },
 

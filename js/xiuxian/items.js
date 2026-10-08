@@ -1,5 +1,6 @@
 import { PAL } from '../core/palette.js';
-import { CLOCK, CLOCK_CONST } from './clock.js';   // V0.99 唯一时间真源
+import { CLOCK, CLOCK_CONST } from './clock.js';
+import { PILLS } from './realms.js';   // 丹药原来不在背包白名单里(V0.99)   // V0.99 唯一时间真源
 // ===== 道具体系 · 品阶与来源 =====
 // 设计原则(为什么这样分):
 //  1. 源石是「时长」而不是「充能值」——玩家可以 1 颗 1 颗地续,永不浪费。
@@ -89,7 +90,12 @@ export function scrollForExp(exp) {
 export const REGISTRY = { buildings: {}, extras: {} };
 export function registerExtras(map) { Object.assign(REGISTRY.extras, map); }
 export function registerBuildings(map) { Object.assign(REGISTRY.buildings, map); }
-const isItem = id => !!(STONES[id] || SCROLLS[id] || GOODS[id] || REGISTRY.buildings[id] || REGISTRY.extras[id]);
+// 白名单:能进背包的 id。
+// V0.99(XX-CACHE-001):丹药原来不在这里 —— PILLS 定义在 realms.js,
+// 而这里没引用它,于是 Bag.add('pill_zhuji') 一律 false。
+// 集市一卖丹药就报「行囊放不下」。丹药本来就能吃,当然该能进背包。
+const isItem = id => !!(STONES[id] || SCROLLS[id] || GOODS[id]
+  || REGISTRY.buildings[id] || REGISTRY.extras[id] || (typeof PILLS !== 'undefined' && PILLS[id]));
 
 export const Bag = {
   s: { items: {}, demon: 0, charter: false },
