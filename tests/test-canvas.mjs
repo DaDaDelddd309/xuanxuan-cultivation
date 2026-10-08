@@ -91,8 +91,10 @@ console.log('\n[2] 主画布:清屏 → 被地形覆盖');
 
   const full = p.calls.fillRect.filter(c => c.w > 400 && c.h > 300);
   ok('清了整屏底色', full.length >= 1, `${full.length} 次`);
-  ok('底色是深色(不是页面纸色)', full.some(c => /#0b0d17/.test(String(c.fillStyle))),
-     full[0] ? String(full.fillStyle) : '无');
+  // 原断言写死 '#0b0d17'(深蓝紫)。那个值是个**孤儿** —— 全仓只在 engine.js 出现一次,
+  // 既不在令牌表里也不和精灵表对齐,导致地形铺不到的地方会露出蓝紫带。
+  // 现在清屏色取自 PAL.ink3。这里只验「有清屏动作」,颜色一致性由 test-sprites [4] 守。
+  ok('有全屏清屏动作', full.length >= 1, `${full.length} 次`);
   ok('地形 chunk 贴上主画布', p.calls.drawImage.length > 0, `${p.calls.drawImage.length} 次`);
   // 贴的 chunk 必须落在画布范围内 —— 画到界外等于没画
   const onScreen = p.calls.drawImage.filter(c => c.sx > -c.w && c.sx < 960 && c.sy > -c.h && c.sy < 640);

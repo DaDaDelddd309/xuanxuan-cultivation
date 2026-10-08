@@ -1,4 +1,5 @@
 // 核心引擎:固定步长主循环 / 实体数组 / 空间哈希 / 事件总线 / 相机集成
+import { PAL } from './palette.js';   // 清屏色与精灵调色板同源
 export const Bus = {
   map: new Map(),
   on(evt, fn) { (this.map.get(evt) || this.map.set(evt, []).get(evt)).push(fn); },
@@ -149,7 +150,12 @@ export class Engine {
     const ctx = this.ctx, dpr = this.dpr, cam = this.cam;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = '#0b0d17'; ctx.fillRect(0, 0, this.w, this.h);
+    // ⚠️ 原来硬编码 '#0b0d17'(深蓝紫)。它是个**孤儿值**:
+    //   全仓只出现在这一行,既不在 tokens 里,也不和精灵表(js/pix/palette.js)对齐。
+    //   精灵是浅宣纸系(p=#ece5d3),于是地形铺不到的地方(边缘/加载中)会露出
+    //   一条深蓝紫带 —— 和周围的浅色地形对不上,像穿帮。
+    //   改用 PAL.ink3,和精灵的暗部同源。
+    ctx.fillStyle = PAL.ink3; ctx.fillRect(0, 0, this.w, this.h);
     if (!cam) return;
     const { ox, oy, zoom } = cam.offset(this.w, this.h);
     ctx.translate(this.w / 2, this.h / 2);

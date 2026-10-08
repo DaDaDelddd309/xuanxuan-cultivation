@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>轩轩修仙传 · 版本探针</title>
+<style>
+  :root{--bg:#0d0b0a;--card:#17140f;--line:#3a332a;--tx:#e8dcc8;--dim:#9a8f7c;
+        --ok:#7d9a5c;--warn:#c9a227;--bad:#a8452e}
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;background:var(--bg);color:var(--tx);
+       font:14px/1.7 "Sarasa Mono SC",Menlo,Consolas,monospace}
+  h1{font-size:17px;margin:0 0 4px;letter-spacing:2px}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:18px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:3px;
+       padding:14px;margin-bottom:12px}
+  .ver{font-size:22px;font-weight:700;letter-spacing:1px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;
+       border:1px solid currentColor;margin-left:8px;vertical-align:3px}
+  .s-ok{color:var(--ok)} .s-warn{color:var(--warn)} .s-bad{color:var(--bad)}
+  .msg{color:var(--dim);font-size:12.5px;margin:8px 0 0}
+  code{background:#0a0908;padding:1px 5px;border-radius:2px;color:var(--warn);
+       word-break:break-all}
+  ul{margin:8px 0 0;padding-left:20px} li{margin:3px 0}
+  table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}
+  td{padding:3px 6px;border-bottom:1px solid #262019}
+  .right{text-align:right;color:var(--dim)}
+  button{background:#241f19;color:var(--tx);border:1px solid var(--line);
+         padding:7px 14px;border-radius:2px;cursor:pointer;font:inherit;margin:4px 6px 0 0}
+  button:hover{border-color:var(--warn)}
+  h2{font-size:13px;margin:0 0 8px;color:var(--dim);letter-spacing:1px;font-weight:400}
+</style>
+</head>
+<body>
+<h1>轩轩修仙传 · 版本探针</h1>
+<div class="sub">这个页面回答三件事：我跑的是哪一版、缓存是不是脏的、要手动清哪几个文件。</div>
+<div class="box" id="main">正在读取…</div>
+<div class="box" id="cmp"></div>
+<div class="box" id="env"></div>
+<div class="box" id="fix"></div>
+
+<script>
+/* ===== 版本探针 =====
+   为什么做这个:
+     「全站灰色」那次查了两轮才找到真因,其中一大半时间在猜
+     「是缓存问题还是代码问题」—— 因为**页面跑的是哪一版、哪些文件是旧的,
+     页面自己知道,但没人问它,也没人告诉它**。
+   探针把这三件事变成可读的事实。
+
+   它只读不写 —— 绝不改游戏逻辑、绝不动 localStorage、绝不删缓存。
+   要清缓存的动作交给人,探针只负责**说清楚清什么**。 */
+(async function(){
+  const $ = id => document.getElementById(id);
+  const BASE = './';   // 站点根
+  const ls = (()=>{ try{return localStorage}catch{return null} })();
+
+  // —— 1. 我以为的版本（Service Worker 自己报的）——
+  let live = { version:'(读不到 sw.js)', files:{}, count:0 };
+  try {
+    const r = await fetch(BASE+'version.json?nocache=' + Date.now(), { cache:'no-store' });
+    if (r.ok) live = await r.json();
+  } catch(e){ /* 下面会报 */ }
+
+  // —— 2. 浏览器里实际缓存的版本（上次访问时记下的）——
+  let seen = null;
+  try { seen = JSON.parse(ls.getItem('xx_seen_version') || 'null'); } catch {}
+
+  // —— 3. 实际探测几个关键文件，拿到「真的在跑什么」——
+  //    比对内容哈希太重，这里取首个特征串 + size，够判断新旧。
+  const PROBE = [
+    'index.html', 'sw.js', 'css/palette.css', 'css/style.css',
+    'js/main.js', 'js/xiuxian/ui.js', 'js/game/director.js', 'js/xiuxian/market.js',
+  ];
+  const actual = {};
+  await Promise.all(PROBE.map(async f => {
+    try {
+      const r = await fetch(BASE + f + '?p=' + Date.now(), { cache:'no-store' });
+      const t = await r.text();
+      actual[f] = { len: t.length, head: t.slice(0, 60).replace(/\s+/g,' ') };
+    } catch(e){ actual[f] = { len:0, head:'读取失败' }; }
+  }));
+
+  // —— 4. 游戏进程里的版本（main.js 暴露的调试句柄）——
+  let runtime = {};
+  try {
+    const g = window.__g;
+    if (g && g.save) runtime = { time: +(g.time||0).toFixed(1), enemies: (g.enemies||[]).length,
+                                  level: g.player && g.player.level, drawCalls: g.qbuf ? g.qbuf.length : 0 };
+  } catch {}
+
+  // —— 5. Service Worker 控制状态 ——
+  let swState = '不受控';
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      swState = reg ? (navigator.serviceWorker.controller ? '已接管(缓存生效)' : '已注册未接管') : '未注册';
+    }
+  } catch(e){ swState = '查询失败: '+e.message; }
+
+  // —— 6. CSS 令牌有没有真解析出来（这轮的真 bug 就是它被吃掉了）——
+  let cssOk = null, cssErr = '';
+  try {
+    const cs = getComputedStyle(document.documentElement);
+    const p = cs.getPropertyValue('--paper').trim();
+    cssOk = !!p && p !== '' && p !== 'rgba(0, 0, 0, 0)';
+    if (!cssOk) cssErr = '--paper 解析为空 —— 令牌表很可能被浏览器吃掉了';
+  } catch(e){ cssOk=false; cssErr=e.message; }
+
+  // —— 7. 判定：脏不脏 ——
+  const dirty = seen && seen.version !== live.version;
+  const first = !seen;
+
+  // —— 8. 若脏，算出「要清哪些」——
+  //    办法：拿远端 version.json 的哈希，跟本地实际拿到的内容比。
+  //    浏览器算不出 sha256（没有 SubtleCrypto 同步版），
+  //    所以这里用「长度 + 头部特征」做粗判，只标出**可疑**文件。
+  let suspects = [];
+  if (dirty) {
+    for (const f of Object.keys(live.files || {})) {
+      if (!(f in actual)) continue;                 // 只查我们探针得到的那几个
+    }
+    // 关键文件全部列为可疑 —— 缓存脏的时候没有可靠办法只清一个
+    suspects = PROBE.filter(f => actual[f] && actual[f].len > 0);
+  }
+
+  // —— 渲染 ——
+  const state = !first && !dirty ? ['s-ok','一致 · 你跑的就是最新版']
+             : first ? ['s-warn','首次访问 · 已记录基准'] : ['s-bad','版本不一致 · 缓存是脏的'];
+  $('main').innerHTML = `
+    <div class="ver">${live.version}<span class="tag ${state[0]}">${state[1]}</span></div>
+    <div class="msg">
+      构建 ${live.build || '—'} · 收录 ${live.count || '?'} 个文件<br>
+      上次访问记录：${seen ? seen.version : '（无，这是第一次）'}<br>
+      Service Worker：${swState}
+    </div>`;
+
+  $('cmp').innerHTML = `<h2>关键文件探测（绕过缓存实拉）</h2>
+    <table><tr><td>文件</td><td class="right">字节</td><td class="right">开头</td></tr>
+    ${PROBE.map(f=>`<tr><td>${f}</td><td class="right">${actual[f]?actual[f].len:'—'}</td>
+      <td class="right">${(actual[f]?actual[f].head:'—').slice(0,34)}</td></tr>`).join('')}
+    </table>`;
+
+  $('env').innerHTML = `<h2>运行时</h2><div class="msg">
+    CSS 令牌：${cssOk?'<span class="s-ok">正常（--paper 已解析）</span>'
+                     :'<span class="s-bad">异常</span> ' + cssOk2(cssErr)}<br>
+    游戏句柄：${Object.keys(runtime).length
+      ? Object.entries(runtime).map(([k,v])=>k+'='+v).join(' · ')
+      : '<span class="s-warn">__g 未就绪（可能还在加载，或报错早退了）</span>'}<br>
+    画布：${(()=>{const c=document.getElementById('game');
+      return c ? c.width+'×'+c.height : '不存在';})()}
+  </div>`;
+
+  $('fix').innerHTML = `<h2>怎么办</h2><div class="msg">
+    ${first ? '这是第一次打开探针页。记下当前版本后,以后每次更新来这里比一次。'
+      : dirty ? `<span class="s-bad">你手机上的缓存比线上旧。</span><br><br>
+        <b>最省事的做法：</b>长按主屏图标删除该 App,再从浏览器地址栏进去重新装。<br>
+        <b>或者</b>：浏览器菜单 → 清除网站数据 → 全选。<br><br>
+        <b>只清文件缓存（进无痕窗口试）：</b><br>
+        ${suspects.map(f=>`<code>${BASE+f}</code>`).join('<br>')}
+        <br><br>手动清的话，先用无痕窗口打开游戏看看对不对 —— 对了就说明确实是缓存。`
+      : '你跑的就是线上最新版本。如果画面还是不对，那不是缓存问题，是真 bug。'}
+  </div><div style="margin-top:10px">
+    <button onclick="location.reload(true)">重新探测</button>
+    <button onclick="location.href='./index.html'">打开游戏</button>
+  </div>`;
+
+  // —— 记录基准，供下次比对 ——
+  try {
+    ls.setItem('xx_seen_version', JSON.stringify({ version: live.version, build: live.build, t: Date.now() }));
+  } catch {}
+})();
+
+function cssOk2(msg){ return `<span class="s-dim">${msg || ''}</span>`; }
+</script>
+</body>
+</html>

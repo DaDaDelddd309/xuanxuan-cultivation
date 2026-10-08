@@ -34,8 +34,13 @@ export function initPickups(g) {
     // 源石不是经验:捡起来给的是修仙阁的资源(照旧走存档),局内不给 xp。
     const r = Math.random();
     const stoneId = e.boss ? 'stone_3' : e.elite ? 'stone_2' : 'stone_1';
+    // ⚠️ 原来写 sprite:'stone' —— 精灵表里**根本没有** stone。
+    // drawSprite 找不到就静默 return,所以源石从来就没被画出来过;
+    // 玩家在屏幕上看到的「一直冒」全是灵气的飘字。
+    // 用 coin(唯一现成的货币精灵),品级靠 size 区分。
     const mkStone = () => g.addPickup({ kind: 'stone', id: stoneId, x: e.x, y: e.y + 18,
-      sprite: 'stone', r: 11, t: 0, count: 1 });
+      sprite: 'coin', r: 11, t: 0, count: 1,
+      size: e.boss ? 20 : e.elite ? 16 : 12 });
     if (e.boss) {
       mkStone();                                   // Boss 必掉
     } else if (e.elite && r < STONE_DROP.elite) {

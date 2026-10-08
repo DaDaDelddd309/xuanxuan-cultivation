@@ -23,6 +23,8 @@ const K = 'xx_tavern_v099';
 //     minAlive   → Director 的保底怪量抬升
 //     wardBonus  → 篝火护栏加成(像素)
 //     xpMult     → 经验
+//   sprite      **预留字段** —— 同伴目前还没有局内实体(只有数值 mods),
+//               这些名字在精灵表里并不存在。做局内同伴时要用真实精灵名替换。
 //   move/shoot 决定他在场上干什么(不实现也可以,只是纯数值)
 export const MATES = {
   // —— 一档:市井之徒 ——

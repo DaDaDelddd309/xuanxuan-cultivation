@@ -72,7 +72,13 @@ export const SPIRIT = {
       if (this._alive && this._alive.has(k)) {
         TALLY.ling += k.__spirit;
         this._got = (this._got || 0) + 1;
-        g.spawnText(p.x, p.y - 32, '灵 +' + k.__spirit, { color: PAL.gold, size: 13, life: .8 });
+        // 飘字合并:原来每颗灵气都弹一次「灵 +N」,屏幕上会一直冒。
+        // 改成每 6 颗汇总飘一次 —— 数字没丢,只是不再刷屏。
+        this._burst = (this._burst || 0) + k.__spirit;
+        if (this._burst >= 6) {
+          g.spawnText(p.x, p.y - 32, '灵 +' + this._burst, { color: PAL.gold, size: 13, life: .8 });
+          this._burst = 0;
+        }
       }
     }
     this._alive = now;
@@ -104,5 +110,5 @@ export const SPIRIT = {
     return { ling, dao, stones, boost, kills };
   },
 
-  reset() { TALLY.ling = 0; this._alive = null; this._got = 0; },
+  reset() { TALLY.ling = 0; this._alive = null; this._got = 0; this._burst = 0; },
 };
