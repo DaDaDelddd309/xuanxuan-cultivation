@@ -23,11 +23,15 @@ const MOVE_SPEED   = 132;   // 像素/秒(比玩家慢,追不上才像"跟着")
 const HURT_REACH   = 26;    // 怪离她多近能打中
 const HURT_CD      = 1100;  // 挨打间隔,免得一瞬间被打空
 
-// 立绘(V0.98 · XX-PORTRAIT-002 已完成):assets/portrait/companion.jpg,
-// 与三主角、商人、么么茶同一套(方案 B 暗色剪影 + 金线)。
-// 图加载失败(离线未缓存 / 网络差)时自动退回下面的 canvas 剪影,
-// 不会出现"她突然消失"的情况。
-const PORTRAIT_URL = 'assets/portrait/companion.jpg';
+// 局内形象:画布剪影,**不用立绘**。
+//
+// 踩过的坑(2026-10-08,用户截图发现):立绘是米黄宣纸底的水墨半身,
+// 贴到深蓝游戏画布上只有 62px 高 —— 远看就是"一片米黄色背景色",
+// 完全看不见人。立绘是给修仙阁卡片用的(58×78,浅底卡片),
+// 局内是深底小尺寸,两者的对比逻辑正好相反。
+// 正确做法:局内用 canvas 画剪影,和玩家/敌人同一套渲染语言。
+//
+// 正式立绘仍保留在 assets/portrait/companion.jpg,供人物页与图鉴使用。
 
 export class CompanionActor {
   constructor(engine) {
@@ -39,19 +43,6 @@ export class CompanionActor {
     this.hurtCd = 0;
     this.target = null;      // 当前要捡的那颗宝石
     this._downT = 0;         // 被打散后的消失计时
-    this._img = null;
-    this._imgOk = false;
-    this._loadImg();
-  }
-
-  _loadImg() {
-    try {
-      const im = new Image();
-      im.decoding = 'async';
-      im.onload = () => { this._imgOk = true; };
-      im.onerror = () => { this._imgOk = false; };
-      im.src = PORTRAIT_URL;
-    } catch { this._imgOk = false; }
   }
 
   /** 开局:跟玩家初始位置,并决定本局是否出场 */
@@ -190,22 +181,7 @@ export class CompanionActor {
     ctx.ellipse(x, y + 2, 11, 4.2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 立绘:优先用真正的立绘(V0.98)。图没加载出来才退回剪影 ——
-    // 这样"她能被看见"这件事,不取决于图片有没有加载成功。
-    if (this._imgOk && this._img) {
-      const H = 62, W = H * (720 / 964);
-      ctx.drawImage(this._img, x - W / 2, y - H + bob, W, H);
-      // 血量低时描一圈金线,补回剪影版本里"轮廓提示"的作用
-      if (hpRatio <= 0.5) {
-        ctx.strokeStyle = PAL.goldDim;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x - W / 2, y - H + bob, W, H);
-      }
-      ctx.restore();
-      return;
-    }
-
-    // 兜底:水墨剪影(上窄下阔的袍形)
+    // 水墨剪影(上窄下阔的袍形)
     ctx.fillStyle = PAL.ink3;
     ctx.beginPath();
     ctx.moveTo(x, y - 30 + bob);

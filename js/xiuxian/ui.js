@@ -3,7 +3,7 @@
 // 契约:只读 Cult.s 并调用其已有函数,不改状态结构。
 
 import { Cult } from './index.js';
-import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp } from './realms.js';
+import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
 import { WORLD, nodeById, neighbors } from './world.js';
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
@@ -137,11 +137,23 @@ export const Hall = {
     switch (a) {
       case 'back': this.close(); break;
       case 'meditate': {
-        const g = addExp(s, 40);
+        // addExp 返回的是 {levels, broke},不是数字。
+        // 之前直接 `${g}` 插值 → 吐纳 [object Object] 点修为(每次点必现)。
+        const r = addExp(s, 40);
         const yr = CHRONICLE.day();
-        if (yr) { Cult.get().dao += 200; toast(`第${yr.year}年:${yr.ev}`); }
-        Cult.commit(); this.render();
-        if (!yr) toast(`吐纳 ${g} 点修为`);
+        if (yr) {
+          Cult.get().dao += 200;
+          toast(`第${yr.year}年:${yr.ev}`);
+        } else {
+          // 跨层要报出来,否则玩家点了没反应还以为坏了
+          if (r.levels > 0) {
+            toast(r.broke
+              ? `吐纳 · 已达 ${realmTitle(s)}圆满,可冲击突破`
+              : `吐纳 · 精进至 ${realmTitle(s)}`);
+          } else {
+            toast('吐纳 · 修为 +40');
+          }
+        }
         break;
       }
       case 'break': {
