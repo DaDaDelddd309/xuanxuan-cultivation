@@ -1,8 +1,11 @@
 /* ===== 修仙层 UI(独立作用域,不污染原版) ===== */
 :root{
   /* ---- 颜色 ---- */
-  --xx-ink:#1a1512; --xx-paper:var(--xx-paper); --xx-paper2:var(--xx-paper-dim);
-  --xx-cinnabar:var(--xx-cinnabar); --xx-gold:var(--xx-gold); --xx-jade:var(--xx-jade);
+  /* ⚠️ 原来这几个是自我引用(var(--xx-paper) 赋给 --xx-paper),
+     浏览器判为无效 → 变量消失 → 修仙阁整体掉回默认色。
+     现在直接从 palette.css 引用真正的令牌。 */
+  --xx-ink:#1a1512; --xx-paper:var(--xx-paper-base); --xx-paper2:var(--xx-paper-dim);
+  --xx-cinnabar:var(--xx-cinnabar-base); --xx-gold:var(--xx-gold-base); --xx-jade:var(--xx-jade-base);
   --xx-panel:rgba(24,19,16,.94);
 
   /* ---- 表面(透明度只用这四档,别再随手写数字) ---- */

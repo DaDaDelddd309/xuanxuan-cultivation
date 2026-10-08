@@ -49,8 +49,12 @@ export const CHRONICLE = {
   // 而 stamp()、年表日志页这些**只读**的地方没人调 sync,于是新号打开年表页
   // 看到「第 undefined 年 · NaN 日」。
   // 教训:派生状态不能靠"谁碰巧会触发同步",必须在**读**的那一步保证已同步。
-  get year() { this.sync(); return this.s.year; },
-  get day()  { this.sync(); return this.s.day; },
+  // ⚠️ 名字必须避开同名方法:下面有 year(fromClock) 和 day() 两个方法。
+  // 在对象字面量里 `get year(){}` 会被后面的 `year(){}` **整个覆盖**,
+  // 于是 this.year 拿到的是函数本身 → 拼进模板就是满屏 JS 源码。
+  // 教训:派生属性别和方法同名,这里统一加 cur 前缀。
+  get curYear() { this.sync(); return this.s.year; },
+  get curDay()  { this.sync(); return this.s.day; },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); }catch{} },
 
   /**
@@ -87,7 +91,7 @@ export const CHRONICLE = {
 
   // 万年历时间显示
   stamp() {
-    const y=this.year, d=this.day;   // 走 getter,读前必同步
+    const y=this.curYear, d=this.curDay;   // 走 getter,读前必同步
     const eraName = (ERAS.find(e=>e.year<=y) || ERAS[0]).name;
     return `${eraName} · 第 ${y} 年 · ${d+1} 日`;
   },
