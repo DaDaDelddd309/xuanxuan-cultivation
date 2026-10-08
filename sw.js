@@ -3,8 +3,8 @@
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v099b';
-const BUILD = '20261008-1520';
+const V = 'xuanxuan-v099c';
+const BUILD = '20261008-1550';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',

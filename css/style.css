@@ -12,8 +12,8 @@
   --paper-dk2: var(--xx-paper-dim);    /* 深纸 */
   --ink: var(--xx-ink-2);          /* 浓墨 */
   --ink-2: var(--xx-ink-3);        /* 重墨 */
-  --ink-3: var(--xx-paper-faint);        /* 中墨 */
-  --ink-4: var(--xx-paper-faint);        /* 淡墨 */
+  --ink-3: var(--xx-paper-faint); /* 弱化文字 */
+  --ink-4: var(--xx-paper-faint); /* 更弱 */
   --wash: #b9b3a2;         /* 淡墨灰 */
   --cinnabar: var(--xx-cinnabar);     /* 朱砂 */
   --cinnabar-hi: var(--xx-cinnabar);  /* 朱砂亮 */
