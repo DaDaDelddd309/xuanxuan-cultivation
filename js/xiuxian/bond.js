@@ -65,6 +65,12 @@ export const Bond = {
 
   // ————— 自说自话气泡 —————
   bubble(text, kind) {
+    // V0.96:气泡也算打扰。灵伴每隔一会儿就可能念一句,
+    // 全局 tick 每 1.2 秒一次,不加限制的话一局能冒几十个泡。
+    // 给它一个独立的低频预算,超了就静默。
+    if (!this._bubBudget) this._bubBudget = 6;
+    if (this._bubBudget <= 0) return;
+    this._bubBudget--;
     this.init();
     const b = L.bub;
     b.className = 'bd-bub on' + (kind === 'ok' ? ' ok' : kind === 'dark' ? ' dark' : '');

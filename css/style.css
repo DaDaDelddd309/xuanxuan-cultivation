@@ -729,3 +729,47 @@ button { font-family: inherit; }
   .codex-info-name { font-size: 15px; }
   #codex-info { min-height: 0; }
 }
+
+/* ---- 修仙层 · 局内 HUD(V0.96)----
+   原来砍杀和修仙阁毫无关联:局内看不到一点修仙的东西。
+   这条常驻显示局内灵气,让两个系统至少"看得见"地接上了。 */
+.hud-xx{position:absolute;top:52px;left:10px;z-index:20;
+  display:flex;align-items:center;gap:5px;
+  padding:3px 9px 3px 5px;border-radius:2px;
+  background:rgba(18,14,11,.6);
+  border:1px solid rgba(201,162,39,.32);
+  font:12px/1 "Songti SC",serif;color:#e8dcc4;letter-spacing:1px;
+  pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.hud-xx-i{display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:50%;font-size:10px;
+  background:rgba(201,162,39,.22);color:#c9a227;border:1px solid rgba(201,162,39,.45)}
+.hud-xx-f{font-size:10px;color:#c9a227;opacity:.85;
+  padding-left:5px;margin-left:2px;border-left:1px solid rgba(201,162,39,.28)}
+.hud-xx.pop{animation:hudXxPop .35s ease}
+@keyframes hudXxPop{
+  0%{transform:scale(1)} 40%{transform:scale(1.14)} 100%{transform:scale(1)}
+}
+.ostat.xx{border-color:rgba(201,162,39,.4);background:rgba(201,162,39,.07)}
+.ostat.xx .v{color:#c9a227}
+
+/* ---- 修仙阁 · 局内增益可见性(V0.96)----
+   护栏/坐骑之前就在生效,但玩家看不见 —— 感觉不到等于没有。 */
+.hud-xx-buf{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:20;
+  display:flex;gap:6px;pointer-events:none}
+.hud-xx-buf span{font:11px/1 "Songti SC",serif;letter-spacing:1px;
+  padding:4px 8px;border-radius:2px;white-space:nowrap;
+  background:rgba(18,14,11,.6);border:1px solid rgba(201,162,39,.3);color:#e8dcc4;
+  text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.hud-xx-buf span b{color:#c9a227;font-weight:400}
+
+/* 护栏:视觉上就是一个圈,玩家才知道自己站在安全区里 */
+.hud-ward{position:absolute;z-index:8;pointer-events:none;
+  left:50%;top:50%;transform:translate(-50%,-50%);
+  border-radius:50%;border:1px solid rgba(201,162,39,.16);
+  background:radial-gradient(circle,rgba(201,162,39,.045) 0%,transparent 70%)}
+.hud-ward b{position:absolute;left:50%;top:-20px;transform:translateX(-50%);
+  font:10px/1 "Songti SC",serif;letter-spacing:3px;color:rgba(201,162,39,.5);
+  white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.hud-ward i{position:absolute;inset:-2px;border-radius:50%;
+  border:1px solid rgba(181,52,42,.12);animation:hudWard 3.4s ease-in-out infinite}
+@keyframes hudWard{0%,100%{opacity:.5}50%{opacity:1}}

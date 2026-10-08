@@ -20,6 +20,7 @@ import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY, ARCS } from './story.js';
 import { PHASES } from './ambience.js';
 import { QUEST } from './quest.js';
+import { NAGER, NAG } from './nag.js';
 import { ARC_REWARD } from './story.js';
 import { TOMB, ROOMS as TOMB_ROOMS, WORDS as TOMB_WORDS } from './tomb.js';
 import { MOUNT, MOUNTS, MOUNT_LIST } from './mount.js';
@@ -222,6 +223,21 @@ export const Hall = {
       // —— 支线 ——
       case 'qtake': { const r=QUEST.take(v); toast(r.ok?`接下「${r.quest.title}」`:(r.msg||'接不了')); this.render(); break; }
       case 'sfinal': this.askStoryPath(v); break;
+      case 'rest': {
+        const st = Cult.get();
+        st.hp = st.maxHp || 100;
+        Cult.commit(); toast('睡了一觉。气血已满。'); this.render(); break;
+      }
+      case 'guide': {
+        const tips = [
+          '往东是黑风岭(n5),姥姥在那儿。往西有青岚秘境(n4),白泽认得你。',
+          '灯尸在村外坟场(n10),夜里听见铃,别应。',
+          '古战场遗迹(n8)有条青影飞过,一天一趟,错过了就等明天。',
+        ];
+        const tip = tips[Math.floor(Math.random() * tips.length)];
+        toast(tip, true);
+        break;
+      }
       case 'mset': {
         const r = slot==='ride' ? MOUNT.setRide(v) : MOUNT.setPet(v);
         if (!r.ok) { toast(r.msg||'换不了'); break; }
@@ -366,7 +382,7 @@ export const Hall = {
     for (const m of gotMounts) this._pendingMount = (this._pendingMount||[]).concat(m);
 
     // 村庄:不战斗,给休整
-    if (n.type === 'village') { this.render(); toast('炊烟袅袅。歇一会儿。'); return; }
+    if (n.type === 'village') { this.enterVillage(n); return; }
 
     // 荒野/野地:自动遭遇,直接结算,不打断
     if (n.type === 'field') {
@@ -754,6 +770,7 @@ export const Hall = {
     if (!TOMB.canFinish()) { toast('你还没走到石将跟前'); return; }
     const el = document.createElement('div');
     el.className = 'xx-storycard legend';
+    el.dataset.nag = 'must';     // 必须决策
     el.innerHTML = `<div class="xx-sc-n">半 句 话</div>
       <div class="xx-sc-t">石将背上,「此生不悔」四个字还缺一半。<br>你手上有两个补法。</div>
       ${TOMB_WORDS.map(w=>`<div class="xx-sc-go" style="cursor:pointer;margin-top:13px;
@@ -1017,11 +1034,9 @@ export const Hall = {
         <div class="xx-bn-l">${esc(l.lore)}</div>
         <div class="xx-bn-t">详情记在「修仙阁 → 支线 / 图鉴」</div>
       </div>`;
-    document.getElementById('app').appendChild(el);
-    const done = () => { el.remove(); if (this._bn === el) this._bn = null; };
     this._bn = el;
-    el.onclick = done;
-    setTimeout(done, 4200);
+    NAGER.request({ level: NAG.MID, el, dur: 4200,
+      onClose: () => { if (this._bn === el) this._bn = null; } });
   },
 
   // ---------- 支线 ----------
@@ -1102,6 +1117,7 @@ export const Hall = {
     const last = arc.beats[arc.beats.length-1];
     const el = document.createElement('div');
     el.className = 'xx-storycard legend';
+    el.dataset.nag = 'must';     // 必须决策,不占打扰预算
     el.innerHTML = `<div class="xx-sc-n">${esc(arc.name)} · 了 结</div>
       <div class="xx-sc-t">事到头了。剩下的,是你的选择。</div>
       <div class="xx-sc-go" style="cursor:pointer;margin-top:14px;font-size:13px;line-height:1.7"
@@ -1496,8 +1512,7 @@ export const Hall = {
       <div class="xx-sc-t" style="margin-top:8px;font-size:12px">已${m.kind==='ride'?'骑上':'带上'}。往「修仙阁 → 人物」可换。</div>
       <div class="xx-sc-x">收下</div>`;
     document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = done;
-    setTimeout(done, 9000);
+    NAGER.request({ level: NAG.MUST, el, dur: 11000, onClose: done });
   },
 
   // 统一空态:一句状态 + 去哪儿的线索(V0.95)
@@ -1514,6 +1529,82 @@ export const Hall = {
           <span class="xx-clue-w">${esc(c[1])}</span></span>
         </div>`).join('')}` : ''}
     </div>`;
+  },
+
+  // 村庄:真有功能的地方(V0.96)
+  // 原来点进去只有一句「炊烟袅袅。歇一会儿。」—— 村庄是个空壳,
+  // 而 world.js 里落云镇还标着 shop:true,代码却从来没读过这个字段。
+  enterVillage(n) {
+    this.village = n.id;
+    this.render();
+    setTimeout(() => {
+      const body = document.getElementById('xx-body');
+      if (!body) return;
+      const el = document.createElement('div');
+      el.innerHTML = this.vVillage(n);
+      // 插到地图最前面
+      const first = body.querySelector('.xx-card, .xx-map');
+      if (first) body.insertBefore(el, first); else body.appendChild(el);
+      // 事件代理在 root 上,插入的内容照样能点
+    }, 0);
+    // 布告栏:告诉玩家这个村子是干什么的
+    setTimeout(() => {
+      const isTown = !!n.shop;
+      toast(isTown ? '落云镇 · 集市开市' : '青石村 · 炊烟起了');
+    }, 200);
+  },
+
+  // 村庄面板(挂在页面顶部)
+  vVillage(n) {
+    const s = Cult.get();
+    const isTown = !!n.shop;
+    const heal = (s.hp || 0) < (s.maxHp || 0);
+    return `<div class="xx-card" style="border-color:rgba(201,162,39,.4)">
+        <div class="xx-label">${esc(n.name || '村 落')}</div>
+        <div class="xx-val" style="font-size:14px;color:var(--xx-gold)">
+          ${isTown ? '集 市 开 市' : '炊 烟 袅 袅'}</div>
+        <div class="xx-dim" style="margin-top:6px;line-height:1.85">
+          ${isTown
+            ? '落云镇的集市每旬开一次。散修把用不上的东西拿来换,也有人在这儿收传说。'
+            : '青石村是最早落脚的地方。村口的老槐树下,总有人愿意跟你讲两句。'}</div>
+      </div>
+
+      <div class="xx-grid">
+        <div class="xx-card">
+          <div class="xx-label">歇 息</div>
+          <div class="xx-dim" style="font-size:12px;margin:5px 0 9px">
+            ${heal ? `气血 ${s.hp}/${s.maxHp} — 睡一觉就好了` : '气血已满,歇着也是歇着'}</div>
+          <button class="xx-btn" data-act="rest">睡 一 觉</button>
+        </div>
+        ${isTown ? `
+        <div class="xx-card">
+          <div class="xx-label">集 市</div>
+          <div class="xx-dim" style="font-size:12px;margin:5px 0 9px">
+            你有 ${s.dao} 道行。散商的货比仙人便宜,但他挑人。</div>
+          <button class="xx-btn" data-act="merchant">找 散 商</button>
+        </div>` : `
+        <div class="xx-card">
+          <div class="xx-label">村 口</div>
+          <div class="xx-dim" style="font-size:12px;margin:5px 0 9px">
+            青石村没有集市,但有别的 —— 猎户会带你进山。</div>
+          <button class="xx-btn" data-act="guide">问 路 人</button>
+        </div>`}
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">村 中 所 见</div>
+        ${(isTown
+          ? [['卖符的', '「匿息符?一张不够,两张才稳。」'],
+             ['说书的', '他讲古战场那一段,每回都讲得不一样。'],
+             ['磨刀的', '他在等一个人。等了很久了。']]
+          : [['打铁的老汉', '他要的从来不是钱。'],
+             ['门口的小孩', '他数着天,说再过几天就能去捡灵石了。'],
+             ['收山货的', '他压价,但他认得每一味草。']]
+        ).map((c,i)=>`<div class="xx-clue" style="border:0;padding:6px 0">
+            <span class="xx-clue-i">${i+1}</span>
+            <span><b style="color:var(--xx-paper)">${esc(c[0])}</b><br>
+            <span class="xx-clue-w">${esc(c[1])}</span></span></div>`).join('')}
+      </div>`;
   },
 
   // ---------- 坐骑 / 宠物 ----------

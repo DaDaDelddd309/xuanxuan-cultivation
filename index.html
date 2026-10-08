@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-180.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>轩轩修仙传 V0.95</title>
+<title>轩轩修仙传 V0.96</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/xiuxian.css">
 </head>
@@ -28,6 +28,15 @@
       <div class="hud-right">
         <div id="hud-timer" class="timer">00:00</div>
         <div class="hud-mini"><span id="hud-kills">💀 0</span><span id="hud-gold">🪙 0</span><span id="hud-level">Lv.1</span></div>
+        <!-- 修仙层:局内灵气。局末折成道行与源石,带回修仙阁 -->
+        <div id="hud-xx" class="hud-xx" title="灵气 · 局末折算道行与源石">
+          <span class="hud-xx-i">灵</span><span id="hud-xx-ling">0</span>
+          <span id="hud-xx-fire" class="hud-xx-f" hidden>篝火 ×1.25</span>
+        </div>
+        <!-- 修仙阁带来的局内增益。生效了就得让玩家看见,不然等于没有 -->
+        <div id="hud-xx-buf" class="hud-xx-buf" hidden></div>
+        <!-- 篝火护栏:圈外的东西进不来 -->
+        <div id="hud-ward" class="hud-ward" hidden><i></i><b>篝火护栏</b></div>
       </div>
       <button id="btn-pause" class="btn icon-btn" aria-label="暂停">⏸</button>
     </div>
@@ -47,7 +56,7 @@
   <div id="screens">
     <div id="screen-menu" class="screen">
       <div class="panel menu-panel">
-        <h1 class="game-title">轩轩修仙传<br><small>V0.95 · 统一</small></h1>
+        <h1 class="game-title">轩轩修仙传<br><small>V0.96 · 一体</small></h1>
         <p id="menu-stats" class="menu-stats"></p>
         <div class="menu-btns">
           <button id="btn-cult" class="btn primary big">修 仙 阁</button>

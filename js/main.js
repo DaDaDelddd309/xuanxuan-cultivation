@@ -115,7 +115,10 @@ function endRun(victory) {
   if (engine.player.level > d.best.level) d.best.level = engine.player.level;
   if (victory) d.best.victory = true;
   Save.commit();
-  Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level, gold: s.gold }, {
+  // 灵气结算:砍杀的产出回流到修仙阁(道行 + 源石)
+  const sp = SPIRIT.settle(g0(), s);
+  Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level,
+    gold: s.gold, spirit: sp }, {
     victory,
     endless: victory,
     onAgain: () => startRun(lastChar),
@@ -247,6 +250,8 @@ import { CAMP, offlineReport } from './xiuxian/camp.js';
 import { Merchant } from './xiuxian/merchant.js';
 import { COMPANION } from './xiuxian/companion.js';
 import { MOUNT } from './xiuxian/mount.js';
+import { SPIRIT } from './xiuxian/spirit.js';
+import { NAGER, installNagger } from './xiuxian/nag.js';
 import { Ritual } from './xiuxian/ritual.js';
 import { Bond } from './xiuxian/bond.js';
 import { Profile, Seed } from './xiuxian/profile.js';
@@ -299,9 +304,56 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     _ghostMod = COMPANION.possessing()
       ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() } : null;
     Enemies.setEnemyMod(_ghostMod);
+    // 每局重置打扰预算
+    NAGER.newRun();
+    try { Bond._bubBudget = 6; } catch {}
+    // —— 灵气(V0.96):砍杀 ↔ 修仙阁 的连接 ——
+    SPIRIT.install(engine, g0());
+    engine.addUpdater(dt => {
+      SPIRIT.tick(g0());
+      // HUD:灵气数 + 篝火加成提示
+      const el = document.getElementById('hud-xx-ling');
+      if (el) {
+        const n = SPIRIT.TALLY.ling;
+        if (el.textContent !== String(n)) {
+          el.textContent = n;
+          const box = document.getElementById('hud-xx');
+          if (box && n > 0) { box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop'); }
+        }
+        const f = document.getElementById('hud-xx-fire');
+        if (f) f.hidden = !CAMP.burning();
+      }
+    });
+    // 篝火在烧时局内灵气更浓,视觉上给个提示
+    engine.addUpdater(dt => {
+      const p0 = g0().player;
+      if (!p0) return;
+      const on = CAMP.burning();
+      if (on !== p0._xxSpiritGlow) {
+        p0._xxSpiritGlow = on;
+        p0.stats.xpMult = on ? (p0.stats.xpMult || 1) * 1.08 : (p0.stats.xpMult || 1) / 1.08;
+      }
+    });
+
+    // 增益条:把「修仙阁带来的东西」在局内列出来
+    engine.addUpdater(dt => {
+      const box = document.getElementById('hud-xx-buf');
+      if (!box) return;
+      const sig = [];
+      const e = MOUNT.eff();
+      if (e.ward > 0)   sig.push(`<span><b>坐骑</b> 护栏 +${e.ward}</span>`);
+      if (e.speed > 1)  sig.push(`<span><b>坐骑</b> 移速 +${Math.round((e.speed-1)*100)}%</span>`);
+      if (e.pickup > 1) sig.push(`<span><b>坐骑</b> 拾取 ×${e.pickup.toFixed(2)}</span>`);
+      if (e.atk > 0)    sig.push(`<span><b>随行</b> 攻击 +${e.atk}%</span>`);
+      if (COMPANION.possessing()) sig.push('<span style="border-color:rgba(181,52,42,.5)"><b style="color:#e8a99c">怨灵</b>附身中</span>');
+      const key = sig.join('|');
+      if (box._sig !== key) { box._sig = key; box.innerHTML = sig.join(''); box.hidden = !sig.length; }
+    });
+
     // —— 坐骑/宠物(V0.91):开局把加成落到局内 player 上 ——
     // 只在开局设一次,不是每帧改(每帧改会盖掉局内其他来源)
     MOUNT.load();
+    installNagger();
     engine.addUpdater(dt => {
       const p0 = g0().player;
       if (!p0 || p0._xxMountOn) return;
@@ -314,6 +366,21 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       window.__xxMount = { eff:e, magnet:p0.stats.magnet, speed:p0.stats.speed,
                            might:p0.stats.might };
     });
+    // 护栏圈:让玩家看见自己站在安全区里(V0.96 可见性)
+    engine.addUpdater(dt => {
+      const g1 = g0(), p1 = g1.player;
+      const w = document.getElementById('hud-ward');
+      if (!w) return;
+      const r = COMPANION.wardRadius();
+      if (!r || !p1) { w.hidden = true; return; }
+      w.hidden = false;
+      const d = r * 2;
+      w.style.width = d + 'px'; w.style.height = d + 'px';
+      w.style.left = (p1.x - r) + 'px';
+      w.style.top  = (p1.y - r) + 'px';
+      w.style.transform = 'none';
+    });
+
     // 篝火护栏:火在时,怪不能进圈
     engine.addUpdater(dt => {
       const ward = COMPANION.wardRadius();

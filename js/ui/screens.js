@@ -309,6 +309,13 @@ export const Screens = {
       { v: 'Lv.' + stats.level, l: '等级', rec: d.best.level > 0 && stats.level >= d.best.level },
       { v: '🪙 ' + stats.gold, l: '获得金币', rec: false },
     ];
+    // 修仙层:这一局带回去的东西。不显示的话,玩家不知道砍杀和修仙阁是一回事
+    if (stats.spirit) {
+      cells.push({ v: String(stats.spirit.ling), l: '灵气', rec: false, xx: true });
+      cells.push({ v: '道 ' + stats.spirit.dao, l: stats.spirit.boost > 1 ? '折算道行(篝火×1.25)' : '折算道行', rec: false, xx: true });
+      if (stats.spirit.stones > 0)
+        cells.push({ v: '石 ' + stats.spirit.stones, l: '碎灵石入行囊', rec: false, xx: true });
+    }
     const ov = document.getElementById('over-stats');
     ov.innerHTML = '';
     ov.style.display = 'grid';
@@ -316,7 +323,7 @@ export const Screens = {
     ov.style.gap = '10px';
     for (const c of cells) {
       const cell = document.createElement('div');
-      cell.className = 'ostat';
+      cell.className = 'ostat' + (c.xx ? ' xx' : '');
       const v = document.createElement('div');
       v.className = 'ostat-v';
       v.style.cssText = 'font-size:20px;font-weight:700;';

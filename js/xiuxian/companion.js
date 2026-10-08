@@ -111,7 +111,7 @@ export const COMPANION = {
     giftAt: 0,
     // 怨灵(仅 ghost 路线,但也可能自己爬出来)
     ghost: {
-      on:false, poss:0, warnings:0, phase:'idle', nextAt:0,
+      on:false, poss:0, warnings:0, phase:'idle', nextAt:0, holdMs:26000,
       reviveAt:0, hostName:'', nextHost:'', killed:0, since:0, holdMs:75000,
     },
     // 篝火外围强化怪
@@ -152,7 +152,7 @@ export const COMPANION = {
     // 初始福利:拾取范围 (新手福利)
     this.s.pick.range = 34 + (route === 'kiss' ? 10 : 6);
     this.s.pick.spd = 0;
-    if (route === 'ghost') this.s.ghost.nextAt = Date.now() + 90000;
+    if (route === 'ghost') this.s.ghost.nextAt = Date.now() + 210000;   // V0.96:90s→210s
     this.save();
   },
   get(name) { return this.s.name || name; },
@@ -232,17 +232,17 @@ export const COMPANION = {
 
     if (g.phase === 'scattered' && now >= g.reviveAt) {
       g.phase = 'idle';
-      g.nextAt = now + 60000;
+      g.nextAt = now + 180000;   // V0.96:散后等更久
       this.save();
       return { event:'revive', msg:`附身散了。她在重聚 —— 下一具:「${g.nextHost}」` };
     }
     // possessing:附身中,倒计时到点自动回 idle 准备下一轮
     if (g.phase === 'possessing') {
       if (!g.since) g.since = now;
-      if (now - g.since >= (g.holdMs || 75000)) {
+      if (now - g.since >= (g.holdMs || 26000)) {   // V0.96:75s→26s
         g.phase = 'idle';
         g.since = 0;
-        g.nextAt = now + 45000;   // 间隔 45s 再附身
+        g.nextAt = now + 150000;  // V0.96:45s→150s
         this.save();
       }
       return null;
@@ -251,12 +251,11 @@ export const COMPANION = {
       g.phase = 'possessing';
       g.since = now;
       g.poss++;
-      // 每 5 次 → 闪屏特写
-      let flash = null;
-      if (g.poss % 5 === 0) {
-        g.warnings++;
-        flash = FLASH_LINES[Math.floor((g.warnings - 1) / 5) % FLASH_LINES.length];
-      }
+      // V0.96:删掉「每 5 次闪屏特写」。
+      // 附身节奏拉长到 150 秒一轮后,一局基本碰不到第 5 次,这个机制等于死代码;
+      // 而它原本的效果是疯狂马歇尔式闪屏 —— 对玩家是纯打扰,不是仪式感。
+      // 仪式感应该来自「你知道它在,但它不闹你」。
+      const flash = null;
       this.save();
       return { event:'possess', count:g.poss, flash };
     }
@@ -309,18 +308,18 @@ export const COMPANION = {
   hostBuff() {
     const g = this.s.ghost;
     if (!g.on || g.phase !== 'possessing') return 1;
-    // 附身期间所有怪都吃强化:血 +60%,伤害 +45%,速度 +25%
-    return 1.6;
+    // V0.96:全场 +60% 血 → +28%。持续施压是最伤体验的,不是强度。
+    return 1.28;
   },
   hostDmg() {
     const g = this.s.ghost;
     if (!g.on || g.phase !== 'possessing') return 1;
-    return 1.45;
+    return 1.18;
   },
   hostSpd() {
     const g = this.s.ghost;
     if (!g.on || g.phase !== 'possessing') return 1.25;
-    return 1.25;
+    return 1.08;
   },
   possessing() { return this.s.ghost.on && this.s.ghost.phase === 'possessing'; },
 

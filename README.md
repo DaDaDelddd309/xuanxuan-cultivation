@@ -111,6 +111,9 @@ python -m http.server 8894
 
 | 文档 | 内容 |
 |---|---|
+| [HANDOVER.md](HANDOVER.md) | **接手先读这个**:当前状态、优先级、踩过的坑 |
+| [LOOP.md](LOOP.md) | 核心循环设计(砍杀 ⇄ 修仙阁 怎么串起来的) |
+|---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块分层、数据流、扩展指南 |
 | [CHANGELOG.md](CHANGELOG.md) | V0.76 → V0.95 完整演进 |
 | [ROADMAP.md](ROADMAP.md) | 待做清单 + 设计思路 |

@@ -81,9 +81,13 @@ CP.COMPANION.init('x'); CP.COMPANION.choose('ghost');
 t('未附身时倍率=1', CP.COMPANION.hostBuff()===1&&CP.COMPANION.hostDmg()===1);
 CP.COMPANION.s.ghost.phase='possessing';
 t('附身中 possesing()', CP.COMPANION.possessing()===true);
-t('血量 ×1.6', CP.COMPANION.hostBuff()===1.6);
-t('伤害 ×1.45', CP.COMPANION.hostDmg()===1.45);
-t('速度 ×1.25', CP.COMPANION.hostSpd()===1.25);
+// V0.96:从 +60%/+45%/+25% 降到 +28%/+18%/+8%
+// 理由不是「变弱更好玩」,是持续 75 秒、一局三轮的全场施压最伤体验。
+t('血量 ×1.28', CP.COMPANION.hostBuff()===1.28);
+t('伤害 ×1.18', CP.COMPANION.hostDmg()===1.18);
+t('速度 ×1.08', CP.COMPANION.hostSpd()===1.08);
+// 但仍必须明显大于 1 —— 全是 1 就没有「附身」这件事了
+t('附身仍有可感知的强化', CP.COMPANION.hostBuff()>1.15);
 CP.COMPANION.s.ghost.phase='idle';
 t('散后恢复', CP.COMPANION.hostBuff()===1);
 

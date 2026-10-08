@@ -90,9 +90,11 @@ for(let i=0;i<40;i++){
   if(e&&e.event==='possess'){ if(e.flash) flashAt.push(C.COMPANION.s.ghost.poss); }
 }
 t('循环能持续附身(>=12次)', C.COMPANION.s.ghost.poss>=12);
-t('第5次闪屏', flashAt.includes(5));
-t('第10次闪屏', flashAt.includes(10));
-t('第15次会闪屏', flashAt.includes(15));
+// V0.96:闪屏特写已删。附身节奏拉长到 150 秒一轮后一局碰不到第 5 次,
+// 这个机制等于死代码;而它原本的效果是疯狂马歇尔式闪屏 —— 对玩家是纯打扰。
+// 仪式感应该来自「你知道它在,但它不闹你」。
+t('不再闪屏(V0.96 移除)', flashAt.length===0);
+t('att 旧存档的 poss 仍会被记录(存档兼容)', C.COMPANION.s.ghost.poss>0);
 t('没闪的走气泡', true);
 
 console.log('\n=== 怨灵:永远打不死 ===');

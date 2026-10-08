@@ -20,6 +20,8 @@ echo "本地服务器 http://127.0.0.1:$PORT 就绪"
 echo ""
 
 # audit-reach 是可达性审计:不注入状态,从入口走一遍,抓「定义了但玩家拿不到」
+# 沙箱里后台进程容易被回收,结果直接落盘
+if [ -n "${XX_BR_LOG:-}" ]; then exec > >(tee -a "$XX_BR_LOG") 2>&1; fi
 for f in tests/t8*.py tests/t9*.py tests/audit-reach.py tests/full*.py; do
   [ -f "$f" ] || continue
   name=$(basename "$f" .py)
