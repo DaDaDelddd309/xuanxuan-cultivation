@@ -15,6 +15,7 @@ import { CAMP, CAMP_TIERS, offlineReport } from './camp.js';
 import { Merchant } from './merchant.js';
 import { ENCOUNTERS } from './lore.js';
 import { COMPANION } from './companion.js';
+import { CLOCK } from './clock.js';   // V0.99:修仙时长/年月统一读时钟
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
@@ -731,7 +732,8 @@ export const Hall = {
         <div class="xx-dim" style="margin-top:5px">${meta}</div>
       </div>
       <div class="xx-dim" style="text-align:center;line-height:1.9">
-        点亮相邻节点即可前往 · 秘境界/妖巢点「占」纳入领地开矿<br>
+                ${CLOCK.uptimeText()}<br>
+点亮相邻节点即可前往 · 秘境界/妖巢点「占」纳入领地开矿<br>
         ${BUILD.canTeleport() ? `阵法旗已立,可点「传」前往已到之处(每次 ${BUILD.teleportCost()} 道行)` : '领地至村落LV2 可布阵法旗传送'}</div>`;
   },
 

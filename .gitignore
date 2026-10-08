@@ -12,3 +12,4 @@ fixq.py
 
 # 生图请求草稿
 assets/portrait/req-*.json
+.github/workflows/ci.yml

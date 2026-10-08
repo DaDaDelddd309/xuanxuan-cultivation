@@ -36,10 +36,14 @@ const { Hall } = await import('../js/xiuxian/ui.js');
 const { NODE_ILLUST, TAB_ILLUST, nodeIllustUrl, tabIllustUrl } = await import('../js/xiuxian/illust.js');
 const { SPINE, PHASES } = await import('../js/xiuxian/spine.js');
 const { installSpine } = await import('../js/xiuxian/spine.js');
+// V0.99(XX-FIX-003):必须先 load 世界时钟,否则 CHRONICLE.sync() 读到未初始化的
+// CLOCK.s,年表页会显示「第 undefined 年 · NaN 日」。
+const { CLOCK } = await import('../js/xiuxian/clock.js');
 const { CHARACTERS } = await import('../js/game/player.js' + V);
 const { NPCS } = await import('../js/xiuxian/bestiary.js');
 
 console.log('\n[1] 修仙阁初始化');
+CLOCK.load();
 Cult.init(); Bag.load('xx_bag_v080'); CAMP.load(); DAY.load('xx_day_v080');
 Merchant.load(); MOUNT.load(); COMPANION.load(); STORY.load(); QUEST.load();
 installSpine(Cult.s, CAMP);
@@ -55,7 +59,10 @@ for (const t of TABS) {
   guard(`渲染 ${t}`, () => { Hall.tab = t; Hall.render(); });
   const body = globalThis.document.querySelector('#xx-body');
   const html = body ? body.innerHTML : '';
-  ok(`${t} 不含 undefined`, !html.includes('undefined'), html.slice(0, 60));
+  if (html.includes('undefined')) {
+    const i = html.indexOf('undefined');
+    ok(`${t} 不含 undefined`, false, '\n' + html.slice(Math.max(0, i-160), i+100));
+  } else ok(`${t} 不含 undefined`, true);
   ok(`${t} 内容非空`, html.trim().length > 20);
 }
 

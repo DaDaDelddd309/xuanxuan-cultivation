@@ -1,4 +1,5 @@
 import { PAL } from '../core/palette.js';
+import { CLOCK, CLOCK_CONST } from './clock.js';   // V0.99 唯一时间真源
 // ===== 道具体系 · 品阶与来源 =====
 // 设计原则(为什么这样分):
 //  1. 源石是「时长」而不是「充能值」——玩家可以 1 颗 1 颗地续,永不浪费。
@@ -169,22 +170,23 @@ export const Bag = {
 // 一个游戏日 = 12 次「行动」(吐纳/赶路/战斗各算一次)。
 // 夜:妖怪更凶、篝火更重要、白天能安全赶路。
 export const DAY = {
-  ACTIONS_PER_DAY: 12,
-  s: { actions:0 },
-  load(k){ try{const r=localStorage.getItem(k); if(r) this.s={...this.s,...JSON.parse(r)};}catch{} return this.s; },
-  save(k){ try{localStorage.setItem(k,JSON.stringify(this.s));}catch{} },
-  tick() { this.s.actions++; if (this.s.actions >= this.ACTIONS_PER_DAY) this.s.actions = 0; return this.phase(); },
-  // 0-5 晨 6-11 昼 12-17 暮 18-23 夜
-  phase() {
-    const a = this.s.actions, n = this.ACTIONS_PER_DAY;
-    const h = Math.floor(a / n * 24);
-    if (h >= 5 && h < 8)  return { key:'dawn',  name:'晨',  night:false, hour:h, desc:'天光微亮,露气未消。' };
-    if (h >= 8 && h < 17) return { key:'day',   name:'昼',  night:false, hour:h, desc:'日头正高,适合赶路。' };
-    if (h >= 17 && h < 20) return { key:'dusk',  name:'暮',  night:false, hour:h, desc:'日落西山,妖气渐起。' };
-    return { key:'night', name:'夜', night:true, hour:h, desc:'夜色压山。点燃篝火吧。' };
+  // V0.99(XX-FIX-003):全部委托给 CLOCK。
+  // 原来这里自己数"12 次行动",和 CHRONICLE 各数各的,和篝火的真实时间零关联。
+  // 现在只有一个真源:真实时间打底 + 行动加速,同一个刻度。
+  ACTIONS_PER_DAY: CLOCK_CONST.ACTIONS_PER_DAY,
+  s: { actions: 0 },
+  load(k) {
+    // 保留旧调用签名(传的是 localStorage key),真存在 CLOCK 里
+    CLOCK.load();
+    this.s.actions = CLOCK.s.actions;
+    return this.s;
   },
-  isNight() { return this.phase().night; },
-  // 夜间挂机收益更高(但没有篝火会更危险)
-  bonus() { return this.isNight() ? 1.35 : 1.0; },
-  reset() { this.s = { actions:0 }; },
+  save() { this.s.actions = CLOCK.s.actions; CLOCK.save(); },
+  tick() { CLOCK.action(); this.s.actions = CLOCK.s.actions; return this.phase(); },
+  phase() { return CLOCK.phase(); },
+  isNight() { return CLOCK.isNight(); },
+  bonus() { return CLOCK.isNight() ? 1.35 : 1.0; },
+  /** 绝对天数,用于比较先后 */
+  day() { return Math.floor(CLOCK.absoluteDay()); },
+  reset() { CLOCK.reset(); this.s.actions = 0; this.s.day = 0; },
 };

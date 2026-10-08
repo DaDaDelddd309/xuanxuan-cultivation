@@ -1,9 +1,10 @@
 // ===== 万年历 · 长期世界事件 =====
-// 一个游戏年 = 12 日(配合 items.js 的 DAY)。每过一年抽一件「世纪事」。
+// 一个游戏年 = 12 日(与 items.js 的 DAY 共用 CLOCK 这一个真源)。每过一年抽一件「世纪事」。
 // 这些是跨存档、跨周目的世界底色——江湖不会等你。
 
 import { Cult } from './index.js';
 import { Bag, STONES } from './items.js';
+import { CLOCK } from './clock.js';   // V0.99 唯一时间真源(不再自己数 12 天)
 
 const K = 'xx_chronicle_v081';
 
@@ -33,23 +34,47 @@ export const ERAS = [
 ];
 
 export const CHRONICLE = {
-  s: { year:1, day:0, log:[], worldMod:{}, ticks:0 },
-  load() { try { const r=localStorage.getItem(K); if(r) this.s={...this.s,...JSON.parse(r),worldMod:{...(this.s.worldMod||{})}}; }catch{} return this.s; },
+  // year/day **不再是自有状态**,而是 CLOCK 的只读视图。
+  // 原来它们各自存一份,和 items.js 的 DAY 各数各的,永远对不上。
+  // 现在唯一真源是 clock.js:15 分钟 = 1 天,12 天 = 1 年,行动 + 真实时间双推。
+  s: { log:[], worldMod:{}, ticks:0 },
+  load() {
+    try { const r=localStorage.getItem(K); if(r) this.s={log:[],worldMod:{},ticks:0,...JSON.parse(r)}; }catch{}
+    this.sync(); return this.s;
+  },
+  /** 从 CLOCK 同步年/日 */
+  sync() { this.s.year = CLOCK.year(); this.s.day = CLOCK.day(); return this.s; },
+  // ===== 派生读取:读的时候保证已同步 =====
+  // 踩过的坑(2026-10-08):year/day 改成 CLOCK 派生之后,只有 day() 会 sync。
+  // 而 stamp()、年表日志页这些**只读**的地方没人调 sync,于是新号打开年表页
+  // 看到「第 undefined 年 · NaN 日」。
+  // 教训:派生状态不能靠"谁碰巧会触发同步",必须在**读**的那一步保证已同步。
+  get year() { this.sync(); return this.s.year; },
+  get day()  { this.sync(); return this.s.day; },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); }catch{} },
 
-  // 推进一天;跨年触发世纪事件
+  /**
+   * 推进一天。
+   * V0.99(XX-FIX-003):不再自己数 —— 年表和昼夜原本各数一套 12 天,
+   * 两边永远对不上。现在只回答「时钟有没有跨过一天」,
+   * 由 CLOCK 做唯一真源,这里只负责在跨年时产出事件。
+   * @returns {null|{year:number, ev:string}} 跨年时返回该年事件
+   */
   day() {
-    this.s.day++;
+    const beforeYear = CLOCK.year();
+    CLOCK.action();
     this.s.ticks++;
-    if (this.s.day >= 12) { this.s.day = 0; return this.year(); }
+    this.sync();
+    if (CLOCK.year() !== beforeYear) this.year(true);
     this.save();
-    return null;
+    return this._pendingYear || null;
   },
-  year() {
-    this.s.year++;
+  year(fromClock) {
+    if (!fromClock) this.s.year = CLOCK.year();
     const era = ERAS.find(e=>e.year===this.s.year) || ERAS[ERAS.length-1];
     const ev = era.events[Math.floor(Math.random()*era.events.length)];
     this.s.log.unshift({ year:this.s.year, ev, at:Date.now() });
+    this._pendingYear = { year:this.s.year, ev };
     if (this.s.log.length>30) this.s.log.length=30;
     // 世界状态:某些年份永久改变世界
     if (this.s.year>=2) this.s.worldMod.mobUp = (this.s.worldMod.mobUp||1) * 1.08;
@@ -62,7 +87,7 @@ export const CHRONICLE = {
 
   // 万年历时间显示
   stamp() {
-    const y=this.s.year, d=this.s.day;
+    const y=this.year, d=this.day;   // 走 getter,读前必同步
     const eraName = (ERAS.find(e=>e.year<=y) || ERAS[0]).name;
     return `${eraName} · 第 ${y} 年 · ${d+1} 日`;
   },
