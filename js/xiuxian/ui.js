@@ -16,7 +16,8 @@ import { Merchant } from './merchant.js';
 import { ENCOUNTERS } from './lore.js';
 import { COMPANION } from './companion.js';
 import { CLOCK } from './clock.js';
-import { MARKET, MARKET_GOODS } from './market.js';   // V0.99 局外集市   // V0.99:修仙时长/年月统一读时钟
+import { MARKET, MARKET_GOODS } from './market.js';   // V0.99 局外集市
+import { TAVERN, MATES } from './tavern.js';   // V0.99 酒馆同伴
 import { Profile, Seed } from './profile.js';
 import { FAMILY } from './family.js';
 import { CHRONICLE } from './chronicle.js';
@@ -153,6 +154,24 @@ export const Hall = {
       case 'mk-refresh':
         MARKET.refresh();
         toast('货郎换了一批新的');
+        this.render();
+        break;
+      // ===== 酒馆(XX-META-003)=====
+      case 'mk-recruit': {
+        const r3 = TAVERN.recruit();
+        toast(r3.msg);
+        this.render();
+        break;
+      }
+      case 'mk-mate': {
+        const r4 = TAVERN.setActive(v);
+        toast(r4.msg);
+        this.render();
+        break;
+      }
+      case 'mk-dismiss':
+        TAVERN.dismiss();
+        toast('他先歇着。');
         this.render();
         break;
       case 'back': this.close(); break;
@@ -1560,12 +1579,52 @@ export const Hall = {
         <div class="xx-dim" style="margin-bottom:7px">行囊里的源石,折半收。囤太多不如换成别的。</div>
         ${sellable}
       </div>` : ''}
+      ${this.vTavern()}`;
+  },
+
+  // ---------- 酒馆(XX-META-003)----------
+  // 同伴不是"攻击+10%"。他进局后会真的改变这一局:
+  //   · minAlive  —— 你不动,场面也不会冷清到只剩几只
+  //   · wardBonus —— 他帮你把篝火护栏撑大
+  //   · 其余属性 —— 落到 player.stats
+  vTavern() {
+    const leads = TAVERN.leads();
+    const act = TAVERN.active();
+    const mine = TAVERN.s.owned.map(id => MATES[id]).filter(Boolean);
+    return `
       <div class="xx-card" style="margin-top:12px">
         <div class="xx-label">酒 馆</div>
-        <div class="xx-dim">${MARKET.s.mates && Object.values(MARKET.s.mates).reduce((a,b)=>a+b,0) > 0
-          ? '你手上有同行之约。招揽同伴进下一局 —— 他们会真的上场,不是加个数值。'
-          : '集市上偶尔能买到「同行之约」。有了它,这里会站着一个肯跟你走的人。'}</div>
-      </div>`;
+        <div class="xx-dim">同行之约 ${leads} 张。线索越多,来的越可能是明白人 —— 但酒馆是看运气的,攒够也不一定称心。</div>
+        <div style="margin-top:9px">
+          <button class="xx-btn main" data-act="mk-recruit" ${leads < 1 ? 'disabled' : ''}>
+            ${leads < 1 ? '没有同行之约' : '招 揽 同 伴'}
+          </button>
+        </div>
+      </div>
+      ${act ? `<div class="xx-card">
+        <div class="xx-label">出 战</div>
+        <div class="xx-mk-n">${esc(act.name)}<span class="xx-dim"> ${act.tier} 阶</span></div>
+        <div class="xx-mk-d">${esc(act.bio)}</div>
+        <div class="xx-mk-d" style="color:var(--xx-gold);margin-top:5px">
+          ${act.mods.minAlive ? `保底怪量 +${act.mods.minAlive} · ` : ''}
+          ${act.mods.wardBonus ? `篝火护栏 +${act.mods.wardBonus} · ` : ''}
+          ${act.mods.might ? `攻击 ×${act.mods.might} · ` : ''}
+          ${act.mods.magnet ? `拾取 +${act.mods.magnet} · ` : ''}
+          ${act.mods.xpMult ? `经验 ×${act.mods.xpMult}` : ''}
+        </div>
+        <div style="margin-top:8px"><button class="xx-btn" data-act="mk-dismiss">让他歇着</button></div>
+      </div>` : ''}
+      ${mine.length > 1 ? `<div class="xx-card">
+        <div class="xx-label">你 带 过 的 人</div>
+        ${mine.map(m => `<div class="xx-mk-sell">
+          <span>${esc(m.name)}${m.id === (act||{}).id ? ' <em style="color:var(--xx-gold)">在场</em>' : ''}</span>
+          <button class="xx-btn" data-act="mk-mate" data-v="${m.id}">${m.id === (act||{}).id ? '已在场' : '带上'}</button>
+        </div>`).join('')}
+      </div>` : ''}
+      ${TAVERN.s.log.length ? `<div class="xx-card">
+        <div class="xx-label">招 揽 记 录</div>
+        ${TAVERN.s.log.slice(0,5).map(l => `<div class="xx-mk-d">${esc(l.name)}</div>`).join('')}
+      </div>` : ''}`;
   },
 
   // ---------- 行囊 ----------

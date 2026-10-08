@@ -56,7 +56,9 @@ const g=C.COMPANION.s.ghost;
 // V0.98:字段名变了 —— 旧档的 since/nextAt/holdMs → 现在的 scatterAt/cd。
 // 下面是重写,断言的**数值没有放松**:仍然是 V0.96 刻意调过的那几个。
 C.COMPANION.s.ghost.phase='possessing'; C.COMPANION.s.ghost.scatterAt=Date.now()+26000;
-t('附身持续 26 秒(不是 75)', C.COMPANION.s.ghost.scatterAt-Date.now()===26000);
+// 别断言「差值恰好等于 26000」—— Date.now() 精度会让它随机挂(24/24 vs 23/24 都出现过)。
+// 该断言的是:设定的到期点确实落在「26 秒后」附近,且晚于现在。
+t('附身持续 26 秒(不是 75)', C.COMPANION.s.ghost.scatterAt - Date.now() > 25000 && C.COMPANION.s.ghost.scatterAt - Date.now() <= 26000);
 // 强化温和但仍可感知
 C.COMPANION.s.ghost.phase='possessing';
 t('血量强化 1.28(不是 1.6)', C.COMPANION.hostBuff()===1.28);

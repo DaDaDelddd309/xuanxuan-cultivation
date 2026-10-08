@@ -109,6 +109,7 @@ const s = {
   lastPickupAt: 0,
   started: false,
   read: { fuel: 0, popGate: 1, tierGate: 1, idleT: 0, rate: 0, desired: 0 },
+  mate: {},          // 同伴加成(由 main.js 每局从 TAVERN 灌进来)
 };
 
 export const Director = {
@@ -119,6 +120,7 @@ export const Director = {
     s.lastPickupAt = 0;
     s.started = false;
     s.read = { fuel: 0, popGate: 1, tierGate: 1, idleT: 0, rate: 0, desired: 0 };
+    s.mate = {};
   },
 
   /** 场上未被捡走的宝石折算出的"存量燃料" */
@@ -136,7 +138,9 @@ export const Director = {
   desiredAlive(g, t) {
     const eff = Math.max(s.pressure, s.read.fuel || 0);      // 行为 → 压力
     const gate = (s.read.popGate ?? 1) * (s.read.tierGate ?? 1);
-    const band = P.MIN_ALIVE + eff * (P.MAX_ALIVE - P.MIN_ALIVE);
+    // 同伴把保底抬高:他在场时,你站着不动也不会场场清空
+    const floor = P.MIN_ALIVE + (this.mateMods().minAlive || 0);
+    const band = floor + eff * (P.MAX_ALIVE - P.MIN_ALIVE);
     return Math.max(0, Math.min(P.cap, band * gate * breathe(t)));
   },
 
@@ -204,6 +208,15 @@ export const Director = {
     return s.read;
   },
 
+  /**
+   * 同伴加成(XX-META-003)。同伴会**改变这一局的规则**,不是加个攻击数值:
+   *   minAlive —— 有他在,就算你站着不动,场面也不会掉到最冷清的那档
+   *   wardBonus —— 他帮你把篝火护栏撑大(见 computeWard)
+   * 走 TAVERN.mods() 读,不自己存一份。
+   */
+  setMateMods(m) { s.mate = m || {}; },
+  mateMods() { return s.mate || {}; },
+
   /** 生成速率(只/秒)。**永不为 0** —— 站着不动也有保底的那几只 */
   rate(g, t) {
     const desired = this.desiredAlive(g, t);
@@ -244,11 +257,11 @@ const WARD_PICKUP_CEIL  = 2.60;  // 也不能超过拾取的 2.6 倍
  * @param {boolean} o.mount  坐骑加成
  * @param {number} o.pickup  局内拾取半径
  */
-export function computeWard({ campLv = 1, phase = 'day', mount = false, pickup = 0 } = {}) {
+export function computeWard({ campLv = 1, phase = 'day', mount = false, pickup = 0, mate = 0 } = {}) {
   const base = WARD_BASE + (Math.max(1, campLv) - 1) * WARD_PER_LV;
   const phaseMul = wardTarget(phase) / WARD_BY_PHASE.day;
   const mountMul = mount ? 1.28 : 1;
-  let w = base * phaseMul * mountMul;
+  let w = base * phaseMul * mountMul + (mate || 0);   // 同伴撑大护栏
   if (pickup > 0) {
     const clamped = Math.max(pickup * WARD_PICKUP_FLOOR, Math.min(pickup * WARD_PICKUP_CEIL, w));
     w = Math.max(w, clamped);

@@ -249,7 +249,7 @@ export const COMPANION = {
    *
    * @param {number} [pickupRadius] 局内拾取半径(局内传真实值,UI 层可省略)
    */
-  wardRadius(pickupRadius) {
+  wardRadius(pickupRadius, mateBonus) {
     if (!CAMP.burning()) return 0;
     const phase = (DAY && DAY.phase && DAY.phase()) || null;
     const pr = pickupRadius || (typeof window !== 'undefined' && window.__g && window.__g.player
@@ -259,6 +259,7 @@ export const COMPANION = {
       phase: (phase && phase.key) || 'day',
       mount: !!(MOUNT.s && MOUNT.s.ward),
       pickup: pr,
+      mate: mateBonus || 0,      // 同伴撑大护栏(XX-META-003)
     });
   },
 

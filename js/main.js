@@ -165,6 +165,7 @@ function startRun(charId) {
   lastChar = charId;
   engine.reset();
   resetEmber();          // 上一局的余烬不能漏进这一局
+  Director.setMateMods(TAVERN.mods());   // 同伴(XX-META-003):他改变这一局的规则,不是纯数值
   const p = new Player(charId);
   p.weapons.push(makeWeapon(p.char.weapon));
   engine.player = p;
@@ -274,6 +275,7 @@ import { COMPANION } from './xiuxian/companion.js';
 import { CompanionActor, runEventLines } from './xiuxian/companion-actor.js';
 import { installSpine } from './xiuxian/spine.js';
 import { CLOCK } from './xiuxian/clock.js';
+import { TAVERN } from './xiuxian/tavern.js';   // V0.99 酒馆同伴
 import { Director, stepWard, resetWard, resetEmber, tickEmber, emberPoints } from './game/director.js';
 import { MOUNT } from './xiuxian/mount.js';
 import { SPIRIT } from './xiuxian/spirit.js';
@@ -395,6 +397,19 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       window.__xxMount = { eff:e, magnet:p0.stats.magnet, speed:p0.stats.speed,
                            might:p0.stats.might };
     });
+    // 同伴(XX-META-003):属性类的 mods 落到 player 上。
+    // 只在开局设一次 —— 每帧改会盖掉局内其他来源(和坐骑同一个理由)。
+    engine.addUpdater(() => {
+      const p0 = g0().player;
+      if (!p0 || p0._xxMateOn) return;
+      p0._xxMateOn = true;
+      const m = TAVERN.mods();
+      if (m.might)  p0.stats.might  = (p0.stats.might || 1) * m.might;
+      if (m.magnet) p0.stats.magnet = Math.round(p0.stats.magnet + m.magnet);
+      if (m.xpMult) p0.stats.xpMult = (p0.stats.xpMult || 1) * m.xpMult;
+      if (m.hp) { p0.stats.maxHp += m.hp; p0.hp += m.hp; }
+      window.__xxMate = { name: (TAVERN.active() || {}).name || '无', mods: m };
+    });
     // 篝火余烬(V0.99 · 工单 XX-SPAWN-007):夜里人物身上缠着灰烬火星。
     // 闪烁频率随夜色推进变化 —— 玩家只靠肉眼就知道现在是夜里第几段。
     // 快天亮时闪三下,提醒"这炉快烧完了,要续源石"。那是决策点,不是惩罚。
@@ -446,7 +461,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       if (!p1) return;
       // 把局内真实拾取半径传进去 —— 护栏跟着它走,两者永远差那 8%
       const pr = p1.stats ? p1.stats.magnet : 0;
-      const ward = stepWard(dt, COMPANION.wardRadius(pr));
+      const ward = stepWard(dt, COMPANION.wardRadius(pr, TAVERN.mods().wardBonus || 0));
       const el = document.getElementById('hud-ward');
       if (el) {
         if (!ward) el.hidden = true;

@@ -6,7 +6,7 @@
   "description": "轩轩修仙传 —— 水墨修仙割草 roguelite",
   "scripts": {
     "lint": "node tests/lint-syntax.mjs && node tests/lint-deps.mjs && node tests/lint-css.mjs && node tests/lint-methods.mjs && node tests/lint-nsaccess.mjs && node tests/lint-tokens.mjs && node tests/lint-version.mjs && node tests/lint-imports.mjs && node tests/lint-precache.mjs && node tests/lint-testversion.mjs && node tests/lint-palette.mjs",
-    "test": "node tests/test-companion.mjs && node tests/test-spine.mjs && node tests/test-spine-wiring.mjs && node tests/test-director.mjs && node tests/test-clock.mjs && node tests/test-drops.mjs && node tests/test-market.mjs",
+    "test": "node tests/test-companion.mjs && node tests/test-spine.mjs && node tests/test-spine-wiring.mjs && node tests/test-director.mjs && node tests/test-clock.mjs && node tests/test-drops.mjs && node tests/test-market.mjs && node tests/test-tavern.mjs",
     "test:legacy": "node tests/t84.mjs && node tests/t85.mjs && node tests/t86.mjs && node tests/t87.mjs && node tests/t88.mjs && node tests/t89.mjs && node tests/t90.mjs && node tests/t91.mjs && node tests/t92.mjs && node tests/t93.mjs",
     "test:rng": "node tests/test-rng.mjs && node tests/test-seed.mjs && node tests/test-worldgen.mjs && node tests/test-world-compat.mjs && node tests/test-mine.mjs && node tests/test-runcfg.mjs",
     "test:e2e": "node tests/e2e-core.mjs && node tests/e2e-cult.mjs",

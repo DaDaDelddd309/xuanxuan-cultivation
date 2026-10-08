@@ -4,6 +4,10 @@
 // 修的是最大的空缺:局后除了结算数字什么都没有,
 // 攒的金币只能开角色(300/800/2000),无处可去。
 import { install } from './harness.mjs';
+import { readFileSync } from 'fs';
+import { fileURLToPath as _fu } from 'url';
+import { dirname as _dn, resolve as _rv } from 'path';
+const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
 install();
 const { MARKET, MARKET_GOODS } = await import('../js/xiuxian/market.js');
 const { Cult } = await import('../js/xiuxian/index.js');
@@ -18,6 +22,7 @@ const setup = (gold, dao = 0) => {
   Cult.get().dao = dao;
   globalThis.__g = { save: { data: { gold } } };
   Bag.s.items = {};
+  MARKET.s = { stock: [], run: 0, bought: [], mates: {} };   // 连残留字段一起清
   MARKET.reset(); MARKET.loaded = false; MARKET.load();
 };
 
@@ -61,14 +66,21 @@ console.log('\n[3] 钱不够买不了');
 console.log('\n[4] 交货到正确的地方');
 {
   setup(99999);
-  // 逐类验证:源石/丹药/传承书进行囊,同伴进 mates
+  // 逐类验证:源石/丹药/传承书进行囊,同伴线索折成酒馆招募次数
   const kinds = {};
   for (const [k, v] of Object.entries(MARKET_GOODS)) kinds[v.kind] = v.id;
   for (const kind of Object.keys(kinds)) {
     setup(99999);
     const d = MARKET._deliver(MARKET_GOODS[Object.keys(MARKET_GOODS).find(k => MARKET_GOODS[k].kind === kind)]);
     ok(`${kind} 交货成功`, d.ok, d.msg);
-    if (kind === 'mate') ok('同伴存进 mates', (MARKET.s.mates && Object.values(MARKET.s.mates).some(v => v > 0)) === true);
+    if (kind === 'mate') {
+      // 同伴线索不再存在 market 自己的字段里 —— 统一折成 TAVERN.leads(单一真源)
+      const { TAVERN } = await import('../js/xiuxian/tavern.js');
+      ok('同伴线索折成酒馆招募次数', TAVERN.leads() > 0, 'leads=' + TAVERN.leads());
+      // 查源码而不是查运行时字段:reset() 本来就会给 s.mates 兜个默认值
+      const msrc = readFileSync(ROOT + '/js/xiuxian/market.js', 'utf8');
+      ok('market 不再自己写 mates', !/this\.s\.mates\s*=/.test(msrc));
+    }
     else ok(`${kind} 进行囊`, Object.keys(Bag.s.items).length > 0, JSON.stringify(Bag.s.items));
   }
 }

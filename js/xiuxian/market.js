@@ -16,6 +16,7 @@
 
 import { Bag } from './items.js';   // 只取真的用得上的,别把一堆没用到的名字也 import 进来
 import { Cult } from './index.js';
+import { TAVERN } from './tavern.js';   // 同伴线索折成酒馆招募次数,单一真源
 
 const K = 'xx_market_v099';
 
@@ -149,9 +150,8 @@ export const MARKET = {
         return Bag.add(it.id, 1)
           ? { ok: true } : { ok: false, msg: '行囊放不下了。' };
       case 'mate':
-        // 同伴线索 → 存在 market 里,酒馆页消费
-        this.s.mates = this.s.mates || {};
-        this.s.mates[it.id] = (this.s.mates[it.id] || 0) + 1;
+        // 同伴线索 → 折成酒馆的招募次数(不在 market 里另存一份)
+        TAVERN.addLead(1);
         return { ok: true };
       default:
         return { ok: false, msg: '这件不知道怎么用。' };
