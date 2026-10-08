@@ -1,8 +1,10 @@
+import {fileURLToPath as _fu} from 'url';import {dirname as _dn,resolve as _rv} from 'path';
+const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // V0.89 事故:清理重复代码时误删了 askStoryPath/showStoryDone,
 // 调用点还在 → 点了没反应,且只在浏览器里炸。
 // 检查:this.xxx( 调用到的,必须在本文件的 UI 对象里定义过。
 import { readFileSync, readdirSync } from 'fs';
-const D='/workspace/probe/rouge-offline/js/xiuxian';
+const D=__ROOT__+'/js/xiuxian';
 let bad=0;
 for (const f of readdirSync(D).filter(x=>x.endsWith('.js'))) {
   const src=readFileSync(D+'/'+f,'utf8');

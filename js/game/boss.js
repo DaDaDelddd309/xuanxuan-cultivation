@@ -2,6 +2,7 @@
 // Boss 类型定义在 enemies.js 的 ENEMY_TYPES 中(不进常规刷怪池),行为 AI 由 enemies.js 按 beh 驱动;
 // 本模块负责:定时召唤、血条引用 g.boss、死亡大爆炸/震屏/宝箱、最终 Boss 通关事件。
 import { spawnEnemy, shakeIf, combatState, MAX_ENTITY_HP } from './enemies.js?v=17';
+import { PAL } from '../core/palette.js';
 import { Bus } from '../core/engine.js?v=17';
 
 // Boss 独立生命设计:不跟随普通怪血量曲线,只按 Boss 战时间和无尽进度增长。
@@ -69,8 +70,8 @@ export function initBoss(g) {
   Bus.on('enemy-death', e => {
     if (!e || !e.boss) return;
     const final = e.type === 'boss_overlord';
-    g.addParticles(e.x, e.y, { n: final ? 46 : 30, color: final ? '#e43b44' : '#b55088', speed: 230, life: 0.8, size: 5, grav: 60 });
-    g.addParticles(e.x, e.y, { n: 18, color: '#fee761', speed: 160, life: 0.6, size: 4 });
+    g.addParticles(e.x, e.y, { n: final ? 46 : 30, color: final ? PAL.crit : PAL.crit, speed: 230, life: 0.8, size: 5, grav: 60 });
+    g.addParticles(e.x, e.y, { n: 18, color: PAL.gold, speed: 160, life: 0.6, size: 4 });
     shakeIf(g, final ? 12 : 8, 0.6);
     g.addPickup({ kind: 'chest', x: e.x, y: e.y, sprite: 'chest', r: 10, t: 0 });
     if (g.boss === e) g.boss = null;

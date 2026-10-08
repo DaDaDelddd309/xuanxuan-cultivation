@@ -1,44 +1,37 @@
-// ===== 开局仪式 · 命名与三选一 =====
+// ===== 开局仪式 · 只做一件事:取名字(V0.98)=====
 // 可爱卡通小灵(纯 CSS 绘制,无外部资源):眨眼、飘、发丝
-import { COMPANION, STAGE } from './companion.js';
+//
+// V0.98 改动(工单 XX-COMP-005):
+//   旧版第 2 步是「你愿意亲我一下吗?」三选一 —— 路线 kiss/cold/ghost。
+//   但 owner 的判断是对的:「每次都是几选一,这叫随机?这叫有感情的?」
+//   选项只改数值、不改行为,是点击农场,不是选择。
+//   所以整段删掉:开局只问名字,直接进游戏。
+//   三条路线随之消失(灵伴三形也不再存在)。
+import { COMPANION } from './companion.js';
 
 const $ = (t, c, h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-let root, step = 0, tmpName = '';
-
-const STEPS = [
-  // 0 命名
-  { who:'宝宝', text:'「你醒啦。」',
-    ask:'你想叫我什么名字呀?', input:true,
-    hint:'留空的话……我就还是叫「宝宝」哦。' },
-  // 1 亲一下
-  { who:'', text:'', ask:'我是你的宝宝。你愿意亲我一下吗?',
-    options:[
-      { t:'好呀', route:'kiss', say:'她踮起脚,额头轻轻碰了你一下。' },
-      { t:'不要', route:'cold', say:'她退开半步,笑了笑。「哦。」' },
-      { t:'谈恋爱会影响我修仙', route:'ghost', say:'她歪了歪头。「那我就,一直一直影响下去。」' },
-    ] },
-];
+let root, tmpName = '';
 
 export const Ritual = {
   // 需要时调用:未命名 → 播放
   async start(force) {
-    if (!force && COMPANION.s.born) return false;
+    if (!force && COMPANION.born()) return false;
     this.build();
-    step = 0; tmpName = '';
+    tmpName = '';
     root.classList.remove('hidden');
     root.style.display = '';
     this.render();
-    // 兜底:仪式不困住玩家。90 秒不动 → 默认「宝宝 + 愿意」直接过
+    // 兜底:仪式不困住玩家。90 秒不动 → 默认「宝宝」直接过
     clearTimeout(this._auto);
     this._auto = setTimeout(() => {
-      if (!this.root || this.root.classList.contains('hidden')) return;
-      if (!COMPANION.s.born) { COMPANION.init('宝宝'); COMPANION.choose('kiss'); }
+      if (!root || root.classList.contains('hidden')) return;
+      if (!COMPANION.born()) COMPANION.init('宝宝');
       this.close();
     }, 90000);
     return true;
   },
+
   close() {
     clearTimeout(this._auto);
     if (!root) return;
@@ -56,7 +49,8 @@ export const Ritual = {
           <div class="rt-hair"></div>
           <div class="rt-head">
             <div class="rt-ear l"></div><div class="rt-ear r"></div>
-            <div class="rt-eye l"><i></i></div><div class="rt-eye r"><i></i></div>
+            <div class="rt-eye l"><i></i></div>
+            <div class="rt-eye r"><i></i></div>
             <div class="rt-blush l"></div><div class="rt-blush r"></div>
             <div class="rt-mouth"></div>
           </div>
@@ -79,48 +73,30 @@ export const Ritual = {
     root.querySelector('#rt-name').addEventListener('keydown', e => {
       if (e.key === 'Enter') this.confirmName();
     });
-    root.addEventListener('click', e => {
-      const b = e.target.closest('[data-opt]');
-      if (b) { this.pick(+b.dataset.opt); return; }
-    });
   },
 
   render() {
-    const s = STEPS[step];
     const q = id => root.querySelector('#' + id);
-    root.querySelector('#rt-who').textContent = s.who === '' ? (tmpName || '宝宝') : s.who;
-    q('rt-ask').textContent = s.text ? `${s.text}\n${s.ask}` : s.ask;
-    q('rt-input').style.display = s.input ? '' : 'none';
-    q('rt-opts').innerHTML = (s.options||[]).map((o,i) =>
-      `<button class="rt-opt" data-opt="${i}">${esc(o.t)}</button>`).join('');
-    q('rt-foot').innerHTML = s.input
-      ? `<button class="rt-go" id="rt-go">就 这 样 吧</button>
-         <div class="rt-hint">${s.hint}</div>`
-      : '';
+    q('rt-who').textContent = '宝宝';
+    q('rt-ask').textContent = '「你醒啦。」\n你想叫我什么名字呀?';
+    q('rt-input').style.display = '';
+    q('rt-opts').innerHTML = '';
+    q('rt-foot').innerHTML = `<button class="rt-go" id="rt-go">就 这 样 吧</button>
+         <div class="rt-hint">留空的话……我就还是叫「宝宝」哦。</div>`;
     const go = q('rt-go');
     if (go) go.onclick = () => this.confirmName();
-    // 命名步骤显示输入框
-    if (s.input) setTimeout(()=>q('rt-name').focus(), 240);
+    setTimeout(()=>q('rt-name').focus(), 240);
   },
 
+  /** 只有命名一步:确认即入局,没有任何选择项 */
   confirmName() {
-    const v = root.querySelector('#rt-name').value;
-    tmpName = (v||'').trim();
-    step = 1;
-    this.render();
-  },
-
-  pick(i) {
-    const s = STEPS[1];
-    const o = s.options[i];
-    if (!o) return;
+    const v = (root.querySelector('#rt-name').value || '').trim();
+    tmpName = v;
     COMPANION.init(tmpName);
-    COMPANION.choose(o.route);
-    // 三选一的落定台词
-    root.querySelector('#rt-ask').textContent = o.say;
-    root.querySelector('#rt-opts').innerHTML = '';
-    root.querySelector('#rt-foot').innerHTML = `<button class="rt-go" id="rt-ok">好</button>`;
     root.querySelector('#rt-who').textContent = COMPANION.s.name;
+    root.querySelector('#rt-ask').textContent = '「……嗯。」';
+    root.querySelector('#rt-input').style.display = 'none';
+    root.querySelector('#rt-foot').innerHTML = `<button class="rt-go" id="rt-ok">好</button>`;
     const ok = root.querySelector('#rt-ok');
     if (ok) ok.onclick = () => this.close();
     // 点空白处也能关(仪式不困住玩家)

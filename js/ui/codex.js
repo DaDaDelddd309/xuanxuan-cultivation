@@ -6,6 +6,7 @@
 // 进化门槛(CONTRACT v2.3):武器满级 + 绑定心法 2 级。
 // 性能红线:RAF 仅在图鉴可见时运行,关闭立即 cancelAnimationFrame,不残留循环。
 import { WEAPONS, WEAPON_ORDER } from '../game/weapons.js?v=17';
+import { PAL } from '../core/palette.js';
 import { PASSIVES } from '../game/upgrades.js?v=17';
 import { drawSprite, spriteSize, SCALE, has } from '../sprites.js?v=17';
 import { Screens } from './screens.js?v=17';
@@ -17,9 +18,9 @@ const EVO_PASS_LV = 2;         // v2.3:心法进化门槛 2 级
 const ALIAS = { cd: '专注', xp: '聪慧', gold: '财运', magnet: '贪婪' }; // 心法别名(对照用)
 
 // 水墨配色(与 css 变量 / sprites 调色板一致)
-const INK = '#3a3a3a', INK2 = '#4a4a5a', CIN = '#b03a2e', CIN2 = '#c85545',
-  AZ = '#5fb8c4', AZ2 = '#7fd4de', AZ3 = '#a8e2e8', GLD = '#e2b94e', GLD2 = '#c9972f',
-  PAPER = '#f2ecdd', WHITE = '#faf6ea';
+const INK = PAL.ink3, INK2 = '#4a4a5a', CIN = PAL.cinnabar, CIN2 = PAL.cinnabar,
+  AZ = PAL.jade, AZ2 = PAL.jade, AZ3 = '#a8e2e8', GLD = PAL.goldDim, GLD2 = PAL.gold,
+  PAPER = PAL.paper, WHITE = '#faf6ea';
 
 /* ---------------- 条目数据 ---------------- */
 // 进化绝学:由 WEAPONS 自动生成(9 条,顺序同 WEAPON_ORDER)
@@ -115,20 +116,20 @@ function paintGlyph(x, kind, px) {
     x.fillStyle = CIN2; x.beginPath(); x.arc(0, 0, 10, 0, Math.PI); x.fill();
     x.fillStyle = CIN2; x.beginPath(); x.arc(-5, -1, 4.4, 0, TAU); x.fill();
     x.fillStyle = AZ; x.beginPath(); x.arc(5, 1, 4.4, 0, TAU); x.fill();
-    x.strokeStyle = '#2b2b2b'; x.lineWidth = 2;
+    x.strokeStyle = PAL.ink2; x.lineWidth = 2;
     x.beginPath(); x.arc(0, 0, 10, 0, TAU); x.stroke();
     x.restore();
   } else if (kind === 'chain') { // 感电连锁:两妖之间青色折电
-    x.fillStyle = '#3f4140';
+    x.fillStyle = PAL.ink3;
     x.beginPath(); x.arc(7, 23, 3.4, 0, TAU); x.fill();
     x.beginPath(); x.arc(26, 8, 3.4, 0, TAU); x.fill();
     x.strokeStyle = AZ; x.lineWidth = 2.6;
     x.beginPath(); x.moveTo(8, 21); x.lineTo(13, 16); x.lineTo(11, 13); x.lineTo(19, 12); x.lineTo(17, 9); x.lineTo(25, 9);
     x.stroke();
-    x.strokeStyle = '#e8fbff'; x.lineWidth = 1;
+    x.strokeStyle = PAL.paper; x.lineWidth = 1;
     x.stroke();
   } else { // 殉焰:地面余烬烛焰
-    x.strokeStyle = '#6b6b5d'; x.lineWidth = 2;
+    x.strokeStyle = PAL.paperFaint; x.lineWidth = 2;
     x.beginPath(); x.moveTo(5, 25); x.lineTo(28, 25); x.stroke();
     x.fillStyle = CIN2;
     x.beginPath();
@@ -471,7 +472,7 @@ const ANIMS = {
         hitTgt(st, s.g, -Math.PI / 2, 60, AZ3, 9);
         if (s.c) hitTgt(st, s.c, Math.atan2(s.c.y - s.y, s.c.x - s.x), 60, AZ2, 6);
       }
-      if (s.c && d0 < 0.2) arc(ctx, s.x, s.y, s.c.x, s.c.y, 9, AZ, '#e8fbff');
+      if (s.c && d0 < 0.2) arc(ctx, s.x, s.y, s.c.x, s.c.y, 9, AZ, PAL.paper);
     }
     for (const g of st.tg) drawTarget(ctx, t, g);
   },
@@ -612,7 +613,7 @@ const ANIMS = {
       const a = t * 3.1 + k * TAU / 3 + Math.random() * 0.5;
       const px = hx + Math.cos(a) * r, py = hy + Math.sin(a) * r;
       const a2 = a + (Math.random() - 0.5) * 0.8;
-      arc(ctx, px, py, px + Math.cos(a2) * 16, py + Math.sin(a2) * 16, 3, AZ, '#e8fbff');
+      arc(ctx, px, py, px + Math.cos(a2) * 16, py + Math.sin(a2) * 16, 3, AZ, PAL.paper);
       if (Math.random() < 0.5) part(st, px, py, Math.cos(a2) * 60, Math.sin(a2) * 60, 0.25, 1.8, AZ2);
     }
     for (const g of st.tg) {
@@ -687,11 +688,11 @@ const ANIMS = {
       hitTgt(st, A, -Math.PI / 2, 50, AZ3, 8);
     }
     if (lc > 0.6 && lc < 0.82) { // 连锁 A→B
-      arc(ctx, A.x, A.y, B.x, B.y, 9, AZ, '#e8fbff');
+      arc(ctx, A.x, A.y, B.x, B.y, 9, AZ, PAL.paper);
       if (!st.fired[1]) { st.fired[1] = 1; hitTgt(st, B, Math.atan2(B.y - A.y, B.x - A.x), 60, AZ2, 6); }
     }
     if (lc > 0.9 && lc < 1.12) { // 连锁 B→C
-      arc(ctx, B.x, B.y, C.x, C.y, 9, AZ, '#e8fbff');
+      arc(ctx, B.x, B.y, C.x, C.y, 9, AZ, PAL.paper);
       if (!st.fired[2]) { st.fired[2] = 1; hitTgt(st, C, Math.atan2(C.y - B.y, C.x - B.x), 60, AZ2, 6); }
     }
     st.wacc += dt; // 湿身水汽
@@ -765,7 +766,7 @@ function buildBG() { // 静态背景只画一次:宣纸 + 杂点 + 网格 + 双�
   BG.width = cv.width; BG.height = cv.height;
   const x = BG.getContext('2d');
   x.setTransform(view, 0, 0, view, 0, 0);
-  x.fillStyle = '#ece5d3';
+  x.fillStyle = PAL.paper;
   x.fillRect(0, 0, W, H);
   const g = x.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, 340);
   g.addColorStop(0, 'rgba(250,246,234,.5)');
@@ -774,7 +775,7 @@ function buildBG() { // 静态背景只画一次:宣纸 + 杂点 + 网格 + 双�
   x.fillRect(0, 0, W, H);
   for (let i = 0; i < 150; i++) { // 纸张杂点
     x.globalAlpha = 0.04 + Math.random() * 0.07;
-    x.fillStyle = Math.random() < 0.5 ? '#8a8a7a' : '#6b6b5d';
+    x.fillStyle = Math.random() < 0.5 ? PAL.paperFaint : PAL.paperFaint;
     const r = Math.random() < 0.85 ? 1 : 2;
     x.fillRect(Math.random() * W, Math.random() * H, r, r);
   }

@@ -10,6 +10,7 @@
 //   · 不打断:灵气是普通拾取物,碰到就吸,不弹窗
 //   · 篝火在烧时收益更高(和现实一致:夜里聚气更快)
 import { Bus } from '../core/engine.js?v=17';
+import { PAL } from '../core/palette.js';
 import { Cult } from './index.js';
 import { Bag } from './items.js';
 import { CAMP } from './camp.js';
@@ -71,7 +72,7 @@ export const SPIRIT = {
       if (this._alive && this._alive.has(k)) {
         TALLY.ling += k.__spirit;
         this._got = (this._got || 0) + 1;
-        g.spawnText(p.x, p.y - 32, '灵 +' + k.__spirit, { color: '#c9a227', size: 13, life: .8 });
+        g.spawnText(p.x, p.y - 32, '灵 +' + k.__spirit, { color: PAL.gold, size: 13, life: .8 });
       }
     }
     this._alive = now;

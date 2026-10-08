@@ -1,6 +1,8 @@
+import {fileURLToPath as _fu} from 'url';import {dirname as _dn,resolve as _rv} from 'path';
+const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 版本号散在 index.html / manifest / sw.js 四处,漏改一处线上就新旧混搭
 import { readFileSync } from 'fs';
-const R='/workspace/probe/rouge-offline';
+const R=__ROOT__+'';
 const read=f=>readFileSync(R+'/'+f,'utf8');
 const html=read('index.html'), mf=read('manifest.webmanifest'), sw=read('sw.js');
 let bad=0;

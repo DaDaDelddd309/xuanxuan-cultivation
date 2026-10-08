@@ -1,6 +1,8 @@
 ﻿// ===== ⚔️ 战斗agent 名下:刷怪导演(时间曲线 / 怪潮包围 / 环带刷怪 / 无尽模式) =====
 import { spawnEnemy, ENEMY_TYPES, combatState } from './enemies.js?v=17';
+import { Director, P } from './director.js';   // 生成预算导演(V0.99 工单 XX-SPAWN-001)
 
+import { PAL } from '../core/palette.js';
 const MAX_E = 180;          // 同屏普通怪上限(CONTRACT v2.1 §4:200→180,超过不刷普通怪)
 const TAU = Math.PI * 2;
 
@@ -68,6 +70,25 @@ function dmgMultAt(t) { return 1 + t / 240; }
 function spdMultAt(t) { return 1 + Math.min(0.3, t / 2000); }
 
 let endless = false;
+
+/**
+ * 生成模式(V0.99)
+ *
+ *   'budget' —— 默认。生成速率由**玩家行为**决定:捡宝石才加油,站着不动就停刷。
+ *               普通探索走这个,能挂机。
+ *   'timed'  —— 旧的**纯时间驱动**:强度只跟本局时长走,和玩家做什么无关。
+ *               保留给「幻境」「副本」「限时挑战」这类**规则应该由计时器说了算**
+ *               的场合 —— 那种玩法里玩家就是要被节奏推着走,不能因为站着不动就消停。
+ *
+ * owner 明确要求过这套别删,它是后面做幻境的地基。
+ */
+let spawnMode = 'budget';
+export function getSpawnMode() { return spawnMode; }
+export function setSpawnMode(m) {
+  if (m !== 'budget' && m !== 'timed') return false;
+  spawnMode = m;
+  return true;
+}
 // 复用的刷怪坐标(热路径零分配)
 const SP = { x: 0, y: 0 };
 
@@ -80,10 +101,20 @@ function ringSpot(g, p) {
   SP.y = p.y + Math.sin(a) * R;
 }
 
+/** 统一的强度曲线出口。导演的「宝石兑现」也走这里,避免两份血量公式各走各的 */
+export function spawnOptsFor(type, t, o = {}) {
+  const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
+  return { hpMult: spawnHpMultAt(type, t, o), dmgMult: dmgM, speedMult: spdM };
+}
+
 export function initSpawner(g) {
+  // 导演要用同一套强度曲线算宝石兑现出来的怪
+  g.__spawnOpts = spawnOptsFor;
+  Director.reset();
   let acc = 0, hordeT = 42, eliteCd = 15;
   g.addReset(() => {
     acc = 0; hordeT = 42; eliteCd = 15; endless = false;
+    spawnMode = 'budget';
     g._finalBoss = false; g._endless = false;
     combatState.runActive = false;
   });
@@ -92,6 +123,8 @@ export function initSpawner(g) {
     const p = g.player;
     if (!p || !combatState.runActive) return;
     const t = g.time;
+    // 先让导演跑一拍:它要算出压力/存量燃料/两道闸门,后面都用它的读数
+    const s_read = Director.tick(dt, g);
     // 600s 后交给 Boss 流程(最终 Boss 期间停刷);无尽模式解除限制
     if (!endless && (t >= 600 || g._finalBoss)) return;
     // 前 120s 玩家尚在成长期,刷怪密度与同屏上限下调 15%,2 分钟后恢复原曲线
@@ -99,37 +132,48 @@ export function initSpawner(g) {
     const cap = early ? (MAX_E * 0.85) | 0 : MAX_E;
 
     // 怪潮:每 45~60s 一圈同种怪环形包围
-    hordeT -= dt;
-    if (hordeT <= 0) {
-      hordeT = (endless ? 38 : 46) + Math.random() * 14;
-      doHorde(g, p, t, early);
+    // 怪潮:budget 模式下压力足够才来(站着不动不会被包抄);
+    // timed 模式保持原样 —— 幻境就该按时间表走。
+    if (spawnMode === 'timed' || s_read.rate >= 0.6) {
+      hordeT -= dt;
+      if (hordeT <= 0) {
+        hordeT = (endless ? 38 : 46) + Math.random() * 14;
+        doHorde(g, p, t, early);
+      }
+    } else {
+      hordeT = Math.min(hordeT, 12);     // 冷却别攒太久,压力回来就能来
     }
 
     // 持续小怪:间隔随时间缩短(0.9s → 360s 时 0.504s → 600s 时 0.348s);360s 后收缩放缓(后期密度增长放缓,
     // 旧曲线 600s 收缩至 0.24s);前 120s 间隔 ×1/0.85(密度 -15%);无尽 0.15s 下限
     eliteCd -= dt;
-    const base = Math.max(endless ? 0.15 : 0.26,
-      0.9 - Math.min(t, 360) * 0.0011 - Math.max(0, t - 360) * 0.00065);
-    const interval = early ? base / 0.85 : base;
-    acc += dt;
-    let budget = (acc / interval) | 0;
-    acc -= budget * interval;
-    if (budget > 8) budget = 8;
+    // V0.99:两种模式在这里分叉。
+    //   budget:速率 = 时间曲线(难度) × 生成压力(行为) × 两道闸门(存量)
+    //          站着不动 → 压力泄到 0 → rate=0 → 完全不刷 → 可以挂机。
+    //   timed :旧的纯时间间隔(0.9s → 0.26s),给幻境/副本用。
+    const perSec = spawnMode === 'timed'
+      ? 1 / Math.max(endless ? 0.15 : 0.26,
+          0.9 - Math.min(t, 360) * 0.0011 - Math.max(0, t - 360) * 0.00065)
+          * (early ? 1 / 0.85 : 1)
+      : Director.rate(g, t) * (early ? 0.85 : 1);
+    acc += dt * perSec;
+    let budget = acc | 0;
+    acc -= budget;
+    if (budget > 6) budget = 6;          // 单帧上限再压一档:别让补帧一口气吐一片
     if (budget <= 0) return;
     const pool = POOLS[poolIdx(t)];
-    const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
     for (let i = 0; i < budget; i++) {
       if (g.enemies.length >= cap) break;
       ringSpot(g, p);
       // 精英:冷却好了有小概率出现(最小间隔 ~16-24s);360s 后可能出黑无常
       if (eliteCd <= 0 && Math.random() < 0.09) {
         const et = (t >= 360 && Math.random() < 0.4) ? 'reaper' : pickWeighted(pool);
-        spawnEnemy(g, et, SP.x, SP.y, { hpMult: spawnHpMultAt(et, t, { elite: true }), dmgMult: dmgM, speedMult: spdM, elite: true });
+        spawnEnemy(g, et, SP.x, SP.y, spawnOptsFor(et, t, { elite: true }));
         eliteCd = 16 + Math.random() * 8;
         continue;
       }
       const type = pickWeighted(pool);
-      spawnEnemy(g, type, SP.x, SP.y, { hpMult: spawnHpMultAt(type, t), dmgMult: dmgM, speedMult: spdM });
+      spawnEnemy(g, type, SP.x, SP.y, spawnOptsFor(type, t));
     }
   });
 }
@@ -153,7 +197,7 @@ function doHorde(g, p, t, early) {
       hpMult: spawnHpMultAt(type, t, { horde: true }), dmgMult: dmgM, speedMult: spdM,
     });
   }
-  g.spawnText(p.x, p.y - 70, '怪潮来袭!', { color: '#b03a2e', size: 20, life: 1.6 });
+  g.spawnText(p.x, p.y - 70, '怪潮来袭!', { color: PAL.cinnabar, size: 20, life: 1.6 });
 }
 
 // 通关后无尽模式:继续刷怪且强度随时间继续增长

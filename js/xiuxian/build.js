@@ -411,6 +411,12 @@ export const BUILD = {
   // —— 同盟契约 ——
   // 签订后:互相支援、围攻率下降、集市互通
   canPact() { return this.s.pacts.signed < 3; },
+  // V0.99:缔约缺口 —— 只读,不参与判定。
+  pactGap() {
+    const cost = 800 + this.s.pacts.signed * 600;
+    const lack = Math.max(0, cost - Cult.get().dao);
+    return { cost, lack, full: !this.canPact(), ok: this.canPact() && lack === 0 };
+  },
   signPact(name) {
     if (!this.canPact()) return { ok:false, msg:'契约已满。' };
     const cost = 800 + this.s.pacts.signed * 600;

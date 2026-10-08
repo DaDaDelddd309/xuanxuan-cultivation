@@ -1,8 +1,10 @@
+import {fileURLToPath as _fu} from 'url';import {dirname as _dn,resolve as _rv} from 'path';
+const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 样式令牌(V0.95)—— 别再随手写数字。
 // 之前全站有 11 种不同的边框写法、同样的底色散落各处,
 // 页面之间拼不到一起。现在统一走 var(--xx-*)。
 import { readFileSync, readdirSync } from 'fs';
-const R='/workspace/probe/rouge-offline/css';
+const R=__ROOT__+'/css';
 // 允许的例外(确实需要独立表达的)
 const ALLOW = [
   'border:0', 'border:none', 'border:0 solid', 'border:7px solid transparent',

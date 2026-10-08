@@ -1,5 +1,6 @@
 // ===== 🖥️ UI agent 名下:全部屏幕(菜单/选人/升级三选一/暂停/结算) =====
 import { CHARACTERS } from '../game/player.js?v=17';
+import { PAL } from '../core/palette.js';
 import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
 import { SFX } from '../core/audio.js?v=17';
 
@@ -208,8 +209,8 @@ export const Screens = {
         const rec = document.createElement('span');
         rec.className = 'rec-tag';
         rec.textContent = '荐·' + c.rec;
-        rec.style.cssText = 'position:absolute;top:-9px;right:10px;padding:2px 7px;background:#b03a2e;color:#f2ecdd;' +
-          'font-size:11px;font-weight:700;letter-spacing:1px;border:1px solid #8c2f27;box-shadow:1px 1px 0 rgba(43,43,43,.4);';
+        rec.style.cssText = 'position:absolute;top:-9px;right:10px;padding:2px 7px;background:PAL.cinnabar;color:PAL.paper;' +
+          'font-size:11px;font-weight:700;letter-spacing:1px;border:1px solid PAL.cinnabar;box-shadow:1px 1px 0 rgba(43,43,43,.4);';
         card.appendChild(rec);
       }
       const ico = document.createElement('div');

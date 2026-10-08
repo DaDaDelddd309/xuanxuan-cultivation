@@ -1,9 +1,10 @@
-import time
+import os as _os;_OUT=_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'_shots');_os.makedirs(_OUT,exist_ok=True)
+import os, time
 from playwright.sync_api import sync_playwright
-CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
+CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[];fails=[]
 with sync_playwright() as p:
-    b=p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--disable-dev-shm-usage'])
+    b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
@@ -39,20 +40,20 @@ with sync_playwright() as p:
     unblock(pg); pg.click('[data-tab=map]'); time.sleep(0.8)
     ok("未去过是迷雾", pg.evaluate("()=>document.querySelectorAll('.xx-node.fog').length")>0)
     ok("迷雾显示 ?", pg.evaluate("()=>document.querySelectorAll('.xx-fogq').length")>0)
-    pg.screenshot(path='/workspace/probe/shot_fog.png')
+    pg.screenshot(path=_OUT+'/shot_fog.png')
     # 开一条线,验证叙事标记
     pg.evaluate("""async()=>{const {STORY}=await import('/js/xiuxian/story.js');STORY.start('hongyi');}""")
     unblock(pg); pg.click('[data-tab=realm]');time.sleep(0.2);pg.click('[data-tab=map]');time.sleep(0.7)
     ok("有叙事标记 !", pg.evaluate("()=>document.querySelectorAll('.xx-node-st').length")>0)
     ok("显示'眼下之事'", '眼 下 之 事' in pg.inner_text('#xx-body'))
-    pg.screenshot(path='/workspace/probe/shot_story.png')
+    pg.screenshot(path=_OUT+'/shot_story.png')
     print("【抵达触发叙事】")
     pg.evaluate("""async()=>{const {STORY}=await import('/js/xiuxian/story.js');
       const {Hall}=await import('/js/xiuxian/ui.js');Hall.arrive('n0');}""")
     time.sleep(1.2)
     ok("弹出叙事卡", pg.evaluate("()=>!!document.querySelector('.xx-storycard')"))
     ok("卡片有名字", '红 嫁 衣' in pg.inner_text('.xx-storycard') if pg.evaluate("()=>!!document.querySelector('.xx-storycard')") else False)
-    pg.screenshot(path='/workspace/probe/shot_beat.png')
+    pg.screenshot(path=_OUT+'/shot_beat.png')
     pg.evaluate("()=>{const e=document.querySelector('.xx-storycard'); if(e)e.remove();}")
     print("【传说妖谱】")
     unblock(pg); pg.click('[data-tab=dex]'); time.sleep(0.9)
@@ -63,7 +64,7 @@ with sync_playwright() as p:
     ok("8种传说妖都在", all(n in t for n in ['红衣女鬼','黑山姥姥','白泽','当康','青穹','剑骨','墓前石将','灯尸']))
     ok("未见的打码", pg.evaluate("()=>document.querySelectorAll('.xx-dxx.unseen').length")>0)
     ok("传说妖立绘加载", pg.evaluate("()=>[...document.querySelectorAll('.xx-dxx img')].filter(i=>i.naturalWidth>0).length")>=8)
-    pg.screenshot(path='/workspace/probe/shot_legend.png')
+    pg.screenshot(path=_OUT+'/shot_legend.png')
     print("【昼夜】")
     r=pg.evaluate("""async()=>{const {Ambience:A}=await import('/js/xiuxian/ambience.js');
       const {DAY}=await import('/js/xiuxian/items.js');

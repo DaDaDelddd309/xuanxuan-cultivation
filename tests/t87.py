@@ -1,9 +1,10 @@
-import time
+import os as _os;_OUT=_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'_shots');_os.makedirs(_OUT,exist_ok=True)
+import os, time
 from playwright.sync_api import sync_playwright
-CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
+CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[];fails=[]
 with sync_playwright() as p:
-    b=p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--disable-dev-shm-usage'])
+    b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
@@ -58,14 +59,14 @@ with sync_playwright() as p:
     t=pg.inner_text('#xx-body')
     ok("显示支线标题", '红嫁衣' in t or '红 嫁 衣' in t)
     ok("有结案按钮", pg.evaluate("()=>document.querySelectorAll('[data-act=qdone]').length")>0)
-    pg.screenshot(path='/workspace/probe/shot_quest.png')
+    pg.screenshot(path=_OUT+'/shot_quest.png')
 
     print("【结案双结局】")
     d0=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().dao}")
     unblock(pg); pg.click('[data-act=qdone]'); time.sleep(1.0)
     ok("弹出结案卡", pg.evaluate("()=>!!document.querySelector('.xx-storycard')"))
     ok("两个结局选项", pg.evaluate("()=>document.querySelectorAll('.xx-sc-go[data-p]').length")==2)
-    pg.screenshot(path='/workspace/probe/shot_qdone.png')
+    pg.screenshot(path=_OUT+'/shot_qdone.png')
     pg.click('.xx-sc-go[data-p="1"]'); time.sleep(1.0)
     d1=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().dao}")
     ok(f"结案发奖 {d0}→{d1}", d1>d0)
@@ -92,7 +93,7 @@ with sync_playwright() as p:
         pg.evaluate("()=>document.querySelector('[data-act=qdone]').click()")
         time.sleep(1.0)
         ok("白泽有特殊问答", pg.evaluate("()=>{const e=document.querySelector('.xx-storycard');return !!(e&&(e.innerText.includes('知 者')||e.innerText.includes('为了活'))) }"))
-        pg.screenshot(path='/workspace/probe/shot_ask.png')
+        pg.screenshot(path=_OUT+'/shot_ask.png')
         pg.evaluate("()=>document.querySelectorAll('.xx-sc-go[data-p]').forEach(e=>e.click())")
         time.sleep(1.0)
         ok("特殊结局有后续", pg.evaluate("()=>document.querySelectorAll('.xx-storycard').length")>0)

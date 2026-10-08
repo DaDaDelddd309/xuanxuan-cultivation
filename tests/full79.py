@@ -1,10 +1,10 @@
 from playwright.sync_api import sync_playwright
 import time, json
 HIDE_HALL = "()=>{document.querySelector('.xx-screen')?.remove();" + "document.getElementById('screens').style.display='none';}"
-CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
+CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[]; fails=[]
 with sync_playwright() as p:
-    b=p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--disable-dev-shm-usage'])
+    b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)

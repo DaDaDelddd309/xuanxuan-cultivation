@@ -6,6 +6,8 @@ import { Cult } from './index.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
 import { WORLD, nodeById, neighbors } from './world.js';
+import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
+import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
 import { Duel } from './duel.js';
 import { STONES, STONE_LIST, SCROLL_LIST, SCROLLS, GOODS, Bag, DAY, OVERFLOW_RATE, scrollForExp } from './items.js';
@@ -27,7 +29,15 @@ import { MOUNT, MOUNTS, MOUNT_LIST } from './mount.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
-const PORTRAIT = { hero:'assets/portrait/hero.jpg', foe:'assets/portrait/foe.jpg', aunt:'assets/portrait/aunt.jpg' };
+// V0.98:按人分图。四张卡原本全部落到 hero.jpg(CHARACTERS 没有 portrait 字段),
+// 商人还复用 foe —— 一张图到处套。
+const PORTRAIT = {
+  knight:'assets/portrait/knight.jpg', mage:'assets/portrait/mage.jpg',
+  ranger:'assets/portrait/ranger.jpg', white:'assets/portrait/white.jpg',
+  companion:'assets/portrait/companion.jpg', momocha:'assets/portrait/momocha.jpg',
+  merchant:'assets/portrait/merchant.jpg',
+  foe:'assets/portrait/foe.jpg', hero:'assets/portrait/knight.jpg', aunt:'assets/portrait/companion.jpg',
+};
 const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
@@ -52,9 +62,17 @@ function toast(msg) {
 }
 
 export const Hall = {
+  // 页签读写器:render() 读的是模块级 `tab`,但代码里有两处写的是 `this.tab='map'`
+  // (墓门那两条分支)。没有这个读写器,那两行只是给 Hall 挂了个没人读的属性 ——
+  // 从别的页签调过来就会静默失效。今天它们恰好都在地图页内触发、看不出问题,
+  // 但那是运气,不是设计。加了它,`this.tab=` 才真的等于切页。
+  get tab() { return tab; },
+  set tab(v) { tab = v; },
+
   open() {
     if (!root) this.build();
     root.classList.remove('hidden');
+    warmup();          // 预取地点插画,消除首次切页的等待
     this.render();
   },
   close() { root && root.classList.add('hidden'); },
@@ -94,7 +112,8 @@ export const Hall = {
   build() {
     root = $('div', 'xx-screen hidden');
     root.innerHTML =
-      `<div class="xx-head">
+      `<div class="xx-illust" id="xx-illust"></div>
+       <div class="xx-head">
          <button class="xx-back" data-act="back">‹</button>
          <h2>修 仙 阁</h2>
          <div class="xx-realm" id="xx-realm-badge">炼气一层</div>
@@ -248,6 +267,8 @@ export const Hall = {
         if (TOMB.s.in) { this.tab='map'; this.render(); break; }
         const r = TOMB.enter();
         if (!r.ok) { toast(r.msg||'去不了'); break; }
+        // V0.99:真的进墓了才记(不是"打开了墓的页面"就算 —— 那是渲染,不是事件)
+        try { SPINE.openTomb(); } catch (e) { console.warn('[spine]', e); }
         this.tab='map'; this.tombRoom('dk'); break;
       }
       case 'tomb-go': this.tombRoom(v); break;
@@ -369,8 +390,16 @@ export const Hall = {
       const cool = now - (this._seenCool[l.key] || 0) > 480000;
       if (first && cool) {
         this._seenCool[l.key] = now;
+        // V0.99 主线骨架:这一笔往同一处汇 ——
+        //   1) 推进阶段(出村 → 遇见 → 介入 → 抉择)
+        //   2) 若玩家已见过相关的另一只妖,补一句因果
+        //      「她腰间那块愿牌,是从姥姥手里换来的。」
+        // 没有这一步,红衣女鬼→黑山姥姥→愿牌只是三段独立文字,
+        // 玩家看不出它们是同一条因果。
+        let causal = [];
+        try { causal = (SPINE.observeLegend(l.key).lines) || []; } catch (e) { console.warn('[spine]', e); }
         toast(`初见「${l.name}」`, true);
-        setTimeout(() => this.showLegend(l), 700);
+        setTimeout(() => this.showLegend(l, causal), 700);
       }
     }
 
@@ -517,6 +546,15 @@ export const Hall = {
     root.querySelector('#xx-realm-badge').textContent = `${r.name}${s.layer}层`;
     root.querySelectorAll('.xx-tab').forEach(t =>
       t.classList.toggle('on', t.dataset.tab === tab));
+    // 插画(V0.98):大地图页**不按页签取图**,按玩家当前所在节点的类型取。
+    // 这样图是世界的一部分 —— 你走到哪儿,看到的就是那种地方的景,
+    // 而不是「第 3 个页签配第 3 张图」那种与内容无关的装饰。
+    const il = root.querySelector('#xx-illust');
+    const url = (tab === 'map')
+      ? nodeIllustUrl(nodeById(s.current))
+      : tabIllustUrl(tab);
+    applyBg(il, url);
+    if (il) il.classList.toggle('on', !!url);
     bodyEl.innerHTML =
       tab === 'realm' ? this.vRealm(s)
       : tab === 'map'   ? (TOMB.s.in ? this.vTomb() : this.vMap(s))
@@ -545,7 +583,7 @@ export const Hall = {
     if (fx.insight) s.insight = (s.insight||0) + fx.insight;
     if (fx.herb) s.pills.pill_zhuji = (s.pills.pill_zhuji||0) + fx.herb;
     if (fx.hp === 1) s.hp = (s.hp||0) + 1;   // 标记
-    if (fx.demonSeed) COMPANION.addAff(-2);  // 败者之剑:亲密度微降
+    // 败者之剑的 demonSeed 不再有亲密度可降 —— 亲密度系统已删(V0.98)
     Cult.commit();
     return pick;
   },
@@ -996,6 +1034,7 @@ export const Hall = {
           ${FAMILY.RAISED.map(k=>`<button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
             data-act="raise" data-v="${k.key}">${k.name}</button>`).join('')}
         </div>
+        ${(()=>{const _g=FAMILY.raiseGap();return _g.full?'<div class="xx-hint">族人已满 · 议事堂可扩容</div>':(_g.ok?'<div class="xx-hintok">资财已足,可招</div>':`<div class="xx-hint">还需 <b>${_g.lack}</b> 资产(需 500)</div>`);})()}
       </div>
 
       <div class="xx-grid">
@@ -1023,7 +1062,8 @@ export const Hall = {
   // 初见妖:一条窄横幅,4.2 秒自己走(V0.94)
   // 原来是整张叙事卡,走一圈图能弹 5 次以上,像连环弹窗骚扰。
   // 现在只告知「你见到什么了 + 一句来历」,细节去图鉴里翻。
-  showLegend(l) {
+  /** @param {string[]} [causal] 主线骨架给的因果句(只提示一次,重复遇见不再啰嗦) */
+  showLegend(l, causal) {
     if (this._bn) this._bn.remove();
     const el = document.createElement('div');
     el.className = 'xx-banner';
@@ -1032,6 +1072,7 @@ export const Hall = {
       <div class="xx-bn-txt">
         <div class="xx-bn-n">初见 · ${esc(l.name)}</div>
         <div class="xx-bn-l">${esc(l.lore)}</div>
+        ${causal && causal.length ? causal.map(c => `<div class="xx-bn-c">${esc(c)}</div>`).join('') : ''}
         <div class="xx-bn-t">详情记在「修仙阁 → 支线 / 图鉴」</div>
       </div>`;
     this._bn = el;
@@ -1042,6 +1083,13 @@ export const Hall = {
   // ---------- 支线 ----------
   vQuest() {
     QUEST.autoTake();            // 见过妖就自动接,不要求玩家先去跑图
+    // V0.99:支线状态同步主线(encounter → intervene 这一阶靠它判定)
+    // 放在 autoTake 之后 —— 顺序反了就同步不到本轮新接的支线。
+    // QUEST.s 的形状是 { active:[key], done:{key:{...}}, choices:{} }
+    try {
+      for (const k of (QUEST.s.active || [])) SPINE.observeQuest(k, 'active');
+      for (const k of Object.keys(QUEST.s.done || {})) SPINE.observeQuest(k, 'done');
+    } catch (e) { console.warn('[spine]', e); }
     const act = QUEST.activeList();
     const done = QUEST.doneList();
     const avail = QUEST.availableList();
@@ -1320,6 +1368,7 @@ export const Hall = {
         <div class="xx-dim" style="margin-bottom:8px">
           缔结后受袭盟友驰援,围攻率 -${Math.round(BUILD.pactShield()*100)}%,集市互通。</div>
         <button class="xx-btn" data-act="pact" ${BUILD.canPact()?'':'disabled'}>缔 结 同 盟</button>
+        ${(()=>{const _g=BUILD.pactGap();return _g.full?'<div class="xx-hint">契约已满(3/3)</div>':(_g.ok?'<div class="xx-hintok">道行已足,可缔约</div>':`<div class="xx-hint">还需 <b>${_g.lack}</b> 道行(需 ${_g.cost})</div>`);})()}
       </div>
 
       <button class="xx-btn main" data-act="promote" ${pk.ok?'':'disabled'}>
@@ -1329,19 +1378,19 @@ export const Hall = {
 
   // ---------- 图鉴(怪物 + NPC)----------
   vDex() {
-    const cs = COMPANION.s;
-    const form = cs.route === 'kiss' ? 'baby' : cs.route === 'cold' ? 'ghostfire' : cs.route === 'ghost' ? 'revenant' : null;
-    const order = ['ghostfire','revenant','baby','momocha','merchant','moying'];
+    // V0.98:三选一路线(kiss/cold/ghost)删了,「灵伴三形」随之消失。
+    // 这里只列与路线无关的 NPC。灵伴本人的来历走「传说妖谱」与年表。
+    const order = ['momocha','merchant','moying'];
     return `
-      <div class="xx-card"><div class="xx-label">灵 伴 三 形</div>
-        <div class="xx-dim">同一段因果,三条路。三种形态,三种待遇。</div></div>
+      <div class="xx-card"><div class="xx-label">山 中 人</div>
+        <div class="xx-dim">路上遇见的,不是选项。</div></div>
       ${order.map(k=>{
         const n = NPCS[k];
-        const mine = k === form;
-        return `<div class="xx-dxx ${mine?'mine':''}">
+        if (!n) return '';
+        return `<div class="xx-dxx">
           <img src="${n.img}" alt="">
           <div class="xx-dxx-b">
-            <div class="xx-dxx-n">${esc(n.name)}<span>${esc(n.form)}</span>${mine?'<em>你当前</em>':''}</div>
+            <div class="xx-dxx-n">${esc(n.name)}<span>${esc(n.form)}</span></div>
             <div class="xx-dxx-d">${esc(n.desc)}</div>
             <div class="xx-dxx-b2">${esc(n.ability)}</div>
             ${n.threat && n.threat!=='无' ? `<div class="xx-dxx-t">威胁:${esc(n.threat)}</div>` : ''}
@@ -1424,7 +1473,7 @@ export const Hall = {
 
       <div class="xx-dim" style="text-align:center;line-height:1.9">
         境界 · 炼气${Cult.get().layer}层 / 道行 ${Cult.get().dao}<br>
-        灵伴 · ${esc(COMPANION.s.name || '未遇')}(${({kiss:'相守',cold:'冷淡',ghost:'纠缠'})[COMPANION.s.route] || '—'})<br>
+        灵伴 · ${esc(COMPANION.s.name || '未遇')}<br>
         称号 · ${Cult.titles.list().length} 枚
       </div>`;
   },

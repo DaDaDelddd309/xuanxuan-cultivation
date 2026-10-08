@@ -6,21 +6,21 @@
 
 /* ---------- 基础 ---------- */
 :root {
-  --paper: #ece5d3;        /* 宣纸底 */
-  --paper-hi: #f2ecdd;     /* 宣纸亮 */
-  --paper-dk: #e2dabf;     /* 宣纸影 */
-  --paper-dk2: #d3c7a6;    /* 深纸 */
-  --ink: #2b2b2b;          /* 浓墨 */
-  --ink-2: #3f4140;        /* 重墨 */
-  --ink-3: #6b6b5d;        /* 中墨 */
-  --ink-4: #8a8a7a;        /* 淡墨 */
+  --paper: var(--xx-paper);        /* 宣纸底 */
+  --paper-hi: var(--xx-paper);     /* 宣纸亮 */
+  --paper-dk: var(--xx-paper);     /* 宣纸影 */
+  --paper-dk2: var(--xx-paper-dim);    /* 深纸 */
+  --ink: var(--xx-ink-2);          /* 浓墨 */
+  --ink-2: var(--xx-ink-3);        /* 重墨 */
+  --ink-3: var(--xx-paper-faint);        /* 中墨 */
+  --ink-4: var(--xx-paper-faint);        /* 淡墨 */
   --wash: #b9b3a2;         /* 淡墨灰 */
-  --cinnabar: #b03a2e;     /* 朱砂 */
-  --cinnabar-hi: #c85545;  /* 朱砂亮 */
-  --cinnabar-dk: #8c2f27;  /* 朱砂暗 */
-  --azure: #5fb8c4;        /* 青焰 */
-  --azure-dk: #41899b;     /* 青焰渊 */
-  --gold: #c9972f;         /* 藤黄金 */
+  --cinnabar: var(--xx-cinnabar);     /* 朱砂 */
+  --cinnabar-hi: var(--xx-cinnabar);  /* 朱砂亮 */
+  --cinnabar-dk: var(--xx-cinnabar);  /* 朱砂暗 */
+  --azure: var(--xx-jade);        /* 青焰 */
+  --azure-dk: var(--xx-qi);     /* 青焰渊 */
+  --gold: var(--xx-gold);         /* 藤黄金 */
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -115,7 +115,7 @@ canvas, img { image-rendering: pixelated; image-rendering: crisp-edges; }
   border-color: var(--cinnabar-dk);
   box-shadow: 0 0 0 1px var(--ink), 2px 2px 0 rgba(43, 43, 43, .35);
 }
-.bar.boss .fill { background: linear-gradient(#a53529, #5c1a14); box-shadow: inset 0 2px 0 rgba(250, 246, 234, .22); }
+.bar.boss .fill { background: linear-gradient(var(--xx-cinnabar), var(--xx-cinnabar)); box-shadow: inset 0 2px 0 rgba(250, 246, 234, .22); }
 .bar.boss .bar-text { color: var(--paper-hi); font-size: 12px; letter-spacing: 3px; text-shadow: 0 1px 0 var(--ink); }
 
 /* 武器槽:圆形宣纸底 + 墨圈(水墨印章槽) */
@@ -738,19 +738,19 @@ button { font-family: inherit; }
   padding:3px 9px 3px 5px;border-radius:2px;
   background:rgba(18,14,11,.6);
   border:1px solid rgba(201,162,39,.32);
-  font:12px/1 "Songti SC",serif;color:#e8dcc4;letter-spacing:1px;
+  font:12px/1 "Songti SC",serif;color:var(--xx-paper);letter-spacing:1px;
   pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.9)}
 .hud-xx-i{display:inline-flex;align-items:center;justify-content:center;
   width:16px;height:16px;border-radius:50%;font-size:10px;
-  background:rgba(201,162,39,.22);color:#c9a227;border:1px solid rgba(201,162,39,.45)}
-.hud-xx-f{font-size:10px;color:#c9a227;opacity:.85;
+  background:rgba(201,162,39,.22);color:var(--xx-gold);border:1px solid rgba(201,162,39,.45)}
+.hud-xx-f{font-size:10px;color:var(--xx-gold);opacity:.85;
   padding-left:5px;margin-left:2px;border-left:1px solid rgba(201,162,39,.28)}
 .hud-xx.pop{animation:hudXxPop .35s ease}
 @keyframes hudXxPop{
   0%{transform:scale(1)} 40%{transform:scale(1.14)} 100%{transform:scale(1)}
 }
 .ostat.xx{border-color:rgba(201,162,39,.4);background:rgba(201,162,39,.07)}
-.ostat.xx .v{color:#c9a227}
+.ostat.xx .v{color:var(--xx-gold)}
 
 /* ---- 修仙阁 · 局内增益可见性(V0.96)----
    护栏/坐骑之前就在生效,但玩家看不见 —— 感觉不到等于没有。 */
@@ -758,9 +758,9 @@ button { font-family: inherit; }
   display:flex;gap:6px;pointer-events:none}
 .hud-xx-buf span{font:11px/1 "Songti SC",serif;letter-spacing:1px;
   padding:4px 8px;border-radius:2px;white-space:nowrap;
-  background:rgba(18,14,11,.6);border:1px solid rgba(201,162,39,.3);color:#e8dcc4;
+  background:rgba(18,14,11,.6);border:1px solid rgba(201,162,39,.3);color:var(--xx-paper);
   text-shadow:0 1px 3px rgba(0,0,0,.9)}
-.hud-xx-buf span b{color:#c9a227;font-weight:400}
+.hud-xx-buf span b{color:var(--xx-gold);font-weight:400}
 
 /* 护栏:视觉上就是一个圈,玩家才知道自己站在安全区里 */
 .hud-ward{position:absolute;z-index:8;pointer-events:none;

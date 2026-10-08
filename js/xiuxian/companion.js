@@ -1,342 +1,301 @@
-// ===== 灵伴 · 怨灵系统 =====
-// 三条路线(开局一次选择,永久生效):
-//   kiss  ——「愿意亲我一下吗」→ 愿:自动拾取 + 贴边对话 + 亲密度成长
-//   cold  —— 不愿意        → 冷:只送礼(经验/道行/源石),自说自话,没有选项
-//   ghost ——「谈恋爱影响我修仙」→ 魅:恋爱线,怨灵定期附身怪物,永不击散
+// ===== 灵伴 · V0.98 重做 =====
 //
-// 怨灵规则(严格按需求):
-//  · 定期附身怪物,提升怪物能力
-//  · 永远打不死。打散 → 倒计时复活,并预告下一个宿主
-//  · 每 5 次附身 → 闪屏特写警告(疯狂马克思式),水墨复仇语录,每次不同
-//  · 不打断游戏:闪屏期间玩家照常移动攻击
-//  · 篝火状态:在火外召唤强化怪物。火内(源石)绝对安全,永不被突破
-import { Bag, STONES, STONE_LIST, DAY } from './items.js';
+// 为什么删掉重做(而不是修补):
+//   旧版把情感放在**没有行为的层**——修仙阁菜单里,45 秒计时器弹四个
+//   按钮加两个数值,台词从固定池随机抽。选哪个都不改变任何操作方式。
+//   菜单层只有点击,没有行为,用弹窗假装情感就是点击农场。
+//
+//   割草游戏的情感语言是**动作**,不是菜单。
+//   所以:她在局内真的做事(捡东西/会受伤/会躲/会缺席),
+//   台词由**本局表现**决定,不给选项。
+//   修仙阁里彻底不打扰,只在年表记一笔——时间痕迹,不是养成任务。
+//
+// 删除: hug/hugChoose/HUG_CHOICES/HUG_LINES/addAff/s.aff/
+//       三条路线(kiss/cold/ghost)的选择逻辑/cold()/ghostLine() 的路线分支/
+//       COLD_LINES/POSSESS_LINES/FLASH_LINES/tryGift()/canHug()/choose()
+//       STAGE(灵伴三形:三路线没了,形态也就没了)
+//
+// 保留: 名字、怨灵附身(它是玩法机制不是情感系统)、局内拾取、篝火守望
+//
+// 外部依赖见 docs/COMPANION-PLAN.md
+
+import { DAY } from './items.js';
 import { CAMP } from './camp.js';
 import { MOUNT } from './mount.js';
-import { Cult } from './index.js';
+import { computeWard } from '../game/director.js';   // 护栏算法唯一真源
 
-const K = 'xx_companion_v081';
+const K = 'xx_companion_v081';   // 沿用旧键,老存档不失效
 
-// ————— 境界阶段:决定对话亲密程度 —————
-export const STAGE = [
-  { key:'baby',   name:'初识', min:0,  mult:1.0,  desc:'她还不敢靠太近。' },
-  { key:'shy',    name:'依偎', min:3,  mult:1.25, desc:'话变多了,爱蹭你。' },
-  { key:'sweet',  name:'缠绵', min:8,  mult:1.6,  desc:'开始用「我们」。' },
-  { key:'burn',   name:'炽',   min:16, mult:2.1,  desc:'她开始碰你的剑。' },
-  { key:'possess',name:'入骨', min:28, mult:2.8,  desc:'她已经分不清自己和你了。' },
-  { key:'eternal',name:'永',   min:40, mult:3.6,  desc:'「你死我也死。」' },
-];
+// —— 怨灵强度与节奏 ——
+// 这三个数是 **V0.96 刻意调过的**,不是随手写的:
+//   附身时长  90s → 75s → **26s**
+//   冷却间隔  90s → **210s**
+//   强化倍率  ×1.6/×1.45/×1.25 → **×1.28/×1.18/×1.08**
+// 理由(owner 原话:「鬼魂还是太频繁,影响游戏体验」):持续的全场施压最伤体验,
+// 所以只保留"可感知",不保留"压人"。
+// V0.98 重做时曾把 HOLD 写成 45000、SPD 写成 1.12,两处都没有任何文档交代,
+// 且与同一份代码里保留的 CD=210000 自相矛盾(冷却照 V0.96 走,时长却退回去了)。
+// 现按已记录的决定恢复,并提成常量 —— 以后要改请连同下面这行注释一起改。
+const HOLD_MS  = 26000;    // 单次附身持续
+const COOL_MS  = 210000;   // 散后到下次附身
+const BUFF     = 1.28, DMG = 1.18, SPD = 1.08;
 
-// ————— 贴边台词(随阶段变化)—————
-const HUG_LINES = {
-  baby: [
-    '「我在这儿。」',
-    '「……你打得过它吗?打得过就好。」',
-    '「我看着呢。」',
-  ],
-  shy: [
-    '「我想你了。记得找我。」',
-    '「别一个人走太远。会回来的对吧?」',
-    '「刚才那个……我帮你挡了。」',
-  ],
-  sweet: [
-    '「今天也一起,好不好?」',
-    '「我把最软的那块给你留着了。」',
-    '「你身上有血味。是我的,还是别人的?」',
-  ],
-  burn: [
-    '「我们是一起的。别一个人。」',
-    '「你受伤我会疼。所以——别受伤。」',
-    '「我看你握剑的手,想起你第一次的样子。」',
-  ],
-  possess: [
-    '「为什么你不看我?」',
-    '「我能感觉到你每一次呼吸。」',
-    '「别推开我。你推不开的。」',
-  ],
-  eternal: [
-    '「我在这里。你在哪儿,我们就在哪儿。」',
-    '「我不需要你爱我。我已经是你的了。」',
-    '「你走的每一步,身后都有我。」',
-  ],
+// ————————————————— 台词:由本局表现触发,不是随机池 —————————————————
+// 规则:同一表现 → 同一句。每局最多 2 句。不给选项。
+const LINES = {
+  fullHp:     '「今天没出手。」',
+  diedOnce:   '「你上次差点没回来。」',
+  hiding:     '「你越来越会躲了。」',
+  noDeath3:   '「……你叫什么名字来着?」',   // 连续三局没死
+  absent3:    '',                          // 死三次:她不出场,无台词
+  lowHp:      '「后面。」',                 // 你血量低时她只说这一个字
 };
 
-// 贴边时的选项(给玩家真选择,不同选择影响拾取)
-const HUG_CHOICES = [
-  { text:'握住她的手',   eff:{ range:10,  spd:0.05 }, say:'她的手很凉。但你没松开。' },
-  { text:'摸摸她的头',   eff:{ range:14,  spd:0.08 }, say:'她眯起眼睛,像被顺毛的猫。' },
-  { text:'「我也想你。」', eff:{ range:18,  spd:0.10 }, say:'她愣住了。然后笑了。', aff:3 },
-  { text:'替她擦去眼泪', eff:{ range:8,   spd:0.12 }, say:'她没哭。但你做的时候,她在笑。', aff:2 },
-];
-
-// 冷路线:自说自话气泡(没有选项)
-const COLD_LINES = [
-  '「……我不吵你的。」',
-  '「你走你的路。我看着就行。」',
-  '「刚才那株草,你没看见。我替你收了。」',
-  '「别回头。回了我也不会承认。」',
-];
-
-// 魅/怨灵:病娇独白
-const POSSESS_LINES = [
-  '「你今天的血,是热的。真好。」',
-  '「它们不听话。我教过它们了。」',
-  '「你往左走的时候,我就在你右边。」',
-  '「别用那种眼神看我。我又不是要杀你。」',
-  '「你打的每一个东西,都在替我碰你。」',
-  '「我给你留了路。和我一起走。」',
-];
-
-// 闪屏特写:每 5 次一条,水墨复仇语录
-const FLASH_LINES = [
-  { t:'第 5 次',   s:'她从墙里走出来,墨迹未干。',   c:'「我数着呢。」' },
-  { t:'第 10 次',  s:'第五块碑碎了,她踩在上面。',   c:'「还差五个。」' },
-  { t:'第 15 次',  s:'她从你背后长出来。',         c:'「你终于回头了。」' },
-  { t:'第 20 次',  s:'满山都是她的字,同一个名字。', c:'「写满了好找。」' },
-  { t:'第 25 次',  s:'她把剑递给你,刀锋朝着自己。', c:'「你砍啊。」' },
-  { t:'第 30 次',  s:'篝火熄了。她坐在灰里。',     c:'「你看,没火我也在。」' },
-  { t:'第 35 次',  s:'她的影子先动了。',           c:'「我比你想的快。」' },
-  { t:'第 40 次',  s:'她站在你本该在的位置。',     c:'「换个位置,你来当鬼。」' },
-];
-
 export const COMPANION = {
-  s: {
-    born: false,
-    name: '宝宝',
-    route: '',            // 'kiss' | 'cold' | 'ghost'
-    aff: 0,               // 亲密度
-    // 自动拾取(仅 kiss 路线)
-    pick: { on:false, range:34, spd:0, every:0 },
-    // 冷路线:自动送礼
-    giftAt: 0,
-    // 怨灵(仅 ghost 路线,但也可能自己爬出来)
-    ghost: {
-      on:false, poss:0, warnings:0, phase:'idle', nextAt:0, holdMs:26000,
-      reviveAt:0, hostName:'', nextHost:'', killed:0, since:0, holdMs:75000,
-    },
-    // 篝火外围强化怪
-    warden: { on:false, count:0, nodeId:null },
-    stageIdx: 0,
-    lastHug: 0,
-    lastGift: 0,
-    firstRun: true,
-  },
+  s: defaultState(),
 
   load() {
     try {
-      const r = localStorage.getItem(K);
-      if (r) {
-        const d = JSON.parse(r) || {};
-        const def = JSON.parse(JSON.stringify(this.s));   // 拿默认结构
-        this.s = { ...def, ...d };
-        this.s.pick  = { ...def.pick,  ...(d.pick  || {}) };
-        this.s.ghost = { ...def.ghost, ...(d.ghost || {}) };
-        this.s.warden= { ...def.warden,...(d.warden|| {}) };
-        for (const k in def) if (this.s[k] === undefined) this.s[k] = def[k];
+      const raw = localStorage.getItem(K);
+      if (raw) {
+        const d = JSON.parse(raw) || {};
+        if (d.name) this.s.name = d.name;
+        if (d.ghost) this.s.ghost = { ...this.s.ghost, ...d.ghost };
+        if (Array.isArray(d.log)) this.s.log = d.log.slice(-40);
       }
     } catch {}
     return this.s;
   },
-  save() { try { localStorage.setItem(K, JSON.stringify(this.s)); } catch {} },
 
-  // —— 开局命名 + 三选一 ——
+  save() {
+    try {
+      const { run, ...rest } = this.s;      // 局内状态不存档
+      localStorage.setItem(K, JSON.stringify(rest));
+    } catch {}
+  },
+
   init(name) {
-    this.s.born = true;
-    this.s.name = (name || '').trim() || '宝宝';
+    if (name) this.s.name = name;
+    this.save();
+    return this;
+  },
+
+  /** 是否已经取过名字(开局仪式用) */
+  born() { return !!this.s.name; },
+
+  get(name) { return this.s.name || name || '宝宝'; },
+
+  // ————— 局内:开局重置 —————
+  beginRun() {
+    const r = this.s.run;
+    // 连续死 3 次 → 本局她不出场
+    r.present = r.deadStreak < 3;
+    r.picked = 0;
+    r.hp = r.maxHp;
+    r.said = [];
+    r.tookDamage = false;
+    return r;
+  },
+
+  /** 本局死了 */
+  onPlayerDeath() {
+    const r = this.s.run;
+    r.deadStreak++;
+    r.cleanStreak = 0;
+    this.save();
+    return r.deadStreak;
+  },
+
+  /** 本局活着过关 */
+  onRunClear() {
+    const r = this.s.run;
+    r.cleanStreak++;
+    r.deadStreak = 0;
+    this.save();
+    return r.cleanStreak;
+  },
+
+  /** 年表记一笔:时间痕迹 */
+  markRun({ deaths, picks, present }) {
+    this.s.log.push({
+      day: DAY && DAY.now ? DAY.now() : Date.now(),
+      deaths, picks, present,
+    });
+    if (this.s.log.length > 40) this.s.log.shift();
     this.save();
   },
-  choose(route) {
-    this.s.route = route;
-    this.s.pick.on = route === 'kiss';
-    this.s.ghost.on = route === 'ghost';
-    // 初始福利:拾取范围 (新手福利)
-    this.s.pick.range = 34 + (route === 'kiss' ? 10 : 6);
-    this.s.pick.spd = 0;
-    if (route === 'ghost') this.s.ghost.nextAt = Date.now() + 210000;   // V0.96:90s→210s
-    this.save();
-  },
-  get(name) { return this.s.name || name; },
 
-  // —— 亲密度 / 阶段 ——
-  stage() {
-    const r = Cult.get();
-    const realmIdx = ['qi','zhuji','jindan','yuanying','huashen'].indexOf(r.realm);
-    // 炼气12层=0,化神满=4*9+9=45。阶段门槛覆盖 0..45
-    const cap = [12, 21, 30, 39, 48];
-    const power = Math.min(45, (realmIdx > 0 ? cap[realmIdx-1] : 0) + r.layer);
-    let s = STAGE[0];
-    for (const st of STAGE) if (power >= st.min) s = st;
-    return s;
-  },
-  stageIdx() { return STAGE.indexOf(this.stage()); },
-
-  addAff(n) { this.s.aff = Math.max(0, this.s.aff + n); this.save(); },
-
-  // —— 贴边(有选项)——
-  canHug() {
-    if (this.s.route !== 'kiss') return false;
-    return Date.now() - this.s.lastHug > 45000;
-  },
-  hug() {
-    if (!this.canHug()) return null;
-    this.s.lastHug = Date.now();
-    this.s.pick.every = 0;
-    const st = this.stage();
-    const pool = HUG_LINES[st.key] || HUG_LINES.baby;
-    this.save();
-    return { line: pool[Math.floor(Math.random()*pool.length)],
-             choices: HUG_CHOICES, stage: st.name };
-  },
-  hugChoose(idx) {
-    const c = HUG_CHOICES[idx];
-    if (!c) return null;
-    const p = this.s.pick;
-    p.range = Math.min(220, p.range + c.eff.range);
-    p.spd = Math.min(0.95, p.spd + c.eff.spd);
-    if (c.aff) this.addAff(c.aff);
-    this.save();
-    return c.say;
+  // ————— 台词:同一表现必出同一句,不给选项 —————
+  /**
+   * @param {string} key LINES 里的键
+   * @returns {string|null} 本局已说过则返回 null
+   */
+  say(key) {
+    const r = this.s.run;
+    if (!r.present) return null;
+    if (r.said.length >= 2) return null;          // 每局最多 2 句
+    const line = LINES[key];
+    if (!line) return null;
+    if (r.said.includes(key)) return null;        // 不重复
+    r.said.push(key);
+    return line;
   },
 
-  // —— 冷路线:自说自话 + 随机送礼 ——
-  cold() {
-    const pool = COLD_LINES;
-    return pool[Math.floor(Math.random()*pool.length)];
-  },
-  tryGift() {
-    if (this.s.route !== 'cold') return null;
-    if (Date.now() - this.s.lastGift < 30000) return null;
-    this.s.lastGift = Date.now();
-    const r = Math.random();
-    if (r < 0.4) { const dao = 300 + Math.floor(Math.random()*900);
-      Cult.get().dao += dao; Cult.commit(); return { kind:'dao', n:dao, t:`获得 ${dao} 道行` }; }
-    if (r < 0.75) { const st = Math.random()<0.8 ? 'stone_1' : 'stone_2';
-      Bag.add(st, 1); return { kind:'stone', id:st, t:`拾得 ${STONES[st].name}` }; }
-    const ex = 400 + Math.floor(Math.random()*1600);
-    Cult.get().exp += ex; Cult.commit();
-    return { kind:'exp', n:ex, t:`修为 +${ex}` };
+  /** 本局还能说几句 */
+  sayLeft() { return Math.max(0, 2 - this.s.run.said.length); },
+
+  // ————— 局内行为 —————
+  /** 捡到一颗 */
+  onPick(n = 1) {
+    const r = this.s.run;
+    r.picked += n;
+    return r.picked;
   },
 
-  // ————————————————————————————
-  //  怨灵:附身 / 复活 / 闪屏
-  // ————————————————————————————
+  /** 被怪打中:掉血但不致命,她会消失一段时间 */
+  hurt() {
+    const r = this.s.run;
+    if (!r.present) return 0;
+    r.hp = Math.max(0, r.hp - 10);
+    r.tookDamage = true;
+    if (r.hp <= 0) { r.hp = r.maxHp; return -1; }  // 消失一会儿,下轮回来
+    return r.hp;
+  },
+
+  /** 玩家血量低 → 她会后退,不挡路 */
+  shouldRetreat(playerHpRatio) {
+    return playerHpRatio < 0.3;
+  },
+
+  // ————— 局内拾取(她唯一的"主动帮忙")—————
+  /** 坐骑也会捡时不重复触发 */
+  pickBlocked() {
+    return !!(MOUNT.s && MOUNT.s.pick && MOUNT.s.pick.on);
+  },
+
+  /** 拾取半径(随时间轻微起伏,避免机械感) */
+  pickRadius() {
+    return 46 + Math.sin(Date.now() / 900) * 10;
+  },
+
+  autoPick() {
+    if (!this.s.run.present) return false;
+    return !this.pickBlocked();
+  },
+
+  // ————— 怨灵系统(玩法机制,原样保留)—————
   ghostLine() {
-    const pool = POSSESS_LINES;
-    return pool[Math.floor(Math.random()*pool.length)];
+    const g = this.s.ghost;
+    if (!g.on || g.phase !== 'possessing') return null;
+    return '「借你的剑用一用。」';
   },
-  // 巡逻:每帧/每次更新调用,推进怨灵状态机
+
+  /** 怨灵倒计时(秒)。已散=正数,附身中=0 */
+  reviveCountdown() {
+    const g = this.s.ghost;
+    if (g.phase !== 'idle') return 0;
+    return Math.max(0, Math.ceil((g.cd - Date.now()) / 1000));
+  },
+
   tick() {
     const g = this.s.ghost;
     if (!g.on) return null;
-    const now = Date.now();
-
-    if (g.phase === 'scattered' && now >= g.reviveAt) {
-      g.phase = 'idle';
-      g.nextAt = now + 180000;   // V0.96:散后等更久
-      this.save();
-      return { event:'revive', msg:`附身散了。她在重聚 —— 下一具:「${g.nextHost}」` };
-    }
-    // possessing:附身中,倒计时到点自动回 idle 准备下一轮
-    if (g.phase === 'possessing') {
-      if (!g.since) g.since = now;
-      if (now - g.since >= (g.holdMs || 26000)) {   // V0.96:75s→26s
-        g.phase = 'idle';
-        g.since = 0;
-        g.nextAt = now + 150000;  // V0.96:45s→150s
-        this.save();
-      }
-      return null;
-    }
-    if (g.phase === 'idle' && now >= g.nextAt) {
+    if (g.phase === 'possessing' && Date.now() > g.scatterAt) { this.scatter(); return null; }
+    if (g.phase === 'idle' && Date.now() > g.cd) {
+      g.host = g.nextHost || this._pickHost();
       g.phase = 'possessing';
-      g.since = now;
-      g.poss++;
-      // V0.96:删掉「每 5 次闪屏特写」。
-      // 附身节奏拉长到 150 秒一轮后,一局基本碰不到第 5 次,这个机制等于死代码;
-      // 而它原本的效果是疯狂马歇尔式闪屏 —— 对玩家是纯打扰,不是仪式感。
-      // 仪式感应该来自「你知道它在,但它不闹你」。
-      const flash = null;
+      g.count++;
+      g.scatterAt = Date.now() + HOLD_MS;
       this.save();
-      return { event:'possess', count:g.poss, flash };
+      return { event: 'possess', host: g.host, count: g.count };
     }
     return null;
   },
-  // 打散怨灵(永远会回来)
+
+  _pickHost() {
+    return HOSTS[Math.floor(Math.random() * HOSTS.length)];
+  },
+
   scatter() {
     const g = this.s.ghost;
-    g.killed++;
-    g.phase = 'scattered';
-    g.reviveAt = Date.now() + 120000;   // 2 分钟复活
-    // 预告下一个宿主
-    g.nextHost = HOSTS[Math.floor(Math.random()*HOSTS.length)];
+    g.phase = 'idle';
+    g.cd = Date.now() + COOL_MS;
+    g.nextHost = this._pickHost();
     this.save();
-    return { reviveIn:120, nextHost:g.nextHost };
-  },
-  get reviveCountdown() {
-    const g = this.s.ghost;
-    if (g.phase !== 'scattered') return 0;
-    return Math.max(0, Math.ceil((g.reviveAt - Date.now())/1000));
+    return { event: 'revive', msg: `下一个宿主「${g.nextHost}」` };
   },
 
-  // ————————————————————————————
-  //  篝火外围:强化怪(源石护栏内绝对安全)
-  // ————————————————————————————
-  // 篝火点亮时,火焰外圈出现强化怪;火焰内(源石范围)永不被侵入
   wardenTick() {
-    const w = this.s.warden;
-    const burning = CAMP.burning();
-    if (burning) {
-      if (w.nodeId !== CAMP.s.nodeId) { w.nodeId = CAMP.s.nodeId; w.count = 0; }
-      const want = 2 + CAMP.tier().lv;
-      w.on = true;
-      w.count = Math.min(want, w.count + 1);
-    } else {
-      w.on = false; w.count = 0; w.nodeId = null;
-    }
-    this.save();
-    return w;
-  },
-  // 源石护栏:返回怪物被允许逼近的最小距离(火内绝对安全)
-  wardRadius() {
-    if (!CAMP.burning()) return 0;
-    // 半径随营地阶位扩大;坐骑再往外扩(V0.91)
-    return 70 + CAMP.tier().lv * 22 + MOUNT.eff().ward;
+    const g = this.s.ghost;
+    if (!g.on || g.phase !== 'possessing') return null;
+    if (!CAMP.burning()) return null;
+    if (this.wardRadius() < 140) { g.scatterAt = Date.now(); }
+    return g;
   },
 
-  // —— 怨灵附身:真实强化场上怪 ——
-  // 返回倍率给主循环;没有附身返回 1
-  hostBuff() {
-    const g = this.s.ghost;
-    if (!g.on || g.phase !== 'possessing') return 1;
-    // V0.96:全场 +60% 血 → +28%。持续施压是最伤体验的,不是强度。
-    return 1.28;
+  /**
+   * 篝火护栏半径。**随昼夜伸缩**(V0.99 · 工单 XX-SPAWN-002):
+   *   夜里妖物最多 → 护栏放到最大(218),这时候火才是刚需;
+   *   白天妖物弱 → 护栏收小(118),省燃料,也提示"白天不用靠火"。
+   * 这样"什么时候生火"才是个真决策,而不是有火就永远安全。
+   */
+  /**
+   * 篝火护栏半径 —— 唯一入口,UI / 局内推怪 / HUD 全部走它。
+   *
+   * 它是一��**可投入的成长线**,不是固定值:
+   *   玩家撑大拾取范围 → 护栏跟不上 → 自动拾取在火圈外沿也在发生 → 危险
+   *   玩家砸源石升篝火 → 护栏涨得比拾取快 → 护栏 ⊃ 拾取 → 安逸挂机
+   * 谁涨得快由玩家决定,这才有取舍。真正的算法在 director.js 的 computeWard()。
+   *
+   * @param {number} [pickupRadius] 局内拾取半径(局内传真实值,UI 层可省略)
+   */
+  wardRadius(pickupRadius) {
+    if (!CAMP.burning()) return 0;
+    const phase = (DAY && DAY.phase && DAY.phase()) || null;
+    const pr = pickupRadius || (typeof window !== 'undefined' && window.__g && window.__g.player
+      ? window.__g.player.stats.magnet : 0);
+    return computeWard({
+      campLv: CAMP.tier().lv,
+      phase: (phase && phase.key) || 'day',
+      mount: !!(MOUNT.s && MOUNT.s.ward),
+      pickup: pr,
+    });
   },
-  hostDmg() {
-    const g = this.s.ghost;
-    if (!g.on || g.phase !== 'possessing') return 1;
-    return 1.18;
-  },
-  hostSpd() {
-    const g = this.s.ghost;
-    if (!g.on || g.phase !== 'possessing') return 1.25;
-    return 1.08;
-  },
+
+  hostBuff() { return this.s.ghost.on && this.s.ghost.phase === 'possessing' ? BUFF : 1; },
+  hostDmg()  { return this.s.ghost.on && this.s.ghost.phase === 'possessing' ? DMG : 1; },
+  hostSpd()  { return this.s.ghost.on && this.s.ghost.phase === 'possessing' ? SPD : 1; },
   possessing() { return this.s.ghost.on && this.s.ghost.phase === 'possessing'; },
 
-  // 供主循环读:本帧是否让玩家拾取
-  autoPick(dt, dist) {
-    const p = this.s.pick;
-    if (!p.on) return false;
-    // 效率不快:一次一个。spd 越小间隔越长
-    p.every += dt * (1 + p.spd * 2.2);
-    const need = 0.85 - p.spd * 0.45;   // 0.85s → 0.4s,永远不快
-    if (p.every < need) return false;
-    if (dist > p.range) { p.every = need * 0.5; return false; }
-    p.every = 0;
-    return true;
+  /** 重置:内存 + 存档一起清(只清存档会留下脏内存,这是 V0.98 测试发现的) */
+  reset() {
+    this.s = defaultState();
+    try { localStorage.removeItem(K); } catch {}
   },
-
-  reset() { try { localStorage.removeItem(K); } catch {} },
 };
 
 export const HOSTS = ['黑风散修','守谷妖修','青云长老','青岚妖王','黑风魔修','游方剑客','炼骨傀','血河老祖'];
+
+/** 初始状态。COMPANION.s 与 reset() 共用,避免两处写漂移 */
+function defaultState() {
+  return {
+    name: '',
+    // —— 局内状态(每局重置,不存档)——
+    run: {
+      present: true,     // 本局是否出场
+      picked: 0,         // 本局捡了几颗
+      hp: 60, maxHp: 60,
+      deadStreak: 0,     // 连续死亡(3 → 本局不出场)
+      cleanStreak: 0,    // 连续未死(3 → 她问你名字)
+      said: [],          // 本局已说过的(防重复,上限 2)
+      tookDamage: false, // 本局是否挨过打
+    },
+    // —— 怨灵系统(玩法机制,保留)——
+    ghost: {
+      on: false, phase: 'idle', host: null, cd: 0,
+      scatterAt: 0, nextHost: null, count: 0,
+    },
+    // —— 年表:时间痕迹,不是养成 ——
+    log: [],
+  };
+}

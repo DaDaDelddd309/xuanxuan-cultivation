@@ -1,5 +1,6 @@
 ﻿// ===== 📖 图鉴agent 名下:怪物图鉴 =====
 import { ENEMY_TYPES } from '../game/enemies.js?v=17';
+import { PAL } from '../core/palette.js';
 import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
 import { Screens } from './screens.js?v=17';
 import { SFX } from '../core/audio.js?v=17';
@@ -108,17 +109,17 @@ function loop() { if (!openFlag) return; animT += 0.016; drawStage(); raf = requ
 function drawStage() {
   if (!stageCtx || !sel) return;
   const ctx = stageCtx; ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#f2ecdd'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=PAL.paper; ctx.fillRect(0,0,W,H);
   ctx.strokeStyle='rgba(43,43,43,0.08)'; ctx.lineWidth=1;
   for(let i=0;i<W;i+=40){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke();}
   for(let i=0;i<H;i+=40){ ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(W,i); ctx.stroke();}
   const cx = W/2, cy = H/2 + 10; const bob = Math.sin(animT*1.6)*6; const e = sel;
   ctx.fillStyle='rgba(43,43,43,0.12)'; ctx.beginPath(); ctx.ellipse(cx, cy+32, 22 + Math.sin(animT*1.2)*2, 8, 0, 0, TAU); ctx.fill();
   const scale = e.boss ? 2.2 : 1.7;
-  if (e.boss) { ctx.strokeStyle = e.id==='boss_overlord' ? '#e43b44' : '#b55088'; ctx.lineWidth=2; ctx.globalAlpha=0.35; ctx.beginPath(); ctx.arc(cx, cy+bob, 46, 0, TAU); ctx.stroke(); ctx.globalAlpha=1; }
+  if (e.boss) { ctx.strokeStyle = e.id==='boss_overlord' ? PAL.crit : PAL.crit; ctx.lineWidth=2; ctx.globalAlpha=0.35; ctx.beginPath(); ctx.arc(cx, cy+bob, 46, 0, TAU); ctx.stroke(); ctx.globalAlpha=1; }
   else if (e.id==='mire') { ctx.strokeStyle='#8b9bb4'; ctx.setLineDash([6,4]); ctx.lineWidth=1.5; ctx.globalAlpha=0.5; ctx.beginPath(); ctx.arc(cx, cy+bob+8, 38, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; }
   drawSprite(ctx, e.sprite, cx, cy+bob, {scale});
-  ctx.fillStyle='#2b2b2b'; ctx.font='700 13px Kaiti SC'; ctx.textAlign='center'; ctx.fillText(e.name + (e.boss?' · Boss':''), cx, 22);
+  ctx.fillStyle=PAL.ink2; ctx.font='700 13px Kaiti SC'; ctx.textAlign='center'; ctx.fillText(e.name + (e.boss?' · Boss':''), cx, 22);
 }
 function fitStage() {
   if (!ui || !ui.stage) return;

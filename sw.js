@@ -1,14 +1,15 @@
-﻿// Service Worker V0.96
+﻿// Service Worker V0.99
 // 修复两个技术债:
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v096';
-const BUILD = '20261007-2245';
+const V = 'xuanxuan-v099';
+const BUILD = '20261008-1330';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
-  'css/style.css', 'css/xiuxian.css',
+  'css/style.css', 'css/xiuxian.css', 'css/palette.css', 'js/core/palette.js',
+  'css/illust.css',
   'js/main.js', 'js/sprites.js',
   'js/pix/palette.js', 'js/pix/brush.js', 'js/pix/ground.js',
   'js/pix/hero-knight.js', 'js/pix/hero-mage.js', 'js/pix/hero-ranger.js', 'js/pix/hero-white.js',
@@ -16,7 +17,7 @@ const CORE = [
   'js/pix/items.js', 'js/pix/fx.js',
   'js/core/engine.js', 'js/core/camera.js', 'js/core/input.js', 'js/core/save.js', 'js/core/audio.js',
   'js/game/player.js', 'js/game/map.js', 'js/game/particles.js', 'js/game/enemies.js',
-  'js/game/weapons.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
+  'js/game/weapons.js', 'js/game/director.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
   'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/bestiary.js', 'js/ui/screens.js', 'js/ui/joystick.js',
 ];
 const XX = [
@@ -26,6 +27,14 @@ const XX = [
   'js/xiuxian/merchant.js', 'js/xiuxian/companion.js', 'js/xiuxian/bond.js',
   'js/xiuxian/ritual.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
   'js/xiuxian/tomb.js', 'js/xiuxian/nag.js', 'js/xiuxian/spirit.js', 'js/xiuxian/mount.js',
+  // V0.98 补齐:这批文件在 V0.86~V0.90 重写清单时被漏掉,
+  // 但它们都在 main.js / ui.js 的**静态 import 图**上 ——
+  // 原生 ES Module 静态 import 是全有或全无,离线拉不到任意一个就是整页白屏。
+  // (在线不受影响:SW 的 stale-while-revalidate 会走网络补上,所以这个缺陷能带着"测试全绿"发布。)
+  'js/xiuxian/ambience.js', 'js/xiuxian/bestiary.js', 'js/xiuxian/build.js',
+  'js/xiuxian/legend.js', 'js/xiuxian/profile.js', 'js/xiuxian/quest.js',
+  'js/xiuxian/story.js', 'js/xiuxian/spine.js',
+  'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/foe.jpg', 'assets/portrait/aunt.jpg',
@@ -33,8 +42,26 @@ const ART = [
   'assets/bgm/nemesis.mp3', 'assets/bgm/overlord.mp3',
   'assets/mob/ghostfire.jpg','assets/mob/revenant.jpg','assets/mob/golem.jpg',
   'assets/mob/ninehead.jpg',
+  'assets/illust/pages_webp/page-01-realm.webp',
+  'assets/illust/pages_webp/page-02-cave.webp',
+  'assets/illust/pages_webp/page-03-sword.webp',
+  'assets/illust/pages_webp/page-04-pill.webp',
+  'assets/illust/pages_webp/page-05-array.webp',
+  'assets/illust/pages_webp/page-06-sect.webp',
+  'assets/illust/pages_webp/page-07-battle.webp',
+  'assets/illust/pages_webp/page-08-inn.webp',
+  'assets/illust/pages_webp/page-09-map.webp',
+  'assets/illust/pages_webp/page-10-tower.webp',
+  'assets/illust/pages_webp/page-11-tomb.webp',
+  'assets/illust/pages_webp/page-12-market.webp',
   'assets/legend/hongyi.jpg','assets/legend/laolao.jpg','assets/legend/baize.jpg','assets/legend/dangkang.jpg',
-  'assets/legend/qingqiong.jpg','assets/legend/jiangu.jpg','assets/legend/shijiang.jpg','assets/legend/dengshi.jpg','assets/mob/bloodriver.jpg','assets/portrait/momocha.jpg',
+  'assets/legend/qingqiong.jpg','assets/legend/jiangu.jpg','assets/legend/shijiang.jpg','assets/legend/dengshi.jpg',
+  'assets/portrait/knight.jpg',
+  'assets/portrait/mage.jpg',
+  'assets/portrait/ranger.jpg',
+  'assets/portrait/white.jpg',
+  'assets/portrait/companion.jpg',
+  'assets/portrait/merchant.jpg','assets/mob/bloodriver.jpg','assets/portrait/momocha.jpg',
 ];
 const ASSETS = [...CORE, ...XX, ...ART, 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 

@@ -1,5 +1,5 @@
-const R=await import('/workspace/probe/rouge-offline/js/xiuxian/items.js');
-const C=await import('/workspace/probe/rouge-offline/js/xiuxian/camp.js');
+const R=await import('../js/xiuxian/items.js');
+const C=await import('../js/xiuxian/camp.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v};
 

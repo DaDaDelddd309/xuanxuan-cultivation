@@ -7,6 +7,7 @@
 //   ③ '联动·感电连锁':已有五雷↔墨雨系任一侧,选项为另一侧
 //   rec 项排序置前;evolve 卡依旧最高优先(与 rec 共存时 evolve 在前);抽取概率逻辑不变。
 import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from './weapons.js?v=17';
+import { PAL } from '../core/palette.js';
 import { combatState } from './enemies.js?v=17';
 import { Bus } from '../core/engine.js?v=17';
 
@@ -174,8 +175,8 @@ export function applyChoice(g, c) {
       w.evolved = true;
       w.evoId = c.id;
       const evo = WEAPONS[c.id].evo;
-      g.addParticles(p.x, p.y, { n: 26, color: '#b03a2e', speed: 200, life: 0.8, size: 5, grav: 40 });
-      g.spawnText(p.x, p.y - 64, `${evo.evoName}!`, { color: '#b03a2e', size: 24, life: 1.6 });
+      g.addParticles(p.x, p.y, { n: 26, color: PAL.cinnabar, speed: 200, life: 0.8, size: 5, grav: 40 });
+      g.spawnText(p.x, p.y - 64, `${evo.evoName}!`, { color: PAL.cinnabar, size: 24, life: 1.6 });
       Bus.emit('sfx', 'levelup');
     }
   } else if (c.kind === 'passive') {

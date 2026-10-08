@@ -1,18 +1,19 @@
 """全面 UI 审计:每个页面截一张图,外加局内。
 只看不改,目的是把「不一致」找出来。
 """
+import os as _os;_OUT=_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'_shots');_os.makedirs(_OUT,exist_ok=True)
 import time, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from playwright.sync_api import sync_playwright
 from _unblock import unblock
-CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
-OUT='/workspace/probe/audit'
+CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
+OUT=_OUT
 os.makedirs(OUT, exist_ok=True)
 
 TABS=['realm','map','camp','arts','bag','people','title','fam','build','dex','quest','sys']
 
 with sync_playwright() as p:
-    b=p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--disable-dev-shm-usage'])
+    b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=2,is_mobile=True,has_touch=True)
     errs=[]
     pg.on('pageerror',lambda e:errs.append('PAGEERR: '+str(e)))

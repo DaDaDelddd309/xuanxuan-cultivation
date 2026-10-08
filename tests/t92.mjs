@@ -8,11 +8,11 @@
 globalThis.document={addEventListener(){},removeEventListener(){},createElement:()=>({style:{},classList:{add(){},remove(){}},appendChild(){},focus(){}}),body:{appendChild(){}},getElementById:()=>null};
 globalThis.window={};globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v,removeItem:k=>delete store[k]};
-const M=await import('/workspace/probe/rouge-offline/js/xiuxian/mount.js');
-const S=await import('/workspace/probe/rouge-offline/js/xiuxian/story.js');
-const L=await import('/workspace/probe/rouge-offline/js/xiuxian/legend.js');
-const T=await import('/workspace/probe/rouge-offline/js/xiuxian/tomb.js');
-const Q=await import('/workspace/probe/rouge-offline/js/xiuxian/quest.js');
+const M=await import('../js/xiuxian/mount.js');
+const S=await import('../js/xiuxian/story.js');
+const L=await import('../js/xiuxian/legend.js');
+const T=await import('../js/xiuxian/tomb.js');
+const Q=await import('../js/xiuxian/quest.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 const W=()=>{for(const k of Object.keys(store))delete store[k];
   M.MOUNT.s={have:[],ride:null,pet:null};S.STORY.reset();
@@ -27,7 +27,7 @@ t('抵达节点能发出坐骑', onArrive().length===1);
 t('发出来之后坐骑在手', M.MOUNT.has('qiao'));
 // 如果 ui.js 没接,玩家永远拿不到 —— 用 grep 验证接线
 const {readFileSync}=await import('fs');
-const ui=readFileSync('/workspace/probe/rouge-offline/js/xiuxian/ui.js','utf8');
+const ui=readFileSync('js/xiuxian/ui.js','utf8');
 t('ui.js 里真的调用了 checkUnlocks', /MOUNT\.checkUnlocks\(\)/.test(ui));
 t('ui.js 里 import 了 MOUNT', /import\s*\{[^}]*MOUNT/.test(ui));
 
@@ -35,7 +35,7 @@ console.log('\n=== 断链 1b:冷却不能吞掉「见到」本身 ===');
 // V0.94 曾把 STORY.see() 放进冷却 if 里 —— 冷却期内玩家走一圈
 // 没见过青穹,就拿不到它的坐骑。可达性 bug,不是测试问题。
 {
-  const ui=readFileSync('/workspace/probe/rouge-offline/js/xiuxian/ui.js','utf8');
+  const ui=readFileSync('js/xiuxian/ui.js','utf8');
   const iSee=ui.indexOf('STORY.see(l.key)');
   const iCool=ui.indexOf('const cool =');
   t('STORY.see 在冷却判断之前', iSee>-1 && iCool>-1 && iSee<iCool);
@@ -94,7 +94,7 @@ console.log('\n=== 断链 4:坐骑内容不会成为孤儿 ===');
 t('都有 lore', M.MOUNT_LIST.every(m=>m.lore&&m.lore.length>8));
 t('都有 give(它为什么跟你)', M.MOUNT_LIST.every(m=>m.give&&m.give.length>8));
 // 每只坐骑引用的来源地名必须能在图上找到
-const W_=await import('/workspace/probe/rouge-offline/js/xiuxian/world.js');
+const W_=await import('../js/xiuxian/world.js');
 const nodeNames=W_.WORLD.nodes.map(n=>n.name).filter(Boolean);
 // 坐骑来源允许是「地图节点名」或「独立场所(墓/秘境/妖)」
 const EXTRA=['仙人墓','灯尸','青岚秘境'];

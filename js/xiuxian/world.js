@@ -1,3 +1,4 @@
+import { PAL } from '../core/palette.js';
 // ===== 大世界地图 · 骑马与砍杀式探索 =====
 // 设计:开放节点地图。玩家在节点间移动(赶路),抵达节点触发遭遇。
 // 节点类型:村庄(安全,突破/悟道/炼丹)、野地(小怪)、精英(强敌,可能切回合制)、
@@ -9,9 +10,9 @@ export const NODE_TYPES = {
   field:   { name:'荒野',  col:'#7a8a5a', safe:false, desc:'散妖游荡,小试锋芒' },
   elite:   { name:'险地',  col:'#c86a4a', safe:false, desc:'有强敌蛰伏,可能触发回合', 
              turnBased:true },
-  secret:  { name:'秘境',  col:'#4a9de0', safe:false, desc:'藏宝之地,盛产丹药', 
+  secret:  { name:'秘境',  col:PAL.qi, safe:false, desc:'藏宝之地,盛产丹药', 
              dropsPill:true },
-  boss:    { name:'妖巢',  col:'#8a3ac8', safe:false, desc:'大能坐镇,必逢回合',
+  boss:    { name:'妖巢',  col:PAL.crit, safe:false, desc:'大能坐镇,必逢回合',
              turnBased:true, boss:true },
 };
 

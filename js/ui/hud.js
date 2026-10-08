@@ -1,5 +1,6 @@
 ﻿// ===== 🖥️ UI agent 名下:HUD(脏检查写 DOM / 掉血闪红 / 低血警示 / 武器图标栏 / 冲刺按钮 / 属性面板) =====
 import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
+import { PAL } from '../core/palette.js';
 import { WEAPONS } from '../game/weapons.js?v=17';
 import { CHARACTERS } from '../game/player.js?v=17';
 import { Input } from '../core/input.js?v=17';
@@ -140,7 +141,7 @@ export const HUD = {
         if (W && (evo ? W.evo.icon : W.icon)) slot.appendChild(spriteCanvas(evo ? W.evo.icon : W.icon, 24));
         const tag = document.createElement('span');
         tag.className = 'lv-tag';
-        tag.style.cssText = 'position:absolute;right:-3px;bottom:-3px;font-size:10px;line-height:1;padding:2px 3px;background:#000;color:#fee761;border:1px solid #3a4466;';
+        tag.style.cssText = 'position:absolute;right:-3px;bottom:-3px;font-size:10px;line-height:1;padding:2px 3px;background:#000;color:PAL.gold;border:1px solid #3a4466;';
         tag.textContent = wp.lv;
         slot.appendChild(tag);
         box.appendChild(slot);
@@ -232,7 +233,7 @@ export const HUD = {
       'position:absolute;left:12px;top:calc(96px + env(safe-area-inset-top));z-index:5;' +
       'min-width:128px;padding:8px 12px;pointer-events:none;' +
       'background:rgba(236,229,211,.88);border:1px solid rgba(43,43,43,.5);border-radius:4px;' +
-      'box-shadow:2px 2px 0 rgba(43,43,43,.2);font-size:13px;line-height:1.95;color:#2b2b2b;text-shadow:0 1px 0 rgba(242,236,221,.9);';
+      'box-shadow:2px 2px 0 rgba(43,43,43,.2);font-size:13px;line-height:1.95;color:PAL.ink2;text-shadow:0 1px 0 rgba(242,236,221,.9);';
     this._statVals = [];
     for (const label of STAT_LABELS) {
       const row = document.createElement('div');
@@ -241,7 +242,7 @@ export const HUD = {
       const n = document.createElement('span');
       n.textContent = label;
       const v = document.createElement('span');
-      v.style.cssText = 'font-weight:700;color:#b03a2e;'; // 朱砂数值
+      v.style.cssText = 'font-weight:700;color:PAL.cinnabar;'; // 朱砂数值
       row.append(n, v);
       box.appendChild(row);
       this._statVals.push(v);

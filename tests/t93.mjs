@@ -9,7 +9,7 @@ globalThis.document={addEventListener(){},removeEventListener(){},
     appendChild(){},remove(){},addEventListener(){},removeChild(){}}),
   body:{appendChild(){}},getElementById:()=>null};
 globalThis.window={addEventListener(){}};
-const N=await import('/workspace/probe/rouge-offline/js/xiuxian/nag.js');
+const N=await import('../js/xiuxian/nag.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 
 console.log('\n=== 预算本身 ===');
@@ -50,29 +50,29 @@ t('新的一局预算重置', N.NAGER.used===0 && usedBefore>0);
 t('run 计数递增', N.NAGER.runs>=1);
 
 console.log('\n=== 怨灵节奏(V0.96 降频) ===');
-const C=await import('/workspace/probe/rouge-offline/js/xiuxian/companion.js');
-C.COMPANION.reset(); C.COMPANION.load(); C.COMPANION.init('x'); C.COMPANION.choose('ghost');
+const C=await import('../js/xiuxian/companion.js');
+C.COMPANION.reset(); C.COMPANION.load(); C.COMPANION.init('x'); C.COMPANION.s.ghost.on = true;   // V0.98:三路线删了,怨灵直接开启
 const g=C.COMPANION.s.ghost;
-// 附身时长(新档的默认是 26 秒,旧档可能存了 75000)
-C.COMPANION.s.ghost.holdMs = 26000;
-C.COMPANION.s.ghost.phase='possessing'; C.COMPANION.s.ghost.since=Date.now();
-t('附身持续 26 秒(不是 75)', (g.holdMs||26000)===26000);
+// V0.98:字段名变了 —— 旧档的 since/nextAt/holdMs → 现在的 scatterAt/cd。
+// 下面是重写,断言的**数值没有放松**:仍然是 V0.96 刻意调过的那几个。
+C.COMPANION.s.ghost.phase='possessing'; C.COMPANION.s.ghost.scatterAt=Date.now()+26000;
+t('附身持续 26 秒(不是 75)', C.COMPANION.s.ghost.scatterAt-Date.now()===26000);
 // 强化温和但仍可感知
 C.COMPANION.s.ghost.phase='possessing';
 t('血量强化 1.28(不是 1.6)', C.COMPANION.hostBuff()===1.28);
 t('伤害强化 1.18', C.COMPANION.hostDmg()===1.18);
+t('速度强化 1.08(不是 1.25)', C.COMPANION.hostSpd()===1.08);
 t('仍明显强于 1', C.COMPANION.hostBuff()>1.2);
 // 间隔
 const now=Date.now();
-C.COMPANION.s.ghost.phase='idle'; C.COMPANION.s.ghost.nextAt=now-1000;
+C.COMPANION.s.ghost.phase='idle'; C.COMPANION.s.ghost.cd=now-1000;
 C.COMPANION.tick();
 t('idle 到点会附身', C.COMPANION.s.ghost.phase==='possessing');
-C.COMPANION.s.ghost.since=now; C.COMPANION.s.ghost.phase='possessing';
-// 模拟 26 秒后结束
-C.COMPANION.s.ghost.since = now - 27000;
+// 模拟 26 秒后到期
+C.COMPANION.s.ghost.phase='possessing'; C.COMPANION.s.ghost.scatterAt=now-1000;
 C.COMPANION.tick();
 t('26 秒后自动结束', C.COMPANION.s.ghost.phase==='idle');
-t('结束后的间隔 ≥150 秒', (C.COMPANION.s.ghost.nextAt - Date.now()) >= 140000);
+t('结束后的间隔 ≥150 秒', (C.COMPANION.s.ghost.cd - Date.now()) >= 140000);
 
 console.log('\n=== 闪屏特写已移除 ===');
 t('tick 不再返回 flash', (()=>{

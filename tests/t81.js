@@ -1,9 +1,9 @@
 globalThis.document={addEventListener(){},createElement:()=>({style:{},classList:{add(){},remove(){}},appendChild(){}}),body:{appendChild(){}},getElementById:()=>null};
 globalThis.window={};
 globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
-const C=await import('/workspace/probe/rouge-offline/js/xiuxian/companion.js');
-const I=await import('/workspace/probe/rouge-offline/js/xiuxian/items.js');
-const P=await import('/workspace/probe/rouge-offline/js/xiuxian/camp.js');
+const C=await import('../js/xiuxian/companion.js');
+const I=await import('../js/xiuxian/items.js');
+const P=await import('../js/xiuxian/camp.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v};
 
@@ -55,7 +55,7 @@ t('有冷却', C.COMPANION.hug()===null);
 t('冷却中不重复', C.COMPANION.s.lastHug>0);
 
 console.log('\n=== 亲密度随境界 ===');
-const {Cult}=await import('/workspace/probe/rouge-offline/js/xiuxian/index.js');
+const {Cult}=await import('../js/xiuxian/index.js');
 Cult.load();
 C.COMPANION.s.aff=0;
 Cult.get().realm='qi'; Cult.get().layer=1;

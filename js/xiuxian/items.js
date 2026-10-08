@@ -1,3 +1,4 @@
+import { PAL } from '../core/palette.js';
 // ===== 道具体系 · 品阶与来源 =====
 // 设计原则(为什么这样分):
 //  1. 源石是「时长」而不是「充能值」——玩家可以 1 颗 1 颗地续,永不浪费。
@@ -12,15 +13,15 @@
 // ————— 源石(篝火燃料)—————
 // dur = 单颗燃烧分钟数;tier 越高越稀有
 export const STONES = {
-  stone_1: { id:'stone_1', name:'碎灵石', tier:1, dur:15,  col:'#9aa08a',
+  stone_1: { id:'stone_1', name:'碎灵石', tier:1, dur:15,  col:PAL.paperFaint,
              src:'野外散妖、奇遇', d:'最常见的源石碎屑,能烧小半个时辰。' },
-  stone_2: { id:'stone_2', name:'灵晶石', tier:2, dur:45,  col:'#7ec8b0',
+  stone_2: { id:'stone_2', name:'灵晶石', tier:2, dur:45,  col:PAL.jade,
              src:'险地强敌、部分奇遇', d:'灵气凝聚的晶体,火旺且稳。' },
-  stone_3: { id:'stone_3', name:'玄源石', tier:3, dur:120, col:'#6aa8e0',
+  stone_3: { id:'stone_3', name:'玄源石', tier:3, dur:120, col:PAL.qi,
              src:'秘境深层', d:'玄黑中透着蓝芒,寻常修士求而不得。' },
-  stone_4: { id:'stone_4', name:'紫府源石', tier:4, dur:360, col:'#b072d8',
+  stone_4: { id:'stone_4', name:'紫府源石', tier:4, dur:360, col:PAL.crit,
              src:'妖巢/Boss 必掉', d:'结丹以上大妖陨落所化,燃一整日。' },
-  stone_5: { id:'stone_5', name:'仙源石', tier:5, dur:720, col:'#e0a83c',
+  stone_5: { id:'stone_5', name:'仙源石', tier:5, dur:720, col:PAL.goldDim,
              src:'宿敌、世界事件', d:'传说中仙人遗留,可燃三日。' },
   stone_6: { id:'stone_6', name:'太虚源石', tier:6, dur:1440,col:'#e85a3c',
              src:'宗门、大能遗泽', d:'燃则长明,昼夜不熄。传说只在传说里。' },
@@ -30,15 +31,15 @@ export const STONE_LIST = Object.values(STONES).sort((a,b)=>a.tier-b.tier);
 // ————— 传承书(经验溢出转化 / 赠予)—————
 // 对应境界;给族人或道友「跳过卡瓶颈」的痛苦
 export const SCROLLS = {
-  scroll_1: { id:'scroll_1', name:'引气篇', realm:'炼气 1-4 层',  exp:600,   col:'#9aa08a',
+  scroll_1: { id:'scroll_1', name:'引气篇', realm:'炼气 1-4 层',  exp:600,   col:PAL.paperFaint,
               d:'最浅薄的引气法门,胜在广传。' },
-  scroll_2: { id:'scroll_2', name:'凝气篇', realm:'炼气 5-8 层',  exp:2200,  col:'#7ec8b0',
+  scroll_2: { id:'scroll_2', name:'凝气篇', realm:'炼气 5-8 层',  exp:2200,  col:PAL.jade,
               d:'行气有法,可省三月苦功。' },
-  scroll_3: { id:'scroll_3', name:'淬体篇', realm:'炼气 9-12 层', exp:9000,  col:'#6aa8e0',
+  scroll_3: { id:'scroll_3', name:'淬体篇', realm:'炼气 9-12 层', exp:9000,  col:PAL.qi,
               d:'淬骨洗髓,九层壁最难的一篇。' },
-  scroll_4: { id:'scroll_4', name:'筑基篇', realm:'筑基期',       exp:52000, col:'#b072d8',
+  scroll_4: { id:'scroll_4', name:'筑基篇', realm:'筑基期',       exp:52000, col:PAL.crit,
               d:'筑的是道基,给错人反而是害。' },
-  scroll_5: { id:'scroll_5', name:'金丹篇', realm:'金丹期',       exp:340000,col:'#e0a83c',
+  scroll_5: { id:'scroll_5', name:'金丹篇', realm:'金丹期',       exp:340000,col:PAL.goldDim,
               d:'结丹法门,足以开宗立派。' },
   scroll_6: { id:'scroll_6', name:'元婴篇', realm:'元婴期',       exp:2600000,col:'#e85a3c',
               d:'碎丹成婴。看过此篇的人,活不过三百岁。' },
@@ -47,19 +48,19 @@ export const SCROLL_LIST = Object.values(SCROLLS).sort((a,b)=>a.exp-b.exp);
 
 // ————— 其他道具 —————
 export const GOODS = {
-  xi_sui:   { id:'xi_sui',   name:'洗髓丹',   col:'#7ec8b0', price:3000,
+  xi_sui:   { id:'xi_sui',   name:'洗髓丹',   col:PAL.jade, price:3000,
               use:s => { s.demon = Math.max(0, (s.demon||0) - 30); return '入魔尽退,心神通明。'; },
               d:'涤荡入魔之气。用一颗,抵三次生死。' },
-  fu_yin:   { id:'fu_yin',   name:'匿息符',   col:'#9aa08a', price:400,
+  fu_yin:   { id:'fu_yin',   name:'匿息符',   col:PAL.paperFaint, price:400,
               use:() => '气息尽敛,妖怪察觉不到你。',
               d:'贴在身上,一刻钟内不会有东西主动找上门。' },
-  yu_jian:  { id:'yu_jian',  name:'传讯玉简', col:'#6aa8e0', price:1500,
+  yu_jian:  { id:'yu_jian',  name:'传讯玉简', col:PAL.qi, price:1500,
               use:s => { s.recruitRoll = (s.recruitRoll||0) + 1; return '你朝虚空递出一道口信。'; },
               d:'留一道讯息在风里,总有人听得到。' },
-  zhan_bei: { id:'zhan_bei', name:'家族令',   col:'#b072d8', price:20000,
+  zhan_bei: { id:'zhan_bei', name:'家族令',   col:PAL.crit, price:20000,
               use:s => { s.charter = true; return '一面令旗,可聚四方散修。'; },
               d:'自立门户的凭证。有了它,营地才叫宗门。' },
-  tai_xu:   { id:'tai_xu',   name:'太虚丹',   col:'#e0a83c', price:90000,
+  tai_xu:   { id:'tai_xu',   name:'太虚丹',   col:PAL.goldDim, price:90000,
               use:s => { s.exp += 200000; return '丹药入腹,仿佛苦修了十年。'; },
               d:'一粒抵十年苦修。仙人也就吃得起了。' },
   beiwen:   { id:'beiwen',   name:'碑文拓片', col:'#9a9285', price:0, noSell:true,

@@ -4,6 +4,7 @@
 // 联动(CONTRACT v2):e.status={burn,wet} 秒数;焚天命中→灼烧,墨雨/墨染→墨湿;
 //       burn+wet 并存→蒸汽爆发(90px AoE+白雾+震屏);五雷击中湿敌→感电连锁;灼烧之敌死亡→殉焰火区。
 import { drawSprite } from '../sprites.js?v=17';
+import { PAL } from '../core/palette.js';
 import { Bus } from '../core/engine.js?v=17';
 
 // 战斗模块共享的运行状态:main 仅在 startRun 中设置 combatState.runActive,
@@ -14,21 +15,21 @@ export const combatState = { runActive: false };
 // beh: 0直线 1摆动 2直线 3突进 4直线(半减伤退) 5自爆 6直线(免疫击退) 7正弦 8快速追踪
 //      9冲撞Boss 10弹幕Boss 11远程弹幕 12区域威胁 13召唤辅助
 export const ENEMY_TYPES = {
-  slime:         { name: '纸妖',     sprite: 'slime',         hp: 12,   speed: 40, dmg: 8,  r: 14, xp: 1,   coinP: 0.08, beh: 0,  col: '#63c74d', kb: 1 },
-  bat:           { name: '夜枭',     sprite: 'bat',           hp: 9,    speed: 86, dmg: 6,  r: 11, xp: 1,   coinP: 0.06, beh: 1,  col: '#68386c', kb: 1 },
-  skeleton:      { name: '骨卫',     sprite: 'skeleton',      hp: 28,   speed: 54, dmg: 12, r: 14, xp: 2,   coinP: 0.10, beh: 2,  col: '#c0cbdc', kb: 1 },
+  slime:         { name: '纸妖',     sprite: 'slime',         hp: 12,   speed: 40, dmg: 8,  r: 14, xp: 1,   coinP: 0.08, beh: 0,  col: PAL.xp, kb: 1 },
+  bat:           { name: '夜枭',     sprite: 'bat',           hp: 9,    speed: 86, dmg: 6,  r: 11, xp: 1,   coinP: 0.06, beh: 1,  col: PAL.cinnabar, kb: 1 },
+  skeleton:      { name: '骨卫',     sprite: 'skeleton',      hp: 28,   speed: 54, dmg: 12, r: 14, xp: 2,   coinP: 0.10, beh: 2,  col: PAL.paperFaint, kb: 1 },
   spider:        { name: '蛛妖',     sprite: 'spider',        hp: 22,   speed: 48, dmg: 11, r: 12, xp: 2,   coinP: 0.08, beh: 3,  col: '#b86f50', kb: 1 },
-  brute:         { name: '金刚力士', sprite: 'brute',         hp: 75,   speed: 34, dmg: 18, r: 19, xp: 4,  coinP: 0.12, beh: 4,  col: '#b55088', kb: 0.5 },
-  bomber:        { name: '火药童子', sprite: 'bomber',        hp: 18,   speed: 74, dmg: 0,  r: 12, xp: 2,   coinP: 0.10, beh: 5,  col: '#e43b44', kb: 1 },
+  brute:         { name: '金刚力士', sprite: 'brute',         hp: 75,   speed: 34, dmg: 18, r: 19, xp: 4,  coinP: 0.12, beh: 4,  col: PAL.crit, kb: 0.5 },
+  bomber:        { name: '火药童子', sprite: 'bomber',        hp: 18,   speed: 74, dmg: 0,  r: 12, xp: 2,   coinP: 0.10, beh: 5,  col: PAL.crit, kb: 1 },
   turtle:        { name: '铁甲龟',   sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
   wisp:          { name: '青灯鬼火', sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
-  reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
-  qinglu:        { name: '青炉',     sprite: 'wisp',      hp: 34,   speed: 46, dmg: 11, r: 13, xp: 3,   coinP: 0.12, beh: 11, col: '#e43b44', kb: 0.8 },
-  mire:          { name: '泥沼鬼',   sprite: 'spider',    hp: 58,   speed: 31, dmg: 14, r: 18, xp: 4,   coinP: 0.14, beh: 12, col: '#5fb8c4', kb: 0.7 },
-  summoner:      { name: '唤灵使',   sprite: 'reaper',    hp: 70,   speed: 29, dmg: 9,  r: 17, xp: 5,   coinP: 0.18, beh: 13, col: '#c9972f', kb: 0.65 },
+  reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: PAL.cinnabar, kb: 0.4 },
+  qinglu:        { name: '青炉',     sprite: 'wisp',      hp: 34,   speed: 46, dmg: 11, r: 13, xp: 3,   coinP: 0.12, beh: 11, col: PAL.crit, kb: 0.8 },
+  mire:          { name: '泥沼鬼',   sprite: 'spider',    hp: 58,   speed: 31, dmg: 14, r: 18, xp: 4,   coinP: 0.14, beh: 12, col: PAL.jade, kb: 0.7 },
+  summoner:      { name: '唤灵使',   sprite: 'reaper',    hp: 70,   speed: 29, dmg: 9,  r: 17, xp: 5,   coinP: 0.18, beh: 13, col: PAL.gold, kb: 0.65 },
   // Boss 实体模板基础数值；实际 Boss 生命由 boss.js 的 BOSS_DESIGNS 独立注入。
-  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2800, speed: 48, dmg: 30, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
-  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 12000, speed: 46, dmg: 36, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
+  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2800, speed: 48, dmg: 30, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: PAL.crit, kb: 0.12, boss: 1 },
+  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 12000, speed: 46, dmg: 36, r: 48, xp: 150, coinP: 1,    beh: 10, col: PAL.crit, kb: 0.05, boss: 1 },
 };
 
 let uid = 0;
@@ -141,7 +142,7 @@ export function shakeIf(g, mag, dur) {
 }
 
 // 唯一伤害入口:伤害数字 / 暴击(10%×1.6) / 击退 / 闪白 / 命中爆点 / 死亡掉落
-// 配色(CONTRACT v2 水墨):普通墨色 #3a3a3a · 暴击朱砂 #b03a2e · 联动青焰 #4da7b4
+// 配色(CONTRACT v2 水墨):普通墨色 PAL.ink3 · 暴击朱砂 PAL.cinnabar · 联动青焰 PAL.jade
 export function damageEnemy(g, e, amount, o = {}) {
   if (!e || e.dead) return;
   // 先修复已经被旧数据/溢出污染的血量，避免 Infinity - Infinity 变成 NaN。
@@ -163,11 +164,11 @@ export function damageEnemy(g, e, amount, o = {}) {
   const kb = (o.kb !== undefined ? o.kb : 1) * e.kbMult;
   if (kb > 0) { e.kx += (o.kx || 0) * kb; e.ky += (o.ky || 0) * kb; }
   g.spawnText(e.x, e.y - e.r - 8, String(dmg), {
-    color: o.synergy ? '#4da7b4' : crit ? '#b03a2e' : (o.dot ? '#6f6252' : '#3a3a3a'),
+    color: o.synergy ? PAL.jade : crit ? PAL.cinnabar : (o.dot ? PAL.ink4 : PAL.ink3),
     size: o.dot ? 10 : crit ? 18 : 13, crit,
   });
   if (!o.dot) {
-    const hitColor = o.synergy ? '#4da7b4' : crit ? '#fee761' : e.pcol;
+    const hitColor = o.synergy ? PAL.jade : crit ? PAL.gold : e.pcol;
     const kx = o.kx || 0, ky = o.ky || 0;
     const directed = kx !== 0 || ky !== 0;
     const dir = directed ? Math.atan2(ky, kx) : 0;
@@ -177,7 +178,7 @@ export function damageEnemy(g, e, amount, o = {}) {
       dir, spread, streak: crit ? 2.2 : 1.65,
     });
     if (crit) g.addParticles(e.x, e.y, {
-      n: 5, color: '#b03a2e', speed: 90, life: 0.28, size: 2, dir, spread: 1.8, streak: 2.4,
+      n: 5, color: PAL.cinnabar, speed: 90, life: 0.28, size: 2, dir, spread: 1.8, streak: 2.4,
     });
   }
   if (crit) shakeIf(g, 1.8, 0.1);
@@ -201,13 +202,13 @@ let lastSteamT = 0;
 function steamBurst(g, e) {
   e.status.burn = 0; e.status.wet = 0; // 汽化:双状态清空,防止连环自触
   g.addParticles(e.x, e.y, { n: 10, color: '#efe9dc', speed: 150, life: 0.45, size: 7 });
-  g.addParticles(e.x, e.y, { n: 6, color: '#ffffff', speed: 90, life: 0.65, size: 10 });
+  g.addParticles(e.x, e.y, { n: 6, color: PAL.paper, speed: 90, life: 0.65, size: 10 });
   shakeIf(g, 2, 0.15);
   Bus.emit('sfx', 'hit');
   const now = performance.now();
   if (now - lastSteamT >= 800) {
     lastSteamT = now;
-    g.spawnText(e.x, e.y - e.r - 20, '阴阳相激!', { color: '#4da7b4', size: 17, life: 1 });
+    g.spawnText(e.x, e.y - e.r - 20, '阴阳相激!', { color: PAL.jade, size: 17, life: 1 });
   }
   const R = 90, dmg = e.maxHp * 0.08 + 30;
   const near = g.grid.query(e.x, e.y, R, QBX);
@@ -250,7 +251,7 @@ function zapLine(g, x0, y0, x1, y1) {
     g.addParticles(
       x0 + (x1 - x0) * f + (Math.random() - 0.5) * 8,
       y0 + (y1 - y0) * f + (Math.random() - 0.5) * 8,
-      { n: 1, color: '#5fb8c4', speed: 14, life: 0.22, size: 3 },
+      { n: 1, color: PAL.jade, speed: 14, life: 0.22, size: 3 },
     );
   }
 }
@@ -268,14 +269,14 @@ function updateStatus(g, e, dt) {
     }
     if (Math.random() < dt * 4 && g.inView(e.x, e.y, 60)) {
       g.addParticles(e.x + (Math.random() - 0.5) * e.r, e.y - e.r * 0.4,
-        { n: 1, color: '#d9662e', speed: 26, life: 0.35, size: 3, grav: -30 });
+        { n: 1, color: PAL.cinnabar, speed: 26, life: 0.35, size: 3, grav: -30 });
     }
   }
   if (s.wet > 0) {
     s.wet -= dt;
     if (Math.random() < dt * 3 && g.inView(e.x, e.y, 60)) {
       g.addParticles(e.x + (Math.random() - 0.5) * e.r, e.y - e.r * 0.3,
-        { n: 1, color: '#5fb8c4', speed: 20, life: 0.4, size: 3 });
+        { n: 1, color: PAL.jade, speed: 20, life: 0.4, size: 3 });
     }
   }
 }
@@ -290,7 +291,7 @@ function killEnemy(g, e) {
     g.addZone({
       x: e.x, y: e.y, r: 40, life: 2, maxLife: 2,
       tickDmg: 3 + Math.min(1200, e.maxHp) * 0.008, tick: 0.35, tickT: 0.35,
-      sprite: 'zone_holy', tint: '#d9662e', burnOn: 1,
+      sprite: 'zone_holy', tint: PAL.cinnabar, burnOn: 1,
     });
   }
   // 纸妖死亡分裂 2 只小纸妖(小纸妖不再分裂)
@@ -308,8 +309,8 @@ function bomberBoom(g, e) {
   if (e.dead) return;
   e.dead = true;
   g.stats.kills++;
-  g.addParticles(e.x, e.y, { n: 16, color: '#feae34', speed: 180, life: 0.45, size: 4 });
-  g.addParticles(e.x, e.y, { n: 8, color: '#e43b44', speed: 110, life: 0.55, size: 5 });
+  g.addParticles(e.x, e.y, { n: 16, color: PAL.gold, speed: 180, life: 0.45, size: 4 });
+  g.addParticles(e.x, e.y, { n: 8, color: PAL.crit, speed: 110, life: 0.55, size: 5 });
   shakeIf(g, 3.5, 0.2);
   Bus.emit('sfx', 'hit');
   const R = 92, p = g.player;
@@ -334,13 +335,13 @@ function ringBullets(g, x, y, n, spd, dmg) {
   const off = Math.random() * TAU;
   for (let i = 0; i < n; i++) {
     const a = off + (i / n) * TAU;
-    addEnemyProjectile(g, { x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a });
+    addEnemyProjectile(g, { x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: PAL.crit, rot: a });
   }
 }
 function fanBullets(g, x, y, aim, n, spread, spd, dmg) {
   for (let i = 0; i < n; i++) {
     const a = aim + (i - (n - 1) / 2) * spread;
-    addEnemyProjectile(g, { x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a });
+    addEnemyProjectile(g, { x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: PAL.crit, rot: a });
   }
 }
 
@@ -351,7 +352,7 @@ function fireEnemyBolt(g, e, tx, ty) {
   const dmg = Math.max(1, Math.round(Math.min(40, e.dmg * 0.75)));
   return addEnemyProjectile(g, {
     x: e.x, y: e.y, vx: (dx / d) * 235, vy: (dy / d) * 235,
-    r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a,
+    r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: PAL.crit, rot: a,
   });
 }
 
@@ -444,8 +445,8 @@ function steerHome(pr, dt, g) {
 // 火球爆炸:半径 AoE,带距离衰减;可施加灼烧 / 留下灼烧火区(焚天煮海)
 function explode(g, pr) {
   const r = pr.boomR;
-  g.addParticles(pr.x, pr.y, { n: 14, color: '#feae34', speed: 170, life: 0.4, size: 4 });
-  g.addParticles(pr.x, pr.y, { n: 6, color: '#e43b44', speed: 100, life: 0.5, size: 5 });
+  g.addParticles(pr.x, pr.y, { n: 14, color: PAL.gold, speed: 170, life: 0.4, size: 4 });
+  g.addParticles(pr.x, pr.y, { n: 6, color: PAL.crit, speed: 100, life: 0.5, size: 5 });
   shakeIf(g, 2, 0.12);
   const near = g.grid.query(pr.x, pr.y, r, g.qbuf);
   for (let k = 0; k < near.length; k++) {
@@ -464,7 +465,7 @@ function explode(g, pr) {
     g.addZone({
       x: pr.x, y: pr.y, r: fz.r, life: fz.life, maxLife: fz.life,
       tickDmg: fz.tickDmg, tick: 0.35, tickT: 0.35,
-      sprite: 'zone_holy', tint: '#d9662e', burnOn: 1,
+      sprite: 'zone_holy', tint: PAL.cinnabar, burnOn: 1,
     });
   }
 }
@@ -519,11 +520,11 @@ export function initCombat(g) {
           z.mireWarn = undefined;
           z.tickDmg = real;
           z.playerTickDmg = real;
-          z.tint = '#68386c';
+          z.tint = PAL.cinnabar;
           z.playerTickT = 0.15;
           z.tickT = 0.15;
-          if (g.addParticles) g.addParticles(z.x, z.y, { n: 12, color: '#68386c', speed: 80, life: 0.5, size: 5 });
-          if (g.spawnText) g.spawnText(z.x, z.y - 20, '泥沼爆发!', { color: '#68386c', size: 13, life: 0.8 });
+          if (g.addParticles) g.addParticles(z.x, z.y, { n: 12, color: PAL.cinnabar, speed: 80, life: 0.5, size: 5 });
+          if (g.spawnText) g.spawnText(z.x, z.y - 20, '泥沼爆发!', { color: PAL.cinnabar, size: 13, life: 0.8 });
         } else {
           if (g.addParticles && Math.random() < dt * 6) g.addParticles(z.x + (Math.random()-0.5)*z.r*0.6, z.y + (Math.random()-0.5)*z.r*0.6, { n:1, color:'#8b9bb4', speed:12, life:0.45, size:3 });
         }
@@ -545,7 +546,7 @@ export function initCombat(g) {
       }
       if (z.burnOn && Math.random() < dt * 6 && g.inView(z.x, z.y, z.r + 40)) { // 火区火星
         g.addParticles(z.x + (Math.random() - 0.5) * z.r, z.y + (Math.random() - 0.5) * z.r * 0.7,
-          { n: 1, color: '#d9662e', speed: 30, life: 0.4, size: 3, grav: -40 });
+          { n: 1, color: PAL.cinnabar, speed: 30, life: 0.4, size: 3, grav: -40 });
       }
       if (z.tickDmg > 0 && !z.enemyZone) {
         z.tickT -= dt;
@@ -614,7 +615,7 @@ export function initCombat(g) {
           if (e.atkCd <= 0 && d < 760) {
             fireEnemyBolt(g, e, px, py);
             e.atkCd = 2.2 + Math.random() * 0.8;
-            g.addParticles(e.x, e.y, { n: 4, color: '#e43b44', speed: 70, life: 0.35, size: 3 });
+            g.addParticles(e.x, e.y, { n: 4, color: PAL.crit, speed: 70, life: 0.35, size: 3 });
           }
           break;
         }
@@ -623,7 +624,7 @@ export function initCombat(g) {
           if (e.atkCd <= 0 && d < 700) {
             placeMireZone(g, e, px, py);
             e.atkCd = 6.2 + Math.random() * 1.8;
-            g.addParticles(px, py, { n: 7, color: '#68386c', speed: 55, life: 0.45, size: 4 });
+            g.addParticles(px, py, { n: 7, color: PAL.cinnabar, speed: 55, life: 0.45, size: 4 });
           }
           break;
         }
@@ -633,7 +634,7 @@ export function initCombat(g) {
           if (e.atkCd <= 0) {
             if (g.enemies.length < MAX_ACTIVE_ENEMIES) summonEnemy(g, e);
             e.atkCd = 5.4 + Math.random() * 1.6;
-            g.addParticles(e.x, e.y, { n: 6, color: '#c9972f', speed: 75, life: 0.5, size: 3 });
+            g.addParticles(e.x, e.y, { n: 6, color: PAL.gold, speed: 75, life: 0.5, size: 3 });
           }
           buffNearbyEnemies(g, e, dt);
           break;
@@ -644,8 +645,8 @@ export function initCombat(g) {
             const changed = e.bossPhase > 0;
             e.bossPhase = phase;
             if (changed) {
-              g.spawnText(e.x, e.y - e.r - 22, '石像守卫·狂怒!', { color: '#b03a2e', size: 19, life: 1.1 });
-              g.addParticles(e.x, e.y, { n: 16, color: '#c0cbdc', speed: 180, life: 0.55, size: 5, grav: 80 });
+              g.spawnText(e.x, e.y - e.r - 22, '石像守卫·狂怒!', { color: PAL.cinnabar, size: 19, life: 1.1 });
+              g.addParticles(e.x, e.y, { n: 16, color: PAL.paperFaint, speed: 180, life: 0.55, size: 5, grav: 80 });
               ringBullets(g, e.x, e.y, 12 + phase * 4, 190 + phase * 20, 18 + phase * 5);
             }
           }
@@ -657,17 +658,17 @@ export function initCombat(g) {
             e.aiT -= dt;
             const chargeSpeed = phase === 2 ? 500 : 430;
             vx = e.cx * chargeSpeed; vy = e.cy * chargeSpeed;
-            g.addParticles(e.x, e.y, { n: 1, color: '#c0cbdc', speed: 48, life: 0.3, size: 4 });
+            g.addParticles(e.x, e.y, { n: 1, color: PAL.paperFaint, speed: 48, life: 0.3, size: 4 });
             if (e.aiT <= 0) {
               e.state = 0; e.atkCd = phase === 2 ? 2.1 : 2.8;
               ringBullets(g, e.x, e.y, 12 + phase * 3, 180 + phase * 25, 18 + phase * 4);
-              g.addParticles(e.x, e.y, { n: 14, color: '#c0cbdc', speed: 160, life: 0.5, size: 5, grav: 90 });
-              g.spawnText(e.x, e.y - e.r - 18, '碎地冲击!', { color: '#b03a2e', size: 16, life: 0.8 });
+              g.addParticles(e.x, e.y, { n: 14, color: PAL.paperFaint, speed: 160, life: 0.5, size: 5, grav: 90 });
+              g.spawnText(e.x, e.y - e.r - 18, '碎地冲击!', { color: PAL.cinnabar, size: 16, life: 0.8 });
             }
           } else if (e.atkCd <= 0 && d < 650) {
             e.state = 1; e.aiT = phase === 2 ? 0.62 : 0.72;
-            g.spawnText(e.x, e.y - e.r - 18, '!', { color: '#b03a2e', size: 18, life: 0.6 });
-            g.addParticles(e.x, e.y, { n: 8, color: '#b55088', speed: 80, life: 0.5, size: 3 });
+            g.spawnText(e.x, e.y - e.r - 18, '!', { color: PAL.cinnabar, size: 18, life: 0.6 });
+            g.addParticles(e.x, e.y, { n: 8, color: PAL.crit, speed: 80, life: 0.5, size: 3 });
           }
           break;
         }
@@ -679,8 +680,8 @@ export function initCombat(g) {
             e.bossPhase = phase;
             if (changed) {
               const burstN = 14 + phase * 5;
-              g.spawnText(e.x, e.y - e.r - 24, `无常尊者·第${phase}相!`, { color: '#e43b44', size: 20, life: 1.2 });
-              g.addParticles(e.x, e.y, { n: 22, color: '#e43b44', speed: 210, life: 0.65, size: 5, grav: 45 });
+              g.spawnText(e.x, e.y - e.r - 24, `无常尊者·第${phase}相!`, { color: PAL.crit, size: 20, life: 1.2 });
+              g.addParticles(e.x, e.y, { n: 22, color: PAL.crit, speed: 210, life: 0.65, size: 5, grav: 45 });
               ringBullets(g, e.x, e.y, burstN, 190 + phase * 25, 20 + phase * 6);
               summonBossAdds(g, e, phase);
             }
@@ -778,7 +779,7 @@ export function initCombat(g) {
         pr.trailT -= dt;
         if (pr.trailT <= 0) {
           pr.trailT = 0.05;
-          g.addParticles(pr.x, pr.y, { n: 1, color: pr.trailCol || '#b03a2e', speed: 18, life: 0.26, size: 4 });
+          g.addParticles(pr.x, pr.y, { n: 1, color: pr.trailCol || PAL.cinnabar, speed: 18, life: 0.26, size: 4 });
         }
       }
       if (pr.fromEnemy) { // 敌方弹幕远离即回收
@@ -849,7 +850,7 @@ export function initCombat(g) {
       if (e.dead || !g.inView(e.x, e.y, 60)) continue; // 视口剔除
       const bob = (e.beh === 1 || e.beh === 7) ? Math.sin(e.t * 7) * 3 : Math.sin(e.t * 5) * 1.5;
       let tint = null;
-      if (e.flashT > 0) tint = '#ffffff';
+      if (e.flashT > 0) tint = PAL.paper;
       else if (e.fuse >= 0) tint = Math.sin(e.t * 36) > 0 ? '#ff4444' : null;
       else if (e.state === 1) tint = Math.sin(e.t * 28) > 0 ? '#ffd24a' : null;
       const hitScale = e.hitT > 0 ? 1 + Math.min(0.08, e.hitT * 0.45) : 1;
@@ -858,14 +859,14 @@ export function initCombat(g) {
         alpha: e.mini ? 0.85 : 1, scale: (e.mini ? 0.62 : 1) * hitScale,
       });
       if (e.elite) { // 精英朱砂圈标记
-        ctx.strokeStyle = '#b03a2e'; ctx.lineWidth = 2;
+        ctx.strokeStyle = PAL.cinnabar; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(e.x, e.y + bob, e.r + 6, 0, 7); ctx.stroke();
       }
       if ((e.elite || e.boss) && e.hp < e.maxHp) { // 精英/Boss 头顶小血条
         const w = e.r * 1.8, hpf = Math.max(0, e.hp / e.maxHp);
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(e.x - w / 2, e.y - e.r - 14, w, 4);
-        ctx.fillStyle = e.boss ? '#b03a2e' : '#e43b44';
+        ctx.fillStyle = e.boss ? PAL.cinnabar : PAL.crit;
         ctx.fillRect(e.x - w / 2, e.y - e.r - 14, w * hpf, 4);
       }
     }

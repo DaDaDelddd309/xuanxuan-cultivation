@@ -1,6 +1,8 @@
+import {fileURLToPath as _fu} from 'url';import {dirname as _dn,resolve as _rv} from 'path';
+const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 测试里写死版本号 → 每次升版都要改测试,漏改就假失败(V0.86/87/88/89 各中一次)
 import { readdirSync, readFileSync } from 'fs';
-const D='/workspace/probe/rouge-offline/tests';
+const D=__ROOT__+'/tests';
 let bad=0;
 for (const f of readdirSync(D).filter(x=>x.endsWith('.py')||x.endsWith('.mjs'))) {
   readFileSync(D+'/'+f,'utf8').split('\n').forEach((l,i)=>{

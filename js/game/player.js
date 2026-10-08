@@ -1,32 +1,49 @@
 ﻿// 玩家:属性/成长/移动/受伤/经验
 import { Input } from '../core/input.js?v=17';
+import { PAL } from '../core/palette.js';
 import { Bus } from '../core/engine.js?v=17';
 import { drawSprite, has } from '../sprites.js?v=17';
 
+// 注意:portrait / role / title / bio / arc 是**修仙阁人物页**要读的展示字段(V0.98 补)。
+// 之前这五个字段根本不存在,而 ui.js 的 vPeople() 直接 `PORTRAIT[c.portrait] || PORTRAIT.hero`
+// —— 结果四个角色全部渲染同一张 hero.jpg,另外四行直接显示 undefined。
+// 放在这里是因为模板已经依赖 CHARACTERS;若以后要拆层,连同模板一起迁,别只改一半。
 export const CHARACTERS = {
   knight: {
     name: '剑客', weapon: 'knife', sprite: 'hero_knight', hp: 120, might: 1.0, speed: 144, armor: 1,
     damageTakenMult: 0.82,
     trait: '铁壁：受到伤害 -18%',
     desc: '一剑风流,自带 1 点护甲 · 初始武功:剑气', cost: 0,
+    portrait: 'knight', role: '起 手', title: '负剑下山',
+    bio: '最早走到山下的那个。别人是来修仙的,他是来还愿的 —— 一桩旧婚事,一截没烧完的红布。\n他话少,受得住打,所以活得最久。',
+    arc: '红 嫁 衣 · 愿 牌',
   },
   mage: {
     name: '道人', weapon: 'wand', sprite: 'hero_mage', hp: 80, might: 0.95, speed: 137, cdMult: 0.85,
     areaMult: 1.18, xpMult: 1.12,
     trait: '灵脉：技能范围 +18%，经验获取 +12%',
     desc: '御风之术,冷却 -15% · 初始武功:御风', cost: 300,
+    portrait: 'mage', role: '看 路', title: '问道青炉',
+    bio: '活得太久,所以什么都知道,也什么都不肯说。\n他见过三次青石村变成废墟。你问起来,他就说「风大」。',
+    arc: '半 句 话 · 异 兽',
   },
   ranger: {
     name: '游侠', weapon: 'bow', sprite: 'hero_ranger', hp: 95, might: 1.0, speed: 163, magnet: 30,
     crit: 0.20, critDmg: 1.75,
     trait: '猎心：暴击率 20%，暴击伤害 175%',
     desc: '身法迅捷、拾取范围大 · 初始武功:贯日', cost: 800,
+    portrait: 'ranger', role: '走 路', title: '循迹白牛',
+    bio: '哪条道没人走,他走哪条。地图上多出来的那些线,大半是他踩出来的。\n他不认路,只认脚印。',
+    arc: '第 三 百 一 柄',
   },
   white: {
     name: '白衣剑仙', weapon: 'knife', sprite: 'hero_white', hp: 95, might: 1.18, speed: 152, cdMult: 0.92,
     crit: 0.12,
     trait: '剑心通明：攻击 +18%，冷却 -8%，暴击率 12%',
     desc: '一袭白衣,负剑下山,人剑合一 · 初始武功:剑气', cost: 2000,
+    portrait: 'white', role: '断 局', title: '人 剑 合 一',
+    bio: '碑上第三百零一柄剑的主人。碑上没有名字,只有一句「他还在练」。\n他把结局留给了别人,自己走进了墓里。',
+    arc: '双 结 局',
   },
 };
 
@@ -184,8 +201,8 @@ export class Player {
     this.iframes = 0.6; this.hurtT = dmg > 0 ? 0.25 : 0.12;
     const g = this._g;
     if (blocked > 0 && g && g.spawnText) {
-      g.spawnText(this.x, this.y - 34, `护盾 -${blocked}`, { color: '#5fb8c4', size: 13, life: 0.7 });
-      if (g.addParticles) g.addParticles(this.x, this.y, { n: 5, color: '#7fd4de', speed: 80, life: 0.28, size: 3 });
+      g.spawnText(this.x, this.y - 34, `护盾 -${blocked}`, { color: PAL.jade, size: 13, life: 0.7 });
+      if (g.addParticles) g.addParticles(this.x, this.y, { n: 5, color: PAL.jade, speed: 80, life: 0.28, size: 3 });
     }
     Bus.emit('player-hurt', { player: this, g, rawAmount: safeAmount, mitigated: incoming, damage: dmg, blocked });
     if (dmg > 0) Bus.emit('hurt', dmg); // main 监听此事件做震屏/红晕
@@ -211,10 +228,10 @@ export class Player {
       const f = Math.max(0.18, Math.min(1, this.shield / this.shieldMax));
       ctx.save();
       ctx.globalAlpha = 0.2 + f * 0.45;
-      ctx.strokeStyle = '#5fb8c4'; ctx.lineWidth = 2;
+      ctx.strokeStyle = PAL.jade; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(this.x, this.y, 25 + f * 3, 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 0.18 + f * 0.16;
-      ctx.fillStyle = '#7fd4de';
+      ctx.fillStyle = PAL.jade;
       ctx.beginPath(); ctx.arc(this.x, this.y, 22 + f * 2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
@@ -242,7 +259,7 @@ export class Player {
       const cur = Math.floor(this.animT / 0.09) % 4;
       const prv = Math.floor((this.animT - 0.016) / 0.09) % 4;
       if (cur !== prv && (cur===0 || cur===2) && this._g) {
-        this._g.addParticles(this.x, this.y+18, {n:2, color:'#d8cfb4', speed:22, life:0.22, size:2.2});
+        this._g.addParticles(this.x, this.y+18, {n:2, color:PAL.paperDim, speed:22, life:0.22, size:2.2});
       }
     } else {
       const t = this._g ? this._g.time : 0;
@@ -258,7 +275,7 @@ export class Player {
     // ground shadow: separate from sprite, stays on ground, scales with bob
     ctx.save();
     ctx.globalAlpha = shadowAlpha;
-    ctx.fillStyle = '#2b2b2b';
+    ctx.fillStyle = PAL.ink2;
     ctx.beginPath();
     ctx.ellipse(this.x, this.y + 22, 18 * shadowScale, 6 * shadowScale, 0, 0, Math.PI*2);
     ctx.fill();

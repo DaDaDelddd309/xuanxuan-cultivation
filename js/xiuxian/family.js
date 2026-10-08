@@ -1,6 +1,7 @@
 // ===== 修仙家族 · 繁衍 / 关系 / 领地 / 矿脉 =====
 // 营地是家族的地基,宗门是家族的天花板。中间这段就是繁衍与经营。
 import { Bag, STONES, SCROLL_LIST, GOODS } from './items.js';
+import { PAL } from '../core/palette.js';
 import { CAMP } from './camp.js';
 import { Cult } from './index.js';
 
@@ -10,12 +11,12 @@ const K = 'xx_family_v081';
 const SURNAME = ['轩','白','陆','沈','谢','萧','慕容','独孤','南宫','云','墨','苏','楚','姜','燕'];
 const GIVEN = ['长安','惊鸿','无咎','知白','守拙','照野','观澜','抱朴','听雪','扶摇','衔烛','断章'];
 const ROLES = [
-  { k:'warrior', name:'战修', col:'#b5342a', d:'守门。开战时在营地外围迎敌。', power:3 },
-  { k:'alchemist',name:'丹师', col:'#63c74d', d:'炼丹。每日产丹药。', power:1 },
-  { k:'miner',    name:'矿师', col:'#c9a227', d:'下矿。产源石。', power:2 },
-  { k:'scholar',  name:'修士', col:'#4a9de0', d:'修行。为家族贡献修为。', power:2 },
+  { k:'warrior', name:'战修', col:PAL.cinnabar, d:'守门。开战时在营地外围迎敌。', power:3 },
+  { k:'alchemist',name:'丹师', col:PAL.xp, d:'炼丹。每日产丹药。', power:1 },
+  { k:'miner',    name:'矿师', col:PAL.gold, d:'下矿。产源石。', power:2 },
+  { k:'scholar',  name:'修士', col:PAL.qi, d:'修行。为家族贡献修为。', power:2 },
   { k:'elder',    name:'长老', col:'#b86fd0', d:'坐镇。降低家族被袭风险。', power:1 },
-  { k:'farmer',   name:'茶摊', col:'#c9a227', d:'侍弄灵田,产量远超常人。', power:2 },
+  { k:'farmer',   name:'茶摊', col:PAL.gold, d:'侍弄灵田,产量远超常人。', power:2 },
 ];
 
 export const FAMILY = {
@@ -68,7 +69,7 @@ export const FAMILY = {
     if (this.s.members.some(m => m.npc === 'momocha')) return null;
     const m = {
       uid:'npc_momocha', gen:0, npc:'momocha',
-      name:'么么茶', role:'farmer', roleName:'茶摊', col:'#c9a227',
+      name:'么么茶', role:'farmer', roleName:'茶摊', col:PAL.gold,
       desc:'开服即在队。全局挂机收益 +25%,灵田产量 ×1.8。',
       lv:3, aff:100, partner:null, born:Date.now(),
     };
@@ -151,10 +152,18 @@ export const FAMILY = {
   // 传承书喂出来的,不走随机生成。四维全满,战力 = 层数 ×3(普通族人 ×2)
   RAISED: [
     { key:'sword',  name:'剑 修',   col:'#c8d4e0' },
-    { key:'body',   name:'体 修',   col:'#e0904a' },
+    { key:'body',   name:'体 修',   col:PAL.goldDim },
     { key:'spirit', name:'神 修',   col:'#b86fd0' },
-    { key:'array',  name:'阵 修',   col:'#4a9de0' },
+    { key:'array',  name:'阵 修',   col:PAL.qi },
   ],
+  // V0.99:招人缺口 —— 只读,不参与判定。
+  // 目的是让玩家在按钮旁边就看见「还差多少」,而不是点了才知道。
+  raiseGap() {
+    const cap = this._cap || 40;
+    const room = cap - this.s.members.length;
+    const lack = Math.max(0, 500 - this.s.wealth);
+    return { room, lack, full: room <= 0, ok: room > 0 && lack === 0 };
+  },
   canRaise() {
     const cap = this._cap || 40;
     if (this.s.members.length >= cap) return { ok:false, msg:'族人已满(议事堂可扩容)。' };

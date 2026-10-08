@@ -1,9 +1,10 @@
-import time
+import os as _os;_OUT=_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'_shots');_os.makedirs(_OUT,exist_ok=True)
+import os, time
 from playwright.sync_api import sync_playwright
-CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
+CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[];fails=[]
 with sync_playwright() as p:
-    b=p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--disable-dev-shm-usage'])
+    b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append(str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
@@ -52,18 +53,18 @@ with sync_playwright() as p:
     ok("支线页显示待了结区块", '看 完 了' in t)
     ok("显示叙事线名", '红 嫁 衣' in t or '红嫁衣' in t)
     ok("有「了结」按钮", pg.evaluate("()=>document.querySelectorAll('[data-act=sfinal]').length")>0)
-    pg.screenshot(path='/workspace/probe/shot_sfinal.png')
+    pg.screenshot(path=_OUT+'/shot_sfinal.png')
     print("【选结局发奖】")
     d0=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().dao}")
     unblock(pg); pg.click('[data-act=sfinal]'); time.sleep(1.0)
     ok("弹出结局选择", pg.evaluate("()=>!!document.querySelector('.xx-storycard')"))
     ok("两个结局选项", pg.evaluate("()=>document.querySelectorAll('.xx-sc-go[data-p]').length")==2)
-    pg.screenshot(path='/workspace/probe/shot_epchoice.png')
+    pg.screenshot(path=_OUT+'/shot_epchoice.png')
     pg.click('.xx-sc-go[data-p="1"]'); time.sleep(1.2)
     d1=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().dao}")
     ok(f"结案发奖 {d0}→{d1}", d1>d0)
     ok("弹出奖励结算", pg.evaluate("()=>document.querySelectorAll('.xx-storycard').length")>0)
-    pg.screenshot(path='/workspace/probe/shot_epdone.png')
+    pg.screenshot(path=_OUT+'/shot_epdone.png')
     pg.evaluate("()=>document.querySelectorAll('.xx-storycard').forEach(e=>e.remove())")
     unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.8)
     t=pg.inner_text('#xx-body')

@@ -7,6 +7,7 @@
 
 import { STONES, Bag, DAY } from './items.js';
 
+import { PAL } from '../core/palette.js';
 // 么么茶是否在队(避免循环依赖,由 main.js 注入)
 let MOMOCHA_IN = false;
 export function setMomocha(v) { MOMOCHA_IN = !!v; }
@@ -16,11 +17,11 @@ const K = 'xx_camp_v080';
 
 // 营地阶位
 export const CAMP_TIERS = [
-  { lv:1, name:'篝火',   need:0,     col:'#c96a3c', d:'一堆火。风大了就灭,但妖怪不进。' },
+  { lv:1, name:'篝火',   need:0,     col:PAL.goldDim, d:'一堆火。风大了就灭,但妖怪不进。' },
   { lv:2, name:'围栏',   need:120,   col:'#a88a5a', d:'砍了些木头围起来。开始有人愿意留下。' },
-  { lv:3, name:'屋舍',   need:600,   col:'#8a9a5a', d:'有了屋顶。有人在门口生了火。' },
-  { lv:4, name:'阵旗',   need:2400,  col:'#6aa8e0', d:'四面阵旗落位。营地成了方圆百里的坐标。' },
-  { lv:5, name:'山门',   need:9000,  col:'#b072d8', d:'立了旗,挂匾。从这天起,它叫「宗门」。' },
+  { lv:3, name:'屋舍',   need:600,   col:PAL.paperFaint, d:'有了屋顶。有人在门口生了火。' },
+  { lv:4, name:'阵旗',   need:2400,  col:PAL.qi, d:'四面阵旗落位。营地成了方圆百里的坐标。' },
+  { lv:5, name:'山门',   need:9000,  col:PAL.crit, d:'立了旗,挂匾。从这天起,它叫「宗门」。' },
 ];
 
 export const CAMP = {
@@ -176,13 +177,13 @@ export const CAMP = {
 
   // —— 来客 ——
   KINDS: [
-    { k:'guest',  name:'散修',   col:'#9aa08a', benefit:'寄居白吃白住。偶尔会留下谢礼。',
+    { k:'guest',  name:'散修',   col:PAL.paperFaint, benefit:'寄居白吃白住。偶尔会留下谢礼。',
       line:'「借火烤个饼,不留名。」' },
     { k:'slave',  name:'奴棣',   col:'#8a5a4a', benefit:'被你救下的,做些杂活。',
       line:'「若不是公子,我已死在沟里了。」' },
-    { k:'friend', name:'道友',   col:'#6aa8e0', benefit:'同道。可赠传承书助其精进。',
+    { k:'friend', name:'道友',   col:PAL.qi, benefit:'同道。可赠传承书助其精进。',
       line:'「同走此道,不必相识。」' },
-    { k:'guest',  name:'游方僧', col:'#c9a227', benefit:'带来远方消息。',
+    { k:'guest',  name:'游方僧', col:PAL.gold, benefit:'带来远方消息。',
       line:'「西边有座塔,塔里有个人在等。」' },
   ],
   spawnVisitor() {

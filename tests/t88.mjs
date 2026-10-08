@@ -1,10 +1,10 @@
 globalThis.document={addEventListener(){},createElement:()=>({style:{},classList:{add(){},remove(){}},appendChild(){},focus(){}}),body:{appendChild(){}},getElementById:()=>null};
 globalThis.window={};globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v,removeItem:k=>delete store[k]};
-const S=await import('/workspace/probe/rouge-offline/js/xiuxian/story.js');
-const Q=await import('/workspace/probe/rouge-offline/js/xiuxian/quest.js');
-const I=await import('/workspace/probe/rouge-offline/js/xiuxian/items.js');
-const {Cult}=await import('/workspace/probe/rouge-offline/js/xiuxian/index.js');
+const S=await import('../js/xiuxian/story.js');
+const Q=await import('../js/xiuxian/quest.js');
+const I=await import('../js/xiuxian/items.js');
+const {Cult}=await import('../js/xiuxian/index.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 const W=()=>{for(const k of Object.keys(store))delete store[k];
   S.STORY.reset(); Q.QUEST.s={active:[],done:{},choices:{}};

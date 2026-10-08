@@ -6,6 +6,7 @@
 //  · 气派 —— 玄黑漆底金字,像从画里走出来的行商
 
 import { STONES, SCROLLS, GOODS, Bag } from './items.js';
+import { PAL } from '../core/palette.js';
 import { Cult } from './index.js';
 import { STORY } from './story.js';
 
@@ -143,7 +144,7 @@ export const Merchant = {
     let t = this.root.querySelector('.xm-toast');
     if (!t) { t = document.createElement('div'); t.className = 'xm-toast'; this.root.appendChild(t); }
     t.textContent = msg;
-    t.style.color = bad ? '#e06a4a' : '#c9a227';
+    t.style.color = bad ? '#e06a4a' : PAL.gold;
     t.classList.add('on');
     clearTimeout(t._h);
     t._h = setTimeout(() => t.classList.remove('on'), 1600);

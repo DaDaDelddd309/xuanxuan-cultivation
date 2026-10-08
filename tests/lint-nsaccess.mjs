@@ -1,7 +1,9 @@
+import {fileURLToPath as _fu} from 'url';import {dirname as _dn,resolve as _rv} from 'path';
+const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 深层访问错误: LORE.CHARACTERS.moying —— LORE 其实是 WORLD 的别名,没有 CHARACTERS
 // 后果:运行时 TypeError,只在玩家走到那条路线时才炸(测试碰不到就漏了)
 import { readFileSync, readdirSync } from 'fs';
-const D='/workspace/probe/rouge-offline/js/xiuxian';
+const D=__ROOT__+'/js/xiuxian';
 const exports={};
 for (const f of readdirSync(D).filter(x=>x.endsWith('.js'))) {
   const src=readFileSync(D+'/'+f,'utf8');

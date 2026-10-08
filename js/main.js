@@ -1,5 +1,6 @@
 ﻿// 《像素幸存者》主入口:装配全部模块、场景流转
 import { Engine, Bus } from './core/engine.js?v=17';
+import { PAL } from './core/palette.js';
 import { Camera } from './core/camera.js?v=17';
 import { Input } from './core/input.js?v=17';
 import { Save } from './core/save.js?v=17';
@@ -47,6 +48,13 @@ engine.addAlways(() => HUD.update());
 // 玩家绘制层(战斗模块只画敌人/弹幕)
 engine.addDrawer('player', ctx => { if (engine.player) engine.player.draw(ctx); });
 
+// 灵伴局内实体(V0.98 · 工单 XX-COMP-002)
+// 她活在砍杀局里,不是修仙阁菜单里:会跟着走、会捡宝石、会挨打、会躲。
+// 独立挂 updater + drawer,不改动原有循环 —— 万一出错也不影响主游戏。
+const companion = new CompanionActor(engine);
+engine.addUpdater(dt => companion.update(dt));
+engine.addDrawer('player', ctx => companion.draw(ctx));
+
 let inRun = false;
 let lastChar = 'knight';
 
@@ -62,7 +70,7 @@ Bus.on('hurt', dmg => {
 Bus.on('boss-spawn', ({ name }) => {
   SFX.play('boss');
   if (Save.data.settings.shake) engine.shake(8, 0.6);
-  engine.spawnText(engine.player.x, engine.player.y - 60, name + ' 出现!', { color: '#e43b44', size: 24, life: 2 });
+  engine.spawnText(engine.player.x, engine.player.y - 60, name + ' 出现!', { color: PAL.crit, size: 24, life: 2 });
 });
 
 // ---------- 升级三选一(含 1 次免费刷新) ----------
@@ -103,6 +111,15 @@ Bus.on('runend', ({ victory }) => endRun(victory));
 function endRun(victory) {
   if (!inRun) return;
   inRun = false;
+  // —— 灵伴收尾(V0.98):年表记一笔,累计生死 ——
+  // 台词仍走 say():受「每局 ≤2 句」预算约束,不绕过规则。
+  COMPANION.markRun({ deaths: victory ? 0 : 1, picks: COMPANION.s.run.picked, present: companion.present });
+  if (victory) {
+    COMPANION.onRunClear();
+    runEventLines('noDeath3', { say: t => Bond.bubble(t) });
+  } else {
+    COMPANION.onPlayerDeath();
+  }
   engine.pause();
   HUD.show(false); // 隐藏局内HUD,避免“满血倒下”的矛盾观感
   SFX.play(victory ? 'victory' : 'death');
@@ -147,18 +164,23 @@ function startRun(charId) {
   SFX.play('click');
   lastChar = charId;
   engine.reset();
+  resetEmber();          // 上一局的余烬不能漏进这一局
   const p = new Player(charId);
   p.weapons.push(makeWeapon(p.char.weapon));
   engine.player = p;
   combatState.runActive = true;
   engine.passiveLv = { might: 0, cd: 0, speed: 0, hp: 0, magnet: 0, xp: 0, gold: 0, armor: 0 };
   cam.snap(p.x, p.y);
+  // 灵伴随本局开始:重置局内状态(连死 3 次 → 本局她不出场)
+  companion.begin();
+  // 开场台词:满血起手,本局最多 2 句,同一表现必出同一句
+  runEventLines('fullHp', { say: t => Bond.bubble(t) });
   inRun = true;
   Screens.hide();
   HUD.show(true);
   engine.resume();
   engine.start();
-  engine.spawnText(0, -50, '活下来!', { color: '#fee761', size: 26, life: 2 });
+  engine.spawnText(0, -50, '活下来!', { color: PAL.gold, size: 26, life: 2 });
 }
 
 // 组合图鉴与怪物图鉴入口(主菜单)
@@ -249,6 +271,9 @@ import { Bag, DAY } from './xiuxian/items.js';
 import { CAMP, offlineReport } from './xiuxian/camp.js';
 import { Merchant } from './xiuxian/merchant.js';
 import { COMPANION } from './xiuxian/companion.js';
+import { CompanionActor, runEventLines } from './xiuxian/companion-actor.js';
+import { installSpine } from './xiuxian/spine.js';
+import { Director, stepWard, resetWard, resetEmber, tickEmber, emberPoints } from './game/director.js';
 import { MOUNT } from './xiuxian/mount.js';
 import { SPIRIT } from './xiuxian/spirit.js';
 import { NAGER, installNagger } from './xiuxian/nag.js';
@@ -268,10 +293,13 @@ import { BESTIARY } from './xiuxian/bestiary.js';
 
 (function bootCult() {
   const bind = () => {
-    let _bondT = 0, _idleT = 0, _lastPhase = null, _lastDayMul = 1, _ghostMod = null;
+    let _bondT = 0, _lastPhase = null, _lastDayMul = 1, _ghostMod = null;
     Cult.init();
     Bag.load('xx_bag_v080');
     CAMP.load();
+    // 主线骨架(V0.99):把修仙阁与局内的进度汇到一处。
+    // 必须在 Cult/CAMP 都 load 完之后 —— 它要读这两处的状态来对齐阶段。
+    installSpine(Cult.s, CAMP);
     DAY.load('xx_day_v080');
     Merchant.load();
     // 离线收益:进游戏先结算篝火
@@ -366,46 +394,91 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       window.__xxMount = { eff:e, magnet:p0.stats.magnet, speed:p0.stats.speed,
                            might:p0.stats.might };
     });
-    // 护栏圈:让玩家看见自己站在安全区里(V0.96 可见性)
-    engine.addUpdater(dt => {
+    // 篝火余烬(V0.99 · 工单 XX-SPAWN-007):夜里人物身上缠着灰烬火星。
+    // 闪烁频率随夜色推进变化 —— 玩家只靠肉眼就知道现在是夜里第几段。
+    // 快天亮时闪三下,提醒"这炉快烧完了,要续源石"。那是决策点,不是惩罚。
+    const EMBER_PTS = emberPoints(7);
+    engine.addUpdater(() => {
       const g1 = g0(), p1 = g1.player;
-      const w = document.getElementById('hud-ward');
-      if (!w) return;
-      const r = COMPANION.wardRadius();
-      if (!r || !p1) { w.hidden = true; return; }
-      w.hidden = false;
-      const d = r * 2;
-      w.style.width = d + 'px'; w.style.height = d + 'px';
-      w.style.left = (p1.x - r) + 'px';
-      w.style.top  = (p1.y - r) + 'px';
-      w.style.transform = 'none';
+      if (!p1) return;
+      let phaseKey = 'day';
+      try { const ph = DAY.phase(); if (ph && ph.key) phaseKey = ph.key; } catch (e) { /* DAY 未就绪 */ }
+      const burning = CAMP.burning();
+      const now = Date.now();
+      const e = burning ? tickEmber(g1, now, phaseKey) : { on: false };
+      g1._ember = e;
+    });
+    // 余烬绘制:走在玩家层,跟着镜头
+    engine.addDrawer('player', ctx => {
+      const g1 = g0(), p1 = g1.player;
+      const e = g1._ember;
+      if (!p1 || !e || !e.on) return;
+      const cam = g1.cam;
+      const x = p1.x - (cam ? cam.x : 0);
+      const y = p1.y - (cam ? cam.y : 0);
+      const t = Date.now() / 1000;
+      ctx.save();
+      // 将熄三连闪:短暂整圈金线 + 亮度加倍
+      const flash = e.flick > 0 && (Math.floor(Date.now() / 130) % 2 === 0);
+      const baseA = flash ? 0.95 : e.alpha;
+      for (let i = 0; i < EMBER_PTS.length; i++) {
+        const q = EMBER_PTS[i];
+        const wob = Math.sin(t * (2.1 + i * 0.37) + i);
+        const px = x + q.dx + wob * 3;
+        const py = y - 12 + q.dy + Math.sin(t * 1.6 + i * 2) * 4 - (t * 9 % 26);
+        const a = Math.max(0, baseA * (0.55 + 0.45 * wob));
+        if (a <= 0.02) continue;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = flash ? PAL.paper : PAL.gold;
+        ctx.beginPath();
+        ctx.arc(px, py, q.sz, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     });
 
-    // 篝火护栏:火在时,怪不能进圈
+    // 篝火护栏(V0.99):圈 + 推怪合并成一个 updater。
+    // 半径 = COMPANION.wardRadius() 给的目标(它读昼夜相位和坐骑加成),
+    // 这里用 stepWard 平滑跟过去 —— 昼夜切换时护栏是"慢慢"变大变小,不是跳变。
     engine.addUpdater(dt => {
-      const ward = COMPANION.wardRadius();
-      if (!ward || !g0().enemies) return;
-      const p = g0().player;
-      if (!p) return;
-      for (const e of g0().enemies) {
-        const dx = e.x - p.x, dy = e.y - p.y;
-        const d = Math.hypot(dx, dy) || 1;
-        if (d < ward && d > 0) {
-          // 硬推出护栏:源石护栏内绝对安全
-          e.x = p.x + dx / d * ward;
-          e.y = p.y + dy / d * ward;
+      const g1 = g0(), p1 = g1.player;
+      if (!p1) return;
+      // 把局内真实拾取半径传进去 —— 护栏跟着它走,两者永远差那 8%
+      const pr = p1.stats ? p1.stats.magnet : 0;
+      const ward = stepWard(dt, COMPANION.wardRadius(pr));
+      const el = document.getElementById('hud-ward');
+      if (el) {
+        if (!ward) el.hidden = true;
+        else {
+          el.hidden = false;
+          el.style.width  = (ward * 2) + 'px';
+          el.style.height = (ward * 2) + 'px';
+          el.style.left   = (p1.x - ward) + 'px';
+          el.style.top    = (p1.y - ward) + 'px';
+          el.style.transform = 'none';
         }
+      }
+      // 圈内绝对安全:硬推出去
+      if (!ward || !g1.enemies) return;
+      for (const e of g1.enemies) {
+        const dx = e.x - p1.x, dy = e.y - p1.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < ward) { e.x = p1.x + dx / d * ward; e.y = p1.y + dy / d * ward; }
       }
     });
     function g0() { return window.__g || engine; }
     setTimeout(() => Ritual.start(false), off && off.dao > 0 ? 2600 : 700);
     // 建筑真实掉落:敌人死亡时掷建材
+    // 击杀兑现(V0.99 · XX-SPAWN-001):死一只补一点压力,并可能刷出同档位的怪。
+    // 和"捡宝石"是两条独立的燃料来源 —— 玩家站着打(捡不到宝石)
+    // 依然能让场面维持在高位,但强度涨不上去;想变强就得去捡。
     Bus.on('enemy-death', e => {
+      try { Director.onKill(engine, e); } catch (err) { console.warn('[director]', err); }
       const kind = _kindOf(e);
       const g1 = BUILD.onKill(kind) || BUILD.onKillTier(e.boss ? 2 : e.elite ? 1 : 0);
       if (g1 && engine.player) {
         engine.spawnText(engine.player.x, engine.player.y - 44,
-          g1.icon + ' 获得 ' + g1.name, { color:'#c9a227', size: 14, life: 2.2 });
+          g1.icon + ' 获得 ' + g1.name, { color:PAL.gold, size: 14, life: 2.2 });
       }
     });
     // 原版敌人 typeId → 修仙图谱 key
@@ -418,7 +491,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     }
     // 灵伴/怨灵/篝火守卫:每帧推进
     engine.addAlways(dt => {
-      _bondT += dt; _idleT += dt;
+      _bondT += dt;
       if (_bondT > 1.2) { _bondT = 0; Bond.tickGhost(); Bond.tickWarden();
         if (BUILD.s.placed.length) BUILD.tickAll();
         setMomocha(!!FAMILY.momocha());
@@ -443,30 +516,12 @@ import { BESTIARY } from './xiuxian/bestiary.js';
           ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() } : null;
         Enemies.setEnemyMod(_ghostMod);
       }
-      if (_idleT > 24) {
-        _idleT = 0;
-        if (COMPANION.canHug()) Bond.showHug();
-        else Bond.idle();
-      }
-      // 自动拾取(kiss 路线):一次一个,效率不高
-      if (COMPANION.s.pick.on && engine.player && engine.pickups) {
-        for (let i = engine.pickups.length - 1; i >= 0; i--) {
-          const k = engine.pickups[i];
-          const d = Math.hypot(engine.player.x - k.x, engine.player.y - k.y);
-          if (COMPANION.autoPick(dt, d)) {
-            const p = engine.player;
-            if (k.kind === 'gem') p.addXp(k.xp);
-            else if (k.kind === 'coin') engine.stats.gold += Math.round(k.gold * p.stats.goldMult);
-            else if (k.kind === 'meat') { p.hp = Math.min(p.stats.maxHp, p.hp + k.heal);
-              engine.spawnText(p.x, p.y-30, '+' + k.heal + ' 气血', { color:'#63c74d', size:14 }); }
-            else if (k.kind === 'chest') { p.addXp(60); engine.stats.gold += 45;
-              p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp*0.3);
-              engine.spawnText(p.x, p.y-36, '宝宝帮你开了箱', { color:'#ffd319', size:14 }); }
-            engine.remove(engine.pickups, i);
-            break;   // 一次只捡一个
-          }
-        }
-      }
+      // V0.98:这里原来有两块都删了 ——
+      //   1) 24 秒 hug 计时器(canHug → Bond.showHug)
+      //      它是 owner 反复抱怨的「每隔几十秒弹窗」的来源之一。
+      //   2) kiss 路线的自动拾取(靠 COMPANION.s.pick.on,靠路线解锁)
+      //      现在由 companion-actor 接管:她会自己跑过去捡,玩家看得见。
+      // 灵伴的台词改由「本局表现」触发,每局 ≤2 句,不再定时弹。
     });
     const b = document.getElementById('btn-cult');
     if (b && !b._bound) {

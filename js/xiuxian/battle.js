@@ -10,15 +10,16 @@
 
 import { artName, artFull } from './arts.js';
 
+import { PAL } from '../core/palette.js';
 const CN = ['零','一','二','三','四','五','六','七','八','九','十'];
 
 // 敌人档案:境界名 + 台词 + 属性偏向
 const ARCHETYPES = {
-  guard: {   title:'外门执事',   realm:'炼气九层',   col:'#8a8a7a',
+  guard: {   title:'外门执事',   realm:'炼气九层',   col:PAL.paperFaint,
     lines:['区区散修,也敢闯我山门?','规矩就是规矩,受死吧。','你不该来的。'] },
   wanderer:{ title:'游荡散修',   realm:'炼气十二层', col:'#7a9a6a',
     lines:['这株灵草,我要了。','同门相残?哈,江湖本就如此。','来战!'] },
-  elder: {   title:'青云长老',   realm:'筑基初期',   col:'#63c74d',
+  elder: {   title:'青云长老',   realm:'筑基初期',   col:PAL.xp,
     lines:['小友好大的杀心。','筑基方为修士,你还差得远。','此番,老夫代天行道。'] },
   yao: {     title:'青岚妖王',   realm:'筑基后期',   col:'#c86a4a',
     lines:['吼——！','妖道当诛!','你们这些蝼蚁!'] },

@@ -1,6 +1,8 @@
 // ===== 拾取物:宝石/金币/肉/磁铁/宝箱(带视口剔除与数量上限合并,保流畅) =====
 import { drawSprite } from '../sprites.js?v=17';
+import { PAL } from '../core/palette.js';
 import { Bus } from '../core/engine.js?v=17';
+import { Director } from './director.js';   // V0.99:捡宝石 = 加生成压力 + 当场兑现同档怪
 
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 
@@ -62,13 +64,18 @@ export function initPickups(g) {
         k.x += dx / d * v * dt; k.y += dy / d * v * dt;
       }
       if (d < 18) { // 拾取
-        if (k.kind === 'gem') p.addXp(k.xp);
+        if (k.kind === 'gem') {
+          p.addXp(k.xp);
+          // V0.99 核心闭环:捡宝石 → 加压力 → 当场刷出同档位的妖物。
+          // 妖物的来源因此变成**玩家的行为**,而不是计时器。
+          Director.onGemPickup(g, k);
+        }
         else if (k.kind === 'coin') { g.stats.gold += Math.round(k.gold * p.stats.goldMult); }
         else if (k.kind === 'meat') {
           const heal = Math.min(k.heal, p.stats.maxHp - p.hp);
           p.hp = Math.min(p.stats.maxHp, p.hp + k.heal);
-          g.spawnText(p.x, p.y - 30, '+' + Math.max(1, Math.round(heal || k.heal)) + ' 气血', { color: '#63c74d', size: 14 });
-          g.addParticles(k.x, k.y, { n: 6, color: '#63c74d', speed: 80, life: 0.4, size: 3 });
+          g.spawnText(p.x, p.y - 30, '+' + Math.max(1, Math.round(heal || k.heal)) + ' 气血', { color: PAL.xp, size: 14 });
+          g.addParticles(k.x, k.y, { n: 6, color: PAL.xp, speed: 80, life: 0.4, size: 3 });
           Bus.emit('sfx', 'pickup');
           g.remove(g.pickups, i); continue;
         } else if (k.kind === 'chest') { // 宝箱:大量经验 + 金币 + 回血
@@ -77,14 +84,16 @@ export function initPickups(g) {
           g.stats.gold += gold;
           p.addXp(xp);
           p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.3);
-          g.spawnText(p.x, p.y - 36, '开箱!经验 +' + xp + ' 金币 +' + gold, { color: '#ffd319', size: 16, life: 1.2 });
-          g.addParticles(k.x, k.y, { n: 26, color: '#fee761', speed: 170, life: 0.7, size: 4, grav: 120 });
-          g.addParticles(k.x, k.y, { n: 14, color: '#b03a2e', speed: 130, life: 0.6, size: 3 });
+          g.spawnText(p.x, p.y - 36, '开箱!经验 +' + xp + ' 金币 +' + gold, { color: PAL.gold, size: 16, life: 1.2 });
+          g.addParticles(k.x, k.y, { n: 26, color: PAL.gold, speed: 170, life: 0.7, size: 4, grav: 120 });
+          g.addParticles(k.x, k.y, { n: 14, color: PAL.cinnabar, speed: 130, life: 0.6, size: 3 });
           g.shake(3, 0.18);
           Bus.emit('sfx', 'chest');
           g.remove(g.pickups, i); continue;
         }
-        g.addParticles(k.x, k.y, { n: 4, color: '#fee761', speed: 70, life: 0.3, size: 3 });
+        g.addParticles(k.x, k.y, { n: 4, color: PAL.gold, speed: 70, life: 0.3, size: 3 });
+        // 金币不喂压力 —— 只有宝石是"燃料"。否则捡一次钱就凭空多出妖物,
+        // 玩家会很快摸出规律,机制就被看穿了。
         Bus.emit('sfx', k.kind === 'coin' ? 'coin' : 'pickup');
         g.remove(g.pickups, i);
       }

@@ -1,6 +1,7 @@
-import time
+import os as _os;_OUT=_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'_shots');_os.makedirs(_OUT,exist_ok=True)
+import os, time
 from playwright.sync_api import sync_playwright
-CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
+CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[];fails=[]
 def unblock(pg,tries=6):
     for _ in range(tries):
@@ -8,7 +9,7 @@ def unblock(pg,tries=6):
         pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
         time.sleep(0.35)
 with sync_playwright() as p:
-    b=p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--disable-dev-shm-usage'])
+    b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=3,is_mobile=True,has_touch=True)
     pg.on('pageerror',lambda e:errs.append('PAGEERROR: '+str(e)))
     pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
@@ -26,7 +27,7 @@ with sync_playwright() as p:
     ok("显示坐骑与随行", '坐 骑 与 随 行' in t)
     ok("没有属性面板(还没坐骑)", '在 身 之 物' not in t)
     ok("告诉你怎么获得", '古战场' in t and '仙人墓' in t)
-    pg.screenshot(path='/workspace/probe/m91_empty.png')
+    pg.screenshot(path=_OUT+'/m91_empty.png')
     print("【通过剧情解锁】")
     pg.evaluate("""async()=>{
       const S=await import('/js/xiuxian/story.js');
@@ -49,7 +50,7 @@ with sync_playwright() as p:
     ok("显示随行攻击", '随行攻击' in t)
     ok("坐骑卡片在", '青 穹' in t)
     ok("随行卡片在", '石 俑 犬' in t)
-    pg.screenshot(path='/workspace/probe/m91_list.png')
+    pg.screenshot(path=_OUT+'/m91_list.png')
     print("【护栏真的变大】")
     w0=pg.evaluate("async()=>{const B=await import('/js/xiuxian/build.js');return B.BUILD.ward()}")
     # 卸下坐骑
@@ -67,7 +68,7 @@ with sync_playwright() as p:
     ok("骑归鹤表(按钮变卸下)", pg.evaluate("()=>{const b=[...document.querySelectorAll('[data-act=mset]')].find(x=>x.textContent.includes('卸'));return !!b}")==True)
     w2=pg.evaluate("async()=>{const B=await import('/js/xiuxian/build.js');return B.BUILD.ward()}")
     ok(f"护栏又变大 {w1}→{w2}", w2>w1)
-    pg.screenshot(path='/workspace/probe/m91_ride.png')
+    pg.screenshot(path=_OUT+'/m91_ride.png')
     print("【局内真的生效】")
     pg.evaluate("()=>document.querySelector('.xx-back')?.click()"); time.sleep(0.5)
     pg.click('#btn-play'); time.sleep(0.8)

@@ -1,3 +1,4 @@
+import { PAL } from '../core/palette.js';
 // ===== 修仙境界系统 · 数据层 =====
 // 设计:炼气期分 12 层(1~12),圆满后需「筑基丹」方可突破至筑基期。
 // 筑基期分 9 层,后续境界预留扩展(金丹/元婴/化神)。
@@ -7,15 +8,15 @@
 // 境界定义。层数 = 该境界可修的层。need 是「升到下一层」所需修为基数。
 // mul 为该境界对基础属性的整体乘区(线性,便于平衡)。
 export const REALMS = [
-  { id: 'qi',      name: '炼气期', layers: 12, color: '#8a8a7a', mul: 1.00,
+  { id: 'qi',      name: '炼气期', layers: 12, color: PAL.paperFaint, mul: 1.00,
     desc: '引气入体,凡俗之始' },
-  { id: 'zhuji',   name: '筑基期', layers: 9,  color: '#63c74d', mul: 1.55,
+  { id: 'zhuji',   name: '筑基期', layers: 9,  color: PAL.xp, mul: 1.55,
     desc: '道基初成,可御风而行', requires: 'pill_zhuji' },
-  { id: 'jindan',  name: '金丹期', layers: 9,  color: '#4a9de0', mul: 2.40,
+  { id: 'jindan',  name: '金丹期', layers: 9,  color: PAL.qi, mul: 2.40,
     desc: '结丹于腹,寿元三百', requires: 'pill_jindan' },
   { id: 'yuanying',name: '元婴期', layers: 9,  color: '#b86fd0', mul: 3.80,
     desc: '碎丹成婴,神魂离体', requires: 'pill_yuanying' },
-  { id: 'huashen', name: '化神期', layers: 9,  color: '#e0904a', mul: 6.00,
+  { id: 'huashen', name: '化神期', layers: 9,  color: PAL.goldDim, mul: 6.00,
     desc: '神意化域,言出法随', requires: 'pill_huashen' },
 ];
 

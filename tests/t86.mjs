@@ -5,10 +5,10 @@ this.createBiquadFilter=()=>({connect(){}});this.createBuffer=()=>({getChannelDa
 this.currentTime=0;this.sampleRate=44100;this.destination={};};
 globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v,removeItem:k=>delete store[k]};
-const L=await import('/workspace/probe/rouge-offline/js/xiuxian/legend.js');
-const S=await import('/workspace/probe/rouge-offline/js/xiuxian/story.js');
-const A=await import('/workspace/probe/rouge-offline/js/xiuxian/ambience.js');
-const I=await import('/workspace/probe/rouge-offline/js/xiuxian/items.js');
+const L=await import('../js/xiuxian/legend.js');
+const S=await import('../js/xiuxian/story.js');
+const A=await import('../js/xiuxian/ambience.js');
+const I=await import('../js/xiuxian/items.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 
 console.log('\n=== 传说妖谱 ===');

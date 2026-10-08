@@ -11,6 +11,7 @@
 //  (投射物 +1 / 范围 / 射程 / 持续 / 穿透 / 连锁 / 冷却),伤害仅次要增长(+10~15%/级);
 //  §8 组合推荐:rollChoices 输出 rec 标记(见 upgrades.js)。进化形态同步放大覆盖。
 import { Bus } from '../core/engine.js?v=17';
+import { PAL } from '../core/palette.js';
 import { drawSprite, has } from '../sprites.js?v=17';
 import { damageEnemy, applyStatus, chainLightning } from './enemies.js?v=17';
 
@@ -166,8 +167,8 @@ function comboText(g, id, x, y, label) {
   const now = combatNow(g), clock = comboClock.get(g) || {};
   if ((clock[id] || -1) > now) return;
   clock[id] = now + 0.7; comboClock.set(g, clock);
-  g.spawnText(x, y - 28, label, { color: '#4da7b4', size: 16, life: 1.0 });
-  if (g.addParticles) g.addParticles(x, y, { n: 7, color: '#5fb8c4', speed: 105, life: 0.35, size: 3 });
+  g.spawnText(x, y - 28, label, { color: PAL.jade, size: 16, life: 1.0 });
+  if (g.addParticles) g.addParticles(x, y, { n: 7, color: PAL.jade, speed: 105, life: 0.35, size: 3 });
 }
 function markNearby(g, x, y, radius, key, duration) {
   if (!g || !g.grid) return;
@@ -440,7 +441,7 @@ export function makeWeapon(id) {
               damageEnemy(g, e, dmg, KB0);
               chainLightning(g, e, dmg * c.chainMult, c.chainN, c.chainR); // 雷霆连锁
               g.addZone({ x: e.x, y: e.y, r: 0, life: 0.28, maxLife: 0.28, tickDmg: 0, sprite: 'lightning_v' });
-              g.addParticles(e.x, e.y, { n: 6, color: '#5fb8c4', speed: 130, life: 0.3, size: 3 });
+              g.addParticles(e.x, e.y, { n: 6, color: PAL.jade, speed: 130, life: 0.3, size: 3 });
             }
             sfxShoot();
             return;
@@ -523,7 +524,7 @@ export function makeWeapon(id) {
               x: p.x, y: p.y, vx: 0, vy: 0, r: 16,
               dmg: c.dmg * p.stats.might, life: maxR / c.grow + 0.15, pierce: 9999, rot: 0,
               sprite: has('w_shield_evo') ? 'w_shield_evo' : 'w_shield',
-              ring: 1, grow: c.grow, maxR, ringCol: '#b03a2e',
+              ring: 1, grow: c.grow, maxR, ringCol: PAL.cinnabar,
               zapCd: c.zapCd, zapT: c.zapCd, zapMult: c.zapMult, zapN: c.zapN,
             });
             sfxShoot();
@@ -556,7 +557,7 @@ export function makeWeapon(id) {
               vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 8,
               dmg: b.dmg[L] * p.stats.might, life: b.life[L], pierce: b.pierce[L], rot: a,
               sprite: 'w_knife', scale: 1 + L * 0.06, // 高等级剑气更凝练
-              trail: 1, trailT: 0, trailCol: '#5fb8c4', // 青焰残迹:剑气浪
+              trail: 1, trailT: 0, trailCol: PAL.jade, // 青焰残迹:剑气浪
             });
           }
           sfxShoot();

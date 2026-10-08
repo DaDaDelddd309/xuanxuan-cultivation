@@ -1,7 +1,7 @@
 globalThis.document={addEventListener(){},createElement:()=>({style:{},classList:{add(){},remove(){}},appendChild(){},focus(){}}),body:{appendChild(){}},getElementById:()=>null};
 globalThis.window={};globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v,removeItem:k=>delete store[k]};
-const P='/workspace/probe/rouge-offline/js/xiuxian/';
+const P='../js/xiuxian/';
 const BI=await import(P+'bestiary.js');   // 先导入,触发建筑注册
 const B=await import(P+'build.js');
 const I=await import(P+'items.js'), F=await import(P+'family.js'), C=await import(P+'camp.js');

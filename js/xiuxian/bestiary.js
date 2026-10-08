@@ -80,7 +80,7 @@ export const RICE = {
 };
 
 export const BUILDINGS = {
-  bld_field:    { name:'灵田', icon:'🌾', cost:0, need:1, col:'#8a9a5a',
+  bld_field:    { name:'灵田', icon:'🌾', cost:0, need:1, col:PAL.paperFaint,
     desc:'委任族中农人开垦。约 10 分钟一熟,收灵米。',
     out:'lingmi', min:2, max:5 },
   bld_furnace:  { name:'丹炉', icon:'⚗️', cost:0, need:1, col:'#c86a4a',
@@ -89,22 +89,23 @@ export const BUILDINGS = {
   bld_tower:    { name:'哨塔', icon:'🗼', col:'#7a8a9a',
     eff:{ ward:+45, warn:true },
     desc:'瞭敌用。护栏 +45,并在围攻前预警(提前告知来犯方向)。' },
-  bld_hall:     { name:'议事堂', icon:'🏛', col:'#b072d8',
+  bld_hall:     { name:'议事堂', icon:'🏛', col:PAL.crit,
     eff:{ popCap:+8 },
     desc:'族人议事定策。人口上限 +8。' },
-  bld_barracks: { name:'演武场', icon:'⚔️', col:'#b5342a',
+  bld_barracks: { name:'演武场', icon:'⚔️', col:PAL.cinnabar,
     eff:{ atk:+18 },
     desc:'操练族人。全族战力 +18(攻守都涨)。' },
-  bld_well:     { name:'灵井', icon:'💧', col:'#4a9de0',
+  bld_well:     { name:'灵井', icon:'💧', col:PAL.qi,
     eff:{ fieldMul:+0.5 },
     desc:'灵水滋养。灵田产量 +50%。' },
-  bld_market:   { name:'集市', icon:'🏪', col:'#c9a227',
+  bld_market:   { name:'集市', icon:'🏪', col:PAL.gold,
     eff:{ trade:true, lure:0.06 },
     desc:'贸易之地。每 10 分钟入账道行,且吸引散修投奔。' },
 };
 
 // 注册建材到背包系统(避免与 items.js 循环依赖)
 import { registerBuildings, registerExtras } from './items.js';
+import { PAL } from '../core/palette.js';
 registerBuildings(BUILDINGS);
 registerExtras({ [RICE.id]: RICE });
 
@@ -112,46 +113,34 @@ registerExtras({ [RICE.id]: RICE });
 // 参考《明日之后》聚落/《风起之地》营地:靠 建筑数 + 人口 + 篝火数 共同推进
 export const TIERS = [
   { lv:1, name:'篝 火', slots:2, need:{ builds:1,  pop:1,  fires:1 },
-    desc:'一堆火。风大了就灭,但妖怪不进。', col:'#c96a3c' },
+    desc:'一堆火。风大了就灭,但妖怪不进。', col:PAL.goldDim },
   { lv:2, name:'村 落', slots:3, need:{ builds:2, pop:3,  fires:1 },
     desc:'有了围栏和几间屋。有人愿意留下了。', col:'#a88a5a' },
   { lv:3, name:'集 镇', slots:4, need:{ builds:3, pop:6,  fires:1 },
-    desc:'有了议事堂和哨塔。散修开始打听这里。', col:'#8a9a5a' },
+    desc:'有了议事堂和哨塔。散修开始打听这里。', col:PAL.paperFaint },
   { lv:4, name:'市 集', slots:5, need:{ builds:4, pop:10, fires:2 },
-    desc:'有了灵井与集市。商队会绕路来这里。', col:'#6aa8e0' },
+    desc:'有了灵井与集市。商队会绕路来这里。', col:PAL.qi },
   { lv:5, name:'宗 门', slots:6, need:{ builds:5, pop:16, fires:3 },
-    desc:'三处篝火连成一线。旗立了,匾挂了。', col:'#b072d8' },
+    desc:'三处篝火连成一线。旗立了,匾挂了。', col:PAL.crit },
 ];
 
-// ————— 固定 NPC 图鉴 —————
-// 三条灵伴路线对应三种形态,这是给玩家看的"她到底变成了什么"
+// ————— 固定 NPC 图鉴(V0.98 重写)————
+// V0.98 删掉了三条灵伴路线(kiss/cold/ghost),所以「灵伴三形」整块没有意义了:
+// 宝宝/鬼火/怨灵 是**同一个人的三种说法**,不是三个形态。
+// 现在只留「宝宝」一个人,立绘换成专用的 companion.jpg;
+// 商人不再复用 foe.jpg,么么茶用自己的图 —— 一张图到处套的毛病一并去掉。
 export const NPCS = {
   baby: {
-    name:'宝宝', form:'灵 伴', img:'assets/portrait/aunt.jpg', route:'kiss',
-    desc:'你叫她宝宝,她便真的是你的宝宝了。',
+    name:'宝宝', form:'灵 伴', img:'assets/portrait/companion.jpg',
+    desc:'你给了她一个名字,于是她就一直用着。',
     bio:'最早遇见的一个影子。她没有别的名字,所以你给了她一个。\n' +
-        '她会贴着你的边走,会记住你每一句话。境界越高,她靠得越近。',
-    ability:'自动拾取掉落物(一次一个,刻意不快) · 贴边时赠你拾取范围与速度',
-    threat:'无',
-  },
-  ghostfire: {
-    name:'鬼火', form:'鬼 火', img:'assets/mob/ghostfire.jpg', route:'cold',
-    desc:'你没有叫她宝宝。她就自己变成了飘着的火。',
-    bio:'不说话,不黏人。只在你背后远远跟着,偶尔丢下点东西。\n' +
-        '你以为她走了。她只是走到你看不见的地方,继续给你。',
-    ability:'定期赠予道行 / 修为 / 源石 · 自说自话,不给选项',
-    threat:'低',
-  },
-  revenant: {
-    name:'怨灵', form:'怨 灵', img:'assets/mob/revenant.jpg', route:'ghost',
-    desc:'你说了"谈恋爱会影响我修仙"。她就真的开始影响。',
-    bio:'从此她不再跟着你。她钻进别的怪物身体里,用它们的手碰你。\n' +
-        '你杀不死她。她只会在两分钟后回到下一只怪身上,并且提前告诉你下一个是谁。',
-    ability:'定期附身怪物并大幅强化其能力 · 篝火外在召唤强化妖物',
-    threat:'高 —— 每 5 次附身触发一次闪屏警告',
+        '她不在修仙阁里陪你说笑,她在砍杀的路上替你捡东西 —— 你看得见她跑过去。\n' +
+        '会受伤,会在你快死的时候退后,也会连着死三次就不再出现。',
+    ability:'局内拾取掉落物 · 会躲(你血量低于 30%) · 会受伤 · 连死 3 次本局不出场',
+    threat:'无 —— 她不会主动打扰你',
   },
   merchant: {
-    name:'流浪商人', form:'过 路', img:'assets/portrait/foe.jpg', route:'merchant',
+    name:'流浪商人', form:'过 路', img:'assets/portrait/merchant.jpg',
     desc:'他不属于任何地方,所以哪儿都能碰上。',
     bio:'来了就摆货,卖完就走。下次可能是明天,也可能是明年。\n' +
         '他从不骗人,只骗贪心的人——源石在他那儿永远比兑换贵。',
@@ -159,7 +148,7 @@ export const NPCS = {
     threat:'无',
   },
   momocha: {
-    name:'么么茶', form:'茶 摊', img:'assets/portrait/momocha.jpg', route:'fixed',
+    name:'么么茶', form:'茶 摊', img:'assets/portrait/momocha.jpg',
     passive:'被动:全局挂机收益 +25% · 可委灵田(产量 ×1.8)',
     recruit:'开服即在队,无需招募',
     desc:'落云镇那个茶摊的少年。三文钱一碗,粗茶。',
@@ -169,7 +158,7 @@ export const NPCS = {
     threat:'无',
   },
   moying: {
-    name:'墨影', form:'宿 敌', img:'assets/portrait/foe.jpg', route:'fixed',
+    name:'墨影', form:'宿 敌', img:'assets/portrait/foe.jpg',
     desc:'断剑冢主。古战场上那三百柄剑都是他的。',
     bio:'他没有输过,所以他不知道自己想要什么。\n' +
         '每一个被他杀掉的名字,他都刻在碑上。他记得住,因为他不敢忘。',

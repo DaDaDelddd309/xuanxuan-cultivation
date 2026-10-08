@@ -1,11 +1,17 @@
-// ===== 灵伴 · 表现层 =====
-//  · 贴边选项卡(kiss 路线)
-//  · 自说自话气泡(cold / ghost)
-//  · 怨灵闪屏特写(每 5 次,不打断)
+// ===== 灵伴 · 表现层(V0.98)=====
+//  · 怨灵闪屏特写(玩法机制的提示,不打断)
 //  · 篝火外强化怪标记 + 护栏内绝对安全提示
+//
+// V0.98 改动(工单 XX-COMP-004 / 006):
+//   删掉「贴边选项卡」与「自说自话气泡」两层主动打扰。
+//   它们依赖已删除的 hug/hugChoose/cold/tryGift/三条路线,
+//   而且按 owner 的判断:修仙阁里她应该**彻底不打扰**,
+//   想看就看一眼,不说话 —— 唯一留下的痕迹是年表(markRun)。
+//
+//   局内她不是"不说话"了,是有动作:
+//   捡东西 / 会受伤 / 会躲 / 会缺席 → 见 companion-actor.js
 import { COMPANION } from './companion.js';
 import { CAMP } from './camp.js';
-import { STORY } from './story.js';
 
 const $ = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -17,10 +23,6 @@ export const Bond = {
     if (L.root) return;
     const r = $('div', 'xx-bond');
     r.innerHTML = `
-      <div class="bd-hug" id="bd-hug">
-        <div class="bd-line" id="bd-hug-line"></div>
-        <div class="bd-opts" id="bd-hug-opts"></div>
-      </div>
       <div class="bd-bub" id="bd-bub"></div>
       <div class="bd-flash" id="bd-flash">
         <div class="bd-flash-art">怨</div>
@@ -33,40 +35,15 @@ export const Bond = {
     document.getElementById('app').appendChild(r);
     L = {
       root:r,
-      hug:r.querySelector('#bd-hug'), hugLine:r.querySelector('#bd-hug-line'),
-      hugOpts:r.querySelector('#bd-hug-opts'),
       bub:r.querySelector('#bd-bub'), flash:r.querySelector('#bd-flash'),
       ward:r.querySelector('#bd-ward'), hud:r.querySelector('#bd-ghost-hud'),
     };
-    L.root.addEventListener('click', e => {
-      const b = e.target.closest('[data-hug]');
-      if (b) this.hugChoose(+b.dataset.hug);
-    });
   },
 
-  // ————— 贴边(有选项)—————
-  showHug() {
-    this.init();
-    const h = COMPANION.hug();
-    if (!h) return;
-    L.hugLine.textContent = `${COMPANION.s.name}${h.line}`;
-    L.hugOpts.innerHTML = h.choices.map((c,i)=>
-      `<button class="bd-hug-opt" data-hug="${i}">${esc(c.text)}</button>`).join('');
-    L.hug.classList.add('on');
-    clearTimeout(L._ht);
-    L._ht = setTimeout(()=>L.hug.classList.remove('on'), 22000);
-  },
-  hugChoose(i) {
-    const say = COMPANION.hugChoose(i);
-    if (!say) return;
-    L.hug.classList.remove('on');
-    this.bubble(say, 'ok');
-  },
-
-  // ————— 自说自话气泡 —————
+  /** 局内事件台词的出口 —— 由 companion-actor 的 runEventLines 调用 */
   bubble(text, kind) {
-    // V0.96:气泡也算打扰。灵伴每隔一会儿就可能念一句,
-    // 全局 tick 每 1.2 秒一次,不加限制的话一局能冒几十个泡。
+    if (!text) return;
+    // V0.96:气泡也算打扰。全局 tick 每 1.2 秒一次,不加限制的话一局能冒几十个泡。
     // 给它一个独立的低频预算,超了就静默。
     if (!this._bubBudget) this._bubBudget = 6;
     if (this._bubBudget <= 0) return;
@@ -78,27 +55,14 @@ export const Bond = {
     clearTimeout(L._bt);
     L._bt = setTimeout(()=>b.classList.remove('on'), 3400);
   },
-  // 根据路线自动说一句话
-  idle() {
-    // 鬼火最爱念流言
-    if (COMPANION.s.route === 'cold') {
-      const r = STORY.takeRumor();
-      this.bubble(r ? `「${r}」` : COMPANION.cold());
-      return;
-    }
-    if (COMPANION.s.route === 'ghost' && Math.random() < 0.4) {
-      this.bubble(COMPANION.ghostLine(), 'dark'); return;
-    }
-    const g = COMPANION.tryGift();
-    if (g) this.bubble(`${COMPANION.s.name}：「给你。」${g.t}`, 'ok');
-  },
 
   // ————— 怨灵闪屏特写(不打断游戏)—————
   flash(f) {
+    if (!f) return;
     this.init();
-    L.root.querySelector('#bd-flash-t').textContent = f.t;
-    L.root.querySelector('#bd-flash-s').textContent = f.s;
-    L.root.querySelector('#bd-flash-c').textContent = f.c;
+    L.root.querySelector('#bd-flash-t').textContent = f.t || '';
+    L.root.querySelector('#bd-flash-s').textContent = f.s || '';
+    L.root.querySelector('#bd-flash-c').textContent = f.c || '';
     L.flash.classList.remove('on'); void L.flash.offsetWidth;
     L.flash.classList.add('on');
     setTimeout(()=>L.flash.classList.remove('on'), 2300);
@@ -107,21 +71,25 @@ export const Bond = {
   // ————— 篝火守卫 HUD —————
   tickWarden() {
     this.init();
+    const g = COMPANION.s.ghost;
     const w = COMPANION.wardenTick();
-    if (!CAMP.burning()) { L.ward.classList.remove('on'); L.hud.classList.remove('on'); return; }
+    if (!CAMP.burning()) {
+      L.ward.classList.remove('on'); L.hud.classList.remove('on'); return;
+    }
     L.ward.classList.add('on');
     L.ward.style.setProperty('--r', COMPANION.wardRadius() + 'px');
     L.ward.innerHTML = `<div class="bd-ward-t">源 石 护 栏</div>
-      <div class="bd-ward-s">圈内绝对安全 · 圈外 ${w.count} 只强化妖物</div>`;
-    // 怨灵倒计时
-    const g = COMPANION.s.ghost;
+      <div class="bd-ward-s">圈内绝对安全 · 圈外 ${w ? w.count : 0} 只强化妖物</div>`;
+    // 怨灵倒计时(reviveCountdown 现在是方法,不是属性)
     if (g.on) {
-      const cd = COMPANION.reviveCountdown;
+      const cd = COMPANION.reviveCountdown();
       L.hud.classList.add('on');
       L.hud.innerHTML = cd > 0
         ? `<b>怨灵已散</b> · ${cd}s 后附身「${esc(g.nextHost)}」`
-        : `<b>怨灵附身中</b> · 第 ${g.poss} 次 · 宿主「${esc(g.hostName || '待定')}」`
+        : `<b>怨灵附身中</b> · 第 ${g.count} 次 · 宿主「${esc(g.host || '待定')}」`
              + (g.nextHost && cd === 0 ? ` · 下一个:${esc(g.nextHost)}` : '');
+    } else {
+      L.hud.classList.remove('on');
     }
   },
 
@@ -130,14 +98,15 @@ export const Bond = {
     const e = COMPANION.tick();
     if (!e) return null;
     if (e.event === 'possess') {
-      COMPANION.s.ghost.hostName = COMPANION.s.ghost.nextHost || '某只妖物';
-      COMPANION.s.ghost.nextHost = '';
-      COMPANION.save();
-      if (e.flash) { this.flash(e.flash); }
-      else { this.bubble(COMPANION.ghostLine(), 'dark'); }
+      const host = COMPANION.s.ghost.host || e.host || '某只妖物';
+      this.flash({
+        t: '怨 灵 附 身',
+        s: `宿主「${host}」`,
+        c: `第 ${e.count} 次 · 全场妖物被强化`,
+      });
     }
     if (e.event === 'revive') {
-      this.bubble(`「我回来了。」下一个:${e.msg.split('「')[2]||'未知'}`, 'dark');
+      this.bubble(`「我回来了。」${e.msg}`, 'dark');
     }
     return e;
   },

@@ -1,0 +1,48 @@
+/* ===== 地点插画图层(V0.97 · 工单 XX-S6-001)=====
+   图绑定「地点类型」而非页签 id,见 js/xiuxian/illust.js
+   规则:
+     · 图是背景层,z-index 必须低于节点(节点 z-index:5)
+     · 图很暗(平均亮度 27-62),但仍要加遮罩,否则左侧文字不可读
+     · 留白在左下,所以遮罩用左侧到上方的渐变,右下最透
+*/
+
+/* 修仙阁页面级插画(按页签) */
+.xx-illust {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-repeat: no-repeat; background-position: center 38%;
+  background-size: cover;
+  opacity: 0;
+  transition: opacity .45s ease;
+}
+.xx-illust.on { opacity: .30; }
+
+/* 内容层要盖在图上面 */
+.xx-head, .xx-tabs, #xx-body { position: relative; z-index: 1; }
+
+/* 大地图上的地点插画:挂在容器背景,每个节点按类型切换 */
+.xx-node-illust {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-repeat: no-repeat; background-position: center;
+  background-size: cover;
+  opacity: 0; transition: opacity .4s ease;
+}
+.xx-node-illust.on { opacity: .26; }
+
+/* 迷雾态(未访问)不出图 —— 未知之地给剧透就没意思了 */
+.xx-node.fog ~ .xx-node-illust,
+.xx-map[data-fog="1"] .xx-node-illust { opacity: 0; }
+
+/* 遮罩:左侧和上方压暗,保证标题/文字可读;右下留白给图透出来 */
+.xx-illust::after, .xx-node-illust::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg,
+    rgba(13,11,10,.96) 0%,
+    rgba(13,11,10,.82) 34%,
+    rgba(13,11,10,.45) 68%,
+    rgba(13,11,10,.30) 100%);
+}
+
+/* 无障碍:尊重系统的减少动态偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .xx-illust, .xx-node-illust { transition: none; }
+}

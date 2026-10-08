@@ -1,3 +1,5 @@
+import {fileURLToPath as _fu} from 'url';import {dirname as _dn,resolve as _rv} from 'path';
+const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // CSS 同属性重复定义 → 后者静默覆盖前者,改的人看不到自己改的被吃掉。
 // V0.93 踩过:.xx-sc-x 有两份,新样式写了不生效。
 //
@@ -5,7 +7,7 @@
 // 只有「同一属性被定义两次」才是问题。组合选择器(.a .xx-sk)不参与判定,
 // 因为它们作用范围不同,不算冲突。
 import { readFileSync, readdirSync } from 'fs';
-const R='/workspace/probe/rouge-offline/css';
+const R=__ROOT__+'/css';
 let bad=0;
 // 0) 注释必须闭合 —— V0.95 踩过:插入时漏了 */,后面 3000 多字符
 //    (含 .xx-skills.on)全被当成注释,回合制技能栏点不到,
