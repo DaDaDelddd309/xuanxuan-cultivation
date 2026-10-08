@@ -61,8 +61,9 @@ export const Merchant = {
   // 每 N 次行动可能遇到一次
   maybeShow() {
     const now = Date.now();
-    if (now - this.s.lastAt < 90000) return;   // 90 秒内不来第二次
-    if (Math.random() < 0.62) return;
+    // V0.94:90 秒太勤,加上叙事卡/横幅后屏幕上会同时有两三个浮层
+    if (now - this.s.lastAt < 260000) return;  // 4 分 20 秒内不来第二次
+    if (Math.random() < 0.74) return;           // 出现概率也调低
     this.s.lastAt = now;
     this.s.visits++;
     this.save();

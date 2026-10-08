@@ -2,7 +2,7 @@
 # 逻辑测试全跑。任一失败即退出。
 cd "$(dirname "$0")/.." || exit 1
 fail=0
-for t in t80 t81 t82 t83 t84 t85 t86 t87 t88 t89 t90; do
+for t in t80 t81 t82 t83 t84 t85 t86 t87 t88 t89 t90 t91 t92; do
   f=""
   [ -f "tests/$t.mjs" ] && f="tests/$t.mjs"
   [ -z "$f" ] && [ -f "tests/$t.js" ] && f="tests/$t.js"
@@ -23,5 +23,9 @@ node tests/lint-precache.mjs || fail=$((fail+1))
 node tests/lint-version.mjs || fail=$((fail+1))
 node tests/lint-methods.mjs || fail=$((fail+1))
 node tests/lint-testversion.mjs || fail=$((fail+1))
+node tests/lint-nsaccess.mjs || fail=$((fail+1))
+node tests/lint-syntax.mjs || fail=$((fail+1))
+node tests/lint-css.mjs || fail=$((fail+1))
+node tests/lint-tokens.mjs || fail=$((fail+1))
 if [ $fail -eq 0 ]; then echo "✅ 全部通过"; else echo "❌ 有失败"; fi
 exit $fail

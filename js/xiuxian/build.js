@@ -9,6 +9,7 @@
 
 import { BUILDINGS, TIERS, BESTIARY, RICE } from './bestiary.js';
 import { CAMP } from './camp.js';
+import { MOUNT } from './mount.js';
 import { FAMILY } from './family.js';
 import { Cult } from './index.js';
 import { Bag, DAY } from './items.js';
@@ -447,8 +448,8 @@ export const BUILD = {
   popCap() { return 12 + this.effects().popCap; },
   // 战力:族人战力 + 演武场加成
   power() { return FAMILY.power() + this.effects().atk; },
-  // 护栏:基础 + 哨塔加成
-  ward() { return 70 + CAMP.tier().lv * 22 + this.effects().ward; },
+  // 护栏:基础 + 哨塔加成 + 坐骑(V0.91)
+  ward() { return 70 + CAMP.tier().lv * 22 + this.effects().ward + MOUNT.eff().ward; },
   summary() {
     const t = this.tier();
     return `领地 ${t.name} · 建筑 ${this.s.placed.length}/${this.slots()} · 篝火 ${this.fireCount()} · 人口 ${FAMILY.s.members.length}/${this.popCap()}`;

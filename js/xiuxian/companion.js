@@ -12,6 +12,7 @@
 //  · 篝火状态:在火外召唤强化怪物。火内(源石)绝对安全,永不被突破
 import { Bag, STONES, STONE_LIST, DAY } from './items.js';
 import { CAMP } from './camp.js';
+import { MOUNT } from './mount.js';
 import { Cult } from './index.js';
 
 const K = 'xx_companion_v081';
@@ -299,8 +300,8 @@ export const COMPANION = {
   // 源石护栏:返回怪物被允许逼近的最小距离(火内绝对安全)
   wardRadius() {
     if (!CAMP.burning()) return 0;
-    // 半径随营地阶位扩大;但玩家永远站在圈内 → 绝对安全
-    return 70 + CAMP.tier().lv * 22;
+    // 半径随营地阶位扩大;坐骑再往外扩(V0.91)
+    return 70 + CAMP.tier().lv * 22 + MOUNT.eff().ward;
   },
 
   // —— 怨灵附身:真实强化场上怪 ——

@@ -19,7 +19,8 @@ fi
 echo "本地服务器 http://127.0.0.1:$PORT 就绪"
 echo ""
 
-for f in tests/t8*.py tests/full*.py; do
+# audit-reach 是可达性审计:不注入状态,从入口走一遍,抓「定义了但玩家拿不到」
+for f in tests/t8*.py tests/t9*.py tests/audit-reach.py tests/full*.py; do
   [ -f "$f" ] || continue
   name=$(basename "$f" .py)
   echo "=== $name ==="

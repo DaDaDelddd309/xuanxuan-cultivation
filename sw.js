@@ -1,9 +1,9 @@
-﻿// Service Worker V0.90
+﻿// Service Worker V0.95
 // 修复两个技术债:
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v090';
+const V = 'xuanxuan-v095';
 const BUILD = '20261007-2245';
 
 const CORE = [
@@ -25,7 +25,7 @@ const XX = [
   'js/xiuxian/ui.js', 'js/xiuxian/duel.js', 'js/xiuxian/items.js', 'js/xiuxian/camp.js',
   'js/xiuxian/merchant.js', 'js/xiuxian/companion.js', 'js/xiuxian/bond.js',
   'js/xiuxian/ritual.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
-  'js/xiuxian/tomb.js',
+  'js/xiuxian/tomb.js', 'js/xiuxian/mount.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/foe.jpg', 'assets/portrait/aunt.jpg',

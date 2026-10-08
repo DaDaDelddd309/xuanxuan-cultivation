@@ -246,6 +246,7 @@ import { Bag, DAY } from './xiuxian/items.js';
 import { CAMP, offlineReport } from './xiuxian/camp.js';
 import { Merchant } from './xiuxian/merchant.js';
 import { COMPANION } from './xiuxian/companion.js';
+import { MOUNT } from './xiuxian/mount.js';
 import { Ritual } from './xiuxian/ritual.js';
 import { Bond } from './xiuxian/bond.js';
 import { Profile, Seed } from './xiuxian/profile.js';
@@ -298,6 +299,21 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     _ghostMod = COMPANION.possessing()
       ? { hp: COMPANION.hostBuff(), dmg: COMPANION.hostDmg(), spd: COMPANION.hostSpd() } : null;
     Enemies.setEnemyMod(_ghostMod);
+    // —— 坐骑/宠物(V0.91):开局把加成落到局内 player 上 ——
+    // 只在开局设一次,不是每帧改(每帧改会盖掉局内其他来源)
+    MOUNT.load();
+    engine.addUpdater(dt => {
+      const p0 = g0().player;
+      if (!p0 || p0._xxMountOn) return;
+      p0._xxMountOn = true;
+      const e = MOUNT.eff();
+      if (e.pickup !== 1) p0.stats.magnet = Math.round(p0.stats.magnet * e.pickup);
+      if (e.speed !== 1)   p0.stats.speed  = Math.round(p0.stats.speed * e.speed);
+      if (e.atk)           p0.stats.might  = (p0.stats.might || 1) * (1 + e.atk / 100);
+      // 记一份到 window,方便 UI 显示和测试核对(玩家也能量化看到自己骑了什么)
+      window.__xxMount = { eff:e, magnet:p0.stats.magnet, speed:p0.stats.speed,
+                           might:p0.stats.might };
+    });
     // 篝火护栏:火在时,怪不能进圈
     engine.addUpdater(dt => {
       const ward = COMPANION.wardRadius();

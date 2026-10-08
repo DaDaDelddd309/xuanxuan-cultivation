@@ -1,5 +1,6 @@
 from playwright.sync_api import sync_playwright
 import time, json
+HIDE_HALL = "()=>{document.querySelector('.xx-screen')?.remove();" + "document.getElementById('screens').style.display='none';}"
 CHROME='/workspace/.home/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'
 errs=[]; fails=[]
 with sync_playwright() as p:
@@ -74,6 +75,9 @@ with sync_playwright() as p:
     pg.click('#btn-cult'); time.sleep(1.5)
     dao2=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().exp}")
     ok(f"存档持久化 exp {dao}→{dao2}", dao==dao2 and dao not in (None,'0'))
+    # 回合制要盖在修仙阁之上才看得见;主菜单也会挡。
+    # 藏掉这两层,模拟「玩家在局内被强敌拦下」的真实情形。
+    pg.evaluate(HIDE_HALL); time.sleep(0.5)
     print("【回合制】")
     r=pg.evaluate("""async()=>{
       const {Duel}=await import('/js/xiuxian/duel.js');

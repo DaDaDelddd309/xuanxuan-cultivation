@@ -112,7 +112,7 @@ python -m http.server 8894
 | 文档 | 内容 |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块分层、数据流、扩展指南 |
-| [CHANGELOG.md](CHANGELOG.md) | V0.76 → V0.90 完整演进 |
+| [CHANGELOG.md](CHANGELOG.md) | V0.76 → V0.95 完整演进 |
 | [ROADMAP.md](ROADMAP.md) | 待做清单 + 设计思路 |
 | [AGENTS.md](AGENTS.md) | **给接手的 AI agent:架构约束、踩坑清单、验证方法** |
 | [NOTES.md](NOTES.md) | 历史遗留问题与注意事项 |
@@ -122,13 +122,17 @@ python -m http.server 8894
 ## 跑测试
 
 ```bash
-bash tests/run-all.sh        # 逻辑测试 + 静态检查 (~510 项,秒级)
+bash tests/run-all.sh        # 逻辑测试 + 静态检查 (~590 项,秒级)
 bash tests/run-browser.sh    # 浏览器全流程 (Playwright,较慢)
 ```
 
 **部署前必跑两个。** 只跑逻辑测试不够 ——
-V0.88 的「结局无限刷奖励」和 V0.89 的「修仙阁白屏」逻辑测试都是全绿的,
-只有浏览器才炸得出来。原因见 [`AGENTS.md`](AGENTS.md) 第零点五节。
+V0.88 的「结局无限刷奖励」、V0.89 的「修仙阁白屏」、
+V0.92 的「坐骑永远发不出去」逻辑测试都是全绿的。
+原因见 [`AGENTS.md`](AGENTS.md) 第 0A 节。
+
+浏览器套件里有一项特殊的:`tests/audit-reach.py` 做**可达性审计** ——
+不注入任何状态,从入口一路走,专门抓「函数有、单测能调通,但玩家拿不到」这类断链。
 
 `run-all.sh` 除逻辑测试外还跑三个静态检查,
 它们抓的是 `node --check` 抓不到的语义问题:
@@ -140,6 +144,25 @@ V0.88 的「结局无限刷奖励」和 V0.89 的「修仙阁白屏」逻辑测�
 | `lint-version.mjs` | 版本号在 4 处不一致 |
 | `lint-methods.mjs` | 调用了 `this.xxx()` 但方法没定义 |
 | `lint-testversion.mjs` | 测试里写死了版本号(每次升版都要改测试,漏改就假失败) |
+| `lint-nsaccess.mjs` | 命名空间深层访问错(`LORE.CHARACTERS.x`,LORE 其实没有 CHARACTERS) |
+| `lint-syntax.mjs` | `node --check` 查不出的 ES module 语法错(用动态 import 真正加载) |
+| `lint-css.mjs` | CSS 同一属性被定义两次 / 同名选择器定义分散在文件头尾 |
+| `lint-tokens.mjs` | 手写硬编码的边框与底色(应统一走 `var(--xx-*)` 令牌) |
+
+---
+
+## 样式规范
+
+全站样式走 `:root` 的一组令牌,不要手写数字:
+
+| 令牌 | 用途 |
+|---|---|
+| `--xx-bg-1` / `2` / `3` / `4` | 卡 / 卡内嵌 / 浮层底 / 最重浮层 |
+| `--xx-line-1` / `2` / `gold` | 默认描边 / 可点的东西 / 选中·已完成 |
+| `--xx-r` / `--xx-r-lg` | 3px / 5px |
+| `--xx-gap` / `--xx-gap-lg` | 12px / 16px |
+
+`node tests/lint-tokens.mjs` 会抓手写硬编码。
 
 ---
 

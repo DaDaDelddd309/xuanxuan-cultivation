@@ -1,8 +1,26 @@
 /* ===== 修仙层 UI(独立作用域,不污染原版) ===== */
 :root{
+  /* ---- 颜色 ---- */
   --xx-ink:#1a1512; --xx-paper:#e8dcc4; --xx-paper2:#d8c8a8;
   --xx-cinnabar:#b5342a; --xx-gold:#c9a227; --xx-jade:#5a7a6a;
   --xx-panel:rgba(24,19,16,.94);
+
+  /* ---- 表面(透明度只用这四档,别再随手写数字) ---- */
+  --xx-bg-1:rgba(232,220,196,.045);   /* 卡:几乎不可见,只微微提亮 */
+  --xx-bg-2:rgba(232,220,196,.075);   /* 卡内嵌块 */
+  --xx-bg-3:rgba(18,14,11,.86);       /* 浮层底:要压住后面的画面 */
+  --xx-bg-4:rgba(12,9,8,.95);         /* 最重的浮层(回合制/仪式) */
+
+  /* ---- 描边(全站只有三档) ---- */
+  --xx-line-1:rgba(232,220,196,.12);  /* 默认:卡片描边 */
+  --xx-line-2:rgba(232,220,196,.22);  /* 强调:按钮、可点的东西 */
+  --xx-line-gold:rgba(201,162,39,.42);/* 金:当前选中、已完成 */
+
+  /* ---- 圆角(全站两种) ---- */
+  --xx-r:3px; --xx-r-lg:5px;
+
+  /* ---- 间距 ---- */
+  --xx-gap:12px; --xx-gap-lg:16px;
 }
 .xx-screen{position:absolute;inset:0;display:flex;flex-direction:column;
   background:linear-gradient(160deg,#221b16 0%,#15110e 60%,#0f0c0a 100%);
@@ -19,7 +37,7 @@
 .xx-head h2{margin:0;font-size:19px;letter-spacing:3px;color:var(--xx-paper);
   font-family:"Songti SC","STSong",serif;font-weight:400}
 .xx-realm{margin-left:auto;font-size:13px;color:var(--xx-gold);letter-spacing:1px;
-  padding:3px 10px;border:1px solid rgba(201,162,39,.4);border-radius:2px;white-space:nowrap}
+  padding:3px 10px;border:1px solid var(--xx-line-gold);border-radius:2px;white-space:nowrap}
 .xx-back{background:none;border:1px solid rgba(232,220,196,.3);color:var(--xx-paper);
   width:32px;height:32px;border-radius:2px;font-size:17px;cursor:pointer;flex-shrink:0;
   display:flex;align-items:center;justify-content:center}
@@ -40,10 +58,14 @@
 .xx-body::-webkit-scrollbar-thumb{background:rgba(201,162,39,.3)}
 
 /* 通用卡片 */
-.xx-card{background:rgba(232,220,196,.05);border:1px solid rgba(232,220,196,.12);
-  border-radius:3px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden}
-.xx-card::after{content:'';position:absolute;top:0;left:0;width:3px;height:100%;
-  background:linear-gradient(180deg,var(--xx-cinnabar),transparent)}
+/* 卡片:完整描边 + 左侧朱印。
+   V0.95:以前只有 ::after 一道左边,右边和上下完全没框 —— 半吊子。
+   现在四边都有(极淡),朱印收在框内不再压边。 */
+.xx-card{background:var(--xx-bg-1);border:1px solid var(--xx-line-1);
+  border-radius:var(--xx-r);padding:14px 14px 14px 17px;margin-bottom:var(--xx-gap);
+  position:relative;overflow:hidden}
+.xx-card::after{content:'';position:absolute;top:0;bottom:0;left:0;width:3px;
+  background:linear-gradient(180deg,var(--xx-cinnabar) 0%,rgba(181,52,42,.25) 55%,transparent 100%)}
 .xx-label{font-size:11px;color:rgba(232,220,196,.5);letter-spacing:2px;margin-bottom:6px}
 .xx-val{font-size:16px;color:var(--xx-paper)}
 .xx-big{font-size:26px;color:var(--xx-gold);font-family:"Songti SC",serif;letter-spacing:1px}
@@ -52,9 +74,9 @@
 .xx-gold{color:var(--xx-gold)}
 
 /* 进度条 */
-.xx-bar{height:7px;background:rgba(0,0,0,.45);border-radius:4px;overflow:hidden;margin-top:8px;
+.xx-bar{height:7px;background:rgba(0,0,0,.45);border-radius:var(--xx-r-lg);overflow:hidden;margin-top:8px;
   border:1px solid rgba(232,220,196,.1)}
-.xx-bar i{display:block;height:100%;border-radius:4px;transition:width .5s ease;
+.xx-bar i{display:block;height:100%;border-radius:var(--xx-r-lg);transition:width .5s ease;
   background:linear-gradient(90deg,var(--xx-cinnabar),var(--xx-gold))}
 .xx-bar.jade i{background:linear-gradient(90deg,#3d6b57,var(--xx-jade))}
 
@@ -63,8 +85,8 @@
 .xx-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 
 /* 神通格 */
-.xx-art{background:rgba(232,220,196,.05);border:1px solid rgba(232,220,196,.12);
-  border-radius:3px;padding:11px 9px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.xx-art{background:var(--xx-bg-1);border:1px solid var(--xx-line-1);
+  border-radius:var(--xx-r);padding:11px 9px;text-align:center;cursor:pointer;transition:.2s;position:relative}
 .xx-art:active{transform:scale(.97);background:rgba(232,220,196,.1)}
 .xx-art.max{border-color:rgba(201,162,39,.55);background:rgba(201,162,39,.08)}
 .xx-art.fused{border-color:var(--xx-cinnabar);background:rgba(181,52,42,.1)}
@@ -77,148 +99,19 @@
 .xx-tag.gold{background:var(--xx-gold);color:var(--xx-ink)}
 
 /* 地图 */
-.xx-map{position:relative;width:100%;aspect-ratio:1/1.15;margin:0 auto;max-width:420px}
-.xx-node{position:absolute;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;
-  border:1.5px solid rgba(232,220,196,.35);background:rgba(24,19,16,.92);transition:.25s;
+.xx-map{position:relative;width:100%;aspect-ratio:1/.48;margin:0 auto;max-width:400px;
+  padding-bottom:24px}
+/* 节点:圆形本体 + 标签绝对定在圈下方。
+   V0.95 踩过:标签是 flex 子元素,被 40px 的圈挤在里面,「黑风岭」竖成一列。 */
+/* z-index 5 > .xx-edge 的 0 */
+.xx-node{position:absolute;z-index:5;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  border:1.5px solid var(--xx-line-1);background:rgba(24,19,16,.92);transition:.25s;
   box-shadow:0 2px 8px rgba(0,0,0,.5)}
-.xx-node.visited{border-color:rgba(201,162,39,.6);background:rgba(60,48,30,.92)}
-.xx-node.cur{border-color:var(--xx-cinnabar);box-shadow:0 0 0 3px rgba(181,52,42,.28),0 2px 8px rgba(0,0,0,.5);
-  transform:scale(1.16)}
-.xx-node.locked{opacity:.3;cursor:default}
-.xx-node:active:not(.locked){transform:scale(.93)}
-.xx-node-lb{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px;
-  font-size:9px;color:rgba(232,220,196,.65);white-space:nowrap;letter-spacing:1px}
-.xx-edge{position:absolute;height:1px;background:rgba(232,220,196,.2);transform-origin:0 50%;pointer-events:none}
-
-/* 人物条目 */
-.xx-ch{display:flex;gap:12px;align-items:flex-start;padding:12px;
-  border:1px solid rgba(232,220,196,.12);border-radius:3px;margin-bottom:10px;
-  background:rgba(232,220,196,.04)}
-.xx-ch img{width:58px;height:78px;object-fit:cover;border-radius:2px;flex-shrink:0;
-  border:1px solid rgba(201,162,39,.3)}
-.xx-ch h4{margin:0 0 4px;font-size:15px;color:var(--xx-paper);letter-spacing:1px;font-weight:400}
-.xx-ch .t{font-size:10px;color:var(--xx-gold);letter-spacing:1px;margin-bottom:5px}
-.xx-ch p{margin:0;font-size:12px;color:rgba(232,220,196,.62);line-height:1.65}
-
-/* 称号 */
-.xx-title-i{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;
-  border:1px solid rgba(232,220,196,.12);border-radius:3px;background:rgba(232,220,196,.04);
-  font-size:13px}
-.xx-title-i.on{border-color:rgba(201,162,39,.5);background:rgba(201,162,39,.08)}
-.xx-title-i.off{opacity:.5}
-.xx-seal{width:24px;height:24px;border:1px solid var(--xx-cinnabar);border-radius:2px;
-  display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--xx-cinnabar);
-  flex-shrink:0;font-family:serif}
-.xx-title-i.on .xx-seal{background:rgba(181,52,42,.2);color:var(--xx-gold);border-color:var(--xx-gold)}
-
-/* 按钮 */
-.xx-btn{display:block;width:100%;padding:13px;margin-bottom:9px;background:rgba(232,220,196,.06);
-  border:1px solid rgba(232,220,196,.22);color:var(--xx-paper);border-radius:3px;font-size:15px;
-  cursor:pointer;letter-spacing:3px;font-family:"Songti SC",serif;transition:.2s}
-.xx-btn:active{background:rgba(232,220,196,.14);transform:scale(.985)}
-.xx-btn.main{background:linear-gradient(135deg,rgba(181,52,42,.85),rgba(120,32,26,.85));
-  border-color:var(--xx-cinnabar);color:#fff}
-.xx-btn:disabled{opacity:.35;cursor:default}
-
-/* ===== 回合制战斗 ===== */
-.xx-duel{position:absolute;inset:0;z-index:80;overflow:hidden;background:#0b0908}
-.xx-duel.hidden{display:none}
-.xx-duel-bg{position:absolute;inset:0;background-size:cover;background-position:center;
-  opacity:0;transition:opacity .8s ease}
-.xx-duel-bg.on{opacity:.42}
-.xx-duel-vig{position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.82) 100%)}
-
-/* 立绘 · 水墨立轴(宣纸底做成卷轴,而非硬边方块) */
-.xx-fighter{position:absolute;bottom:19%;width:49%;max-width:290px;
-  opacity:0;transform:translateY(30px) scale(.97);transition:.75s cubic-bezier(.2,.7,.3,1);
-  display:flex;flex-direction:column;filter:drop-shadow(0 10px 26px rgba(0,0,0,.75))}
-.xx-fighter.l{left:0;transform-origin:50% 100%;z-index:2}
-.xx-fighter.r{right:0;transform-origin:50% 100%;z-index:1}
-.xx-fighter.on{opacity:1}
-.xx-fighter.l.on{transform:translateY(0) rotate(-1.6deg) scale(1)}
-.xx-fighter.r.on{transform:translateY(0) rotate(1.6deg) scale(1)}
-
-/* 上下轴杆 */
-.xx-rod{flex-shrink:0;height:11px;border-radius:3px;position:relative;z-index:2;
-  background:linear-gradient(180deg,#7a5636 0%,#4a3120 45%,#2e1d10 100%);
-  box-shadow:0 1px 5px rgba(0,0,0,.7),inset 0 1px 0 rgba(201,162,39,.32)}
-.xx-rod::before{content:'';position:absolute;left:8%;right:8%;top:50%;height:1px;
-  transform:translateY(-50%);background:rgba(201,162,39,.3)}
-
-/* 画心:宣纸 */
-.xx-face{position:relative;overflow:hidden;background:#e8dcc4;
-  border-left:1px solid rgba(60,42,26,.35);border-right:1px solid rgba(60,42,26,.35)}
-.xx-face::after{content:'';position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(90,70,45,.28) 100%)}
-.xx-face img{width:100%;display:block;
-  -webkit-mask-image:linear-gradient(180deg,#000 70%,rgba(0,0,0,.5) 88%,transparent 100%);
-  mask-image:linear-gradient(180deg,#000 70%,rgba(0,0,0,.5) 88%,transparent 100%)}
-.xx-fighter.r .xx-face{box-shadow:inset 0 0 42px rgba(0,0,0,.34)}
-.xx-fighter.r .xx-face img{filter:hue-rotate(-6deg) saturate(.9) contrast(1.04)}
-.xx-fighter.hurt .xx-face{animation:xxHurt .42s}
-@keyframes xxHurt{0%,100%{filter:none}
-  38%{filter:brightness(1.75) sepia(.85) hue-rotate(-28deg) saturate(2.4)}}
-
-/* 立轴题名 */
-.xx-nameplate{position:absolute;left:50%;transform:translateX(-50%);bottom:13%;
-  font-size:11px;letter-spacing:4px;color:var(--xx-paper);white-space:nowrap;
-  text-shadow:0 2px 8px #000,0 0 16px rgba(0,0,0,.9);opacity:0;transition:.7s;z-index:6}
-.xx-fighter.on+.xx-nameplate,.xx-nameplate.on{opacity:1}
-
-/* 对白 */
-.xx-box{position:absolute;left:3%;right:3%;bottom:2.5%;background:rgba(12,9,8,.95);
-  border:1px solid rgba(201,162,39,.4);border-radius:3px;padding:13px 16px;min-height:104px;
-  backdrop-filter:blur(3px);box-shadow:0 -4px 24px rgba(0,0,0,.5)}
-.xx-box .who{font-size:12px;color:var(--xx-gold);letter-spacing:3px;margin-bottom:8px;
-  display:flex;align-items:center;gap:8px}
-.xx-box .who::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(201,162,39,.4),transparent)}
-.xx-box .txt{font-size:15px;line-height:1.8;color:var(--xx-paper);min-height:54px;
-  font-family:"Songti SC",serif;letter-spacing:.5px}
-.xx-box .txt .cursor{display:inline-block;width:6px;height:15px;background:var(--xx-gold);
-  margin-left:2px;animation:xxBlink .7s steps(2) infinite;vertical-align:middle}
-@keyframes xxBlink{50%{opacity:0}}
-
-/* 血条 */
-.xx-hp{position:absolute;top:5.5%;display:flex;align-items:center;gap:7px;z-index:3;max-width:44%}
-.xx-hp.l{left:4%}
-.xx-hp.r{right:4%;flex-direction:row-reverse}
-.xx-hp-n{font-size:11.5px;color:var(--xx-paper);letter-spacing:.5px;white-space:nowrap;
-  text-shadow:0 1px 5px #000,0 0 12px #000;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.xx-hp-b{flex:1;min-width:52px;height:5px;background:rgba(0,0,0,.65);border:1px solid rgba(0,0,0,.5);
-  border-radius:3px;overflow:hidden}
-.xx-hp-b i{display:block;height:100%;background:linear-gradient(90deg,#7a2018,var(--xx-cinnabar));
-  transition:width .45s ease}
-.xx-hp.r .xx-hp-b i{background:linear-gradient(90deg,var(--xx-cinnabar),#7a2018)}
-
-/* 技能栏 · 横排浮层,压住立轴下缘(读作 UI 而非贴图) */
-.xx-skills{position:absolute;left:3%;right:3%;bottom:calc(2.5% + 140px);
-  display:flex;gap:7px;justify-content:center;flex-wrap:wrap;
-  z-index:8;opacity:0;pointer-events:none;transition:.35s}
-.xx-skills.on{opacity:1;pointer-events:auto}
-.xx-sk{flex:1 1 0;min-width:88px;max-width:150px;
-  background:rgba(10,8,7,.97);border:1px solid rgba(201,162,39,.5);border-radius:3px;
-  padding:8px 6px;cursor:pointer;text-align:center;transition:.18s;font-family:inherit;
-  color:var(--xx-paper);box-shadow:0 3px 14px rgba(0,0,0,.75)}
-.xx-sk:active:not(:disabled){background:linear-gradient(135deg,rgba(181,52,42,.92),rgba(120,32,26,.92));
-  border-color:var(--xx-gold);transform:scale(.95)}
-.xx-sk:disabled{opacity:.42;cursor:default}
-.xx-sk-n{font-size:13px;letter-spacing:1px;font-family:"Songti SC",serif}
-.xx-sk-c{font-size:9.5px;color:var(--xx-gold);margin-top:2px;letter-spacing:.5px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* 回合提示 */
-.xx-turn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;
-  font-size:38px;letter-spacing:12px;color:var(--xx-paper);opacity:0;
-  text-shadow:0 4px 22px rgba(0,0,0,.95);font-family:"Songti SC",serif;white-space:nowrap}
-.xx-turn.on{animation:xxTurn 1.15s ease forwards}
-@keyframes xxTurn{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(1.35);filter:blur(9px)}
-  28%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}
-  72%{opacity:1}
-  100%{opacity:0;transform:translate(-50%,-50%) scale(.95)}
-}
+.xx-node-lb{position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  margin-top:5px;white-space:nowrap;font-size:10.5px;letter-spacing:.5px;
+  font-family:"Songti SC",serif;color:var(--xx-paper);
+  text-shadow:0 1px 4px rgba(0,0,0,.98),0 0 8px rgba(0,0,0,.7)}
 .xx-turn.enemy{color:var(--xx-cinnabar)}
 
 /* 战败选择 */
@@ -229,25 +122,27 @@
 .xx-defeat h3{font-size:27px;letter-spacing:8px;color:var(--xx-cinnabar);margin:0 0 6px;
   font-family:"Songti SC",serif;font-weight:400}
 .xx-defeat .sub{font-size:12px;color:rgba(232,220,196,.5);letter-spacing:2px;margin-bottom:22px}
-.xx-chio{margin-bottom:10px;padding:13px;text-align:left;border:1px solid rgba(232,220,196,.2);
-  border-radius:3px;background:rgba(232,220,196,.05);cursor:pointer;transition:.2s}
+.xx-chio{margin-bottom:10px;padding:13px;text-align:left;border:1px solid var(--xx-line-1);;
+  border-radius:var(--xx-r);background:var(--xx-bg-1);cursor:pointer;transition:.2s}
 .xx-chio:active{background:rgba(232,220,196,.13);transform:scale(.985)}
 .xx-chio .h{font-size:15px;color:var(--xx-paper);letter-spacing:2px;margin-bottom:5px;
   display:flex;justify-content:space-between;align-items:center}
 .xx-chio .h em{font-style:normal;font-size:10px;color:var(--xx-cinnabar);
-  border:1px solid rgba(181,52,42,.5);padding:1px 6px;border-radius:2px}
+  border:1px solid var(--xx-cinnabar);padding:1px 6px;border-radius:2px}
 .xx-chio .d{font-size:11.5px;color:rgba(232,220,196,.55);line-height:1.65}
 
 /* 提示气泡 */
-.xx-toast{position:absolute;left:50%;top:15%;transform:translateX(-50%);z-index:95;
-  background:rgba(12,9,8,.95);border:1px solid rgba(201,162,39,.5);border-radius:3px;
-  padding:11px 20px;color:var(--xx-paper);font-size:14px;letter-spacing:2px;
+.xx-toast{position:absolute;left:50%;top:31%;transform:translateX(-50%);z-index:95;
+  background:rgba(12,9,8,.86);border:0;border-radius:2px;
+  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+  padding:9px 18px;color:var(--xx-paper);font-size:13.5px;letter-spacing:2px;
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
   opacity:0;pointer-events:none;transition:.4s;white-space:nowrap;max-width:88%;
   font-family:"Songti SC",serif}
 .xx-toast.on{opacity:1;transform:translateX(-50%) translateY(-8px)}
 
 /* ===== 营地 · 篝火 ===== */
-.xx-fire{position:relative;height:170px;border-radius:3px;overflow:hidden;
+.xx-fire{position:relative;height:170px;border-radius:var(--xx-r);overflow:hidden;
   border:1px solid rgba(201,162,39,.3);margin-bottom:12px;
   background:radial-gradient(circle at 50% 118%,rgba(255,150,50,.32),transparent 62%),#0a0807}
 .xx-fire.on{background:radial-gradient(circle at 50% 118%,rgba(255,180,70,.5),transparent 62%),#0a0807}
@@ -265,8 +160,8 @@
 
 /* 源石加减 */
 .xx-stones{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.xx-stone{flex:1 1 calc(33.33% - 6px);min-width:88px;border:1px solid rgba(232,220,196,.2);
-  border-radius:3px;padding:8px 6px;text-align:center;cursor:pointer;transition:.18s;
+.xx-stone{flex:1 1 calc(33.33% - 6px);min-width:88px;border:1px solid var(--xx-line-1);;
+  border-radius:var(--xx-r);padding:8px 6px;text-align:center;cursor:pointer;transition:.18s;
   background:rgba(0,0,0,.28);position:relative}
 .xx-stone:active{transform:scale(.95);background:rgba(232,220,196,.14)}
 .xx-stone.has{border-color:rgba(201,162,39,.42)}
@@ -277,33 +172,35 @@
 .xx-numrow{display:flex;align-items:center;gap:8px;margin:10px 0}
 .xx-numrow .xx-val{flex:1;text-align:center;font-size:24px;color:var(--xx-gold);
   font-family:"Songti SC",serif;min-width:52px}
-.xx-nbtn{width:36px;height:36px;border:1px solid rgba(201,162,39,.4);background:rgba(0,0,0,.3);
-  color:var(--xx-paper);border-radius:3px;font-size:18px;cursor:pointer;flex-shrink:0;font-family:inherit}
+.xx-nbtn{width:36px;height:36px;border:1px solid var(--xx-line-gold);background:rgba(0,0,0,.3);
+  color:var(--xx-paper);border-radius:var(--xx-r);font-size:18px;cursor:pointer;flex-shrink:0;font-family:inherit}
 .xx-nbtn:active{background:rgba(201,162,39,.24)}
 
 /* 族人 */
 .xx-mem{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:7px;
-  border:1px solid rgba(232,220,196,.12);border-radius:3px;background:rgba(232,220,196,.04)}
+  border:1px solid var(--xx-line-1);border-radius:var(--xx-r);background:rgba(232,220,196,.04)}
 .xx-mem .a{flex:1}
 .xx-mem .n{font-size:14px;color:var(--xx-paper);letter-spacing:1px}
 .xx-mem .t{font-size:10.5px;color:rgba(232,220,196,.5);margin-top:2px}
 .xx-mem .act{display:flex;gap:5px;flex-shrink:0}
-.xx-mbtn{background:rgba(201,162,39,.12);border:1px solid rgba(201,162,39,.42);color:var(--xx-gold);
+.xx-mbtn{background:rgba(201,162,39,.12);border:1px solid var(--xx-line-gold);color:var(--xx-gold);
   border-radius:2px;padding:5px 9px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .xx-mbtn:active{background:rgba(201,162,39,.3)}
 
 /* 昼夜条 */
-.xx-daybar{height:5px;border-radius:3px;overflow:hidden;margin:8px 0;
+.xx-daybar{height:5px;border-radius:var(--xx-r);overflow:hidden;margin:8px 0;
   background:linear-gradient(90deg,#3a4a6a,#c9a227 35%,#e0904a 62%,#2a2440)}
 .xx-daynow{position:relative;font-size:12px;color:var(--xx-paper);letter-spacing:2px;text-align:center}
 
 /* ===== 流浪商人 · 侧边闪卡 ===== */
-.xm-card{position:absolute;top:16%;right:0;width:min(310px,84%);z-index:70;
+/* 商人侧卡(V0.94:和叙事卡统一成浮帖,不再是一块实心黑板) */
+.xm-card{position:absolute;top:16%;right:0;width:min(300px,80%);z-index:70;
   transform:translateX(118%);transition:transform .45s cubic-bezier(.2,.8,.25,1);
-  background:linear-gradient(165deg,rgba(26,20,16,.985),rgba(12,9,8,.99));
-  border:1px solid rgba(201,162,39,.55);border-right:none;
-  border-radius:4px 0 0 4px;padding:13px;
-  box-shadow:-8px 6px 32px rgba(0,0,0,.72),inset 0 1px 0 rgba(201,162,39,.18);
+  background:linear-gradient(255deg,rgba(28,21,17,.86),rgba(16,12,10,.62));
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:0;border-left:2px solid rgba(201,162,39,.4);
+  border-radius:0;padding:12px 13px;
+  box-shadow:-4px 4px 22px rgba(0,0,0,.5);
   max-height:72vh;display:flex;flex-direction:column}
 .xm-card.on{transform:translateX(0)}
 .xm-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
@@ -318,12 +215,12 @@
 .xm-x{margin-left:auto;background:none;border:none;color:rgba(232,220,196,.5);
   font-size:22px;cursor:pointer;padding:0 3px;line-height:1}
 .xm-line{font-size:12px;color:rgba(232,220,196,.7);line-height:1.7;margin:10px 0;
-  padding:8px 10px;background:rgba(232,220,196,.05);border-radius:2px;
+  padding:8px 10px;background:var(--xx-bg-1);border-radius:2px;
   border-left:2px solid rgba(181,52,42,.5)}
 .xm-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0}
 .xm-list::-webkit-scrollbar{width:2px}
 .xm-list::-webkit-scrollbar-thumb{background:rgba(201,162,39,.3)}
-.xm-item{padding:9px 11px;border:1px solid rgba(232,220,196,.14);border-radius:3px;
+.xm-item{padding:9px 11px;border:1px solid rgba(232,220,196,.14);border-radius:var(--xx-r);
   cursor:pointer;transition:.16s;background:rgba(232,220,196,.035);position:relative}
 .xm-item:active{background:rgba(181,52,42,.24);transform:scale(.985)}
 .xm-n{font-size:14px;letter-spacing:1px;font-family:"Songti SC",serif;margin-bottom:2px}
@@ -336,7 +233,7 @@
   border-radius:2px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit}
 .xm-foot button:active{background:rgba(232,220,196,.13)}
 .xm-toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);font-size:12.5px;
-  letter-spacing:2px;padding:6px 14px;background:rgba(8,6,5,.96);border:1px solid rgba(201,162,39,.5);
+  letter-spacing:2px;padding:6px 14px;background:rgba(8,6,5,.96);border:1px solid var(--xx-line-gold);
   border-radius:2px;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:5}
 .xm-toast.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
 
@@ -403,47 +300,47 @@
 @keyframes rtArm{0%,100%{transform:rotate(12deg)}50%{transform:rotate(24deg)}}
 
 /* 对白 */
-.rt-box{width:100%;background:rgba(12,9,8,.93);border:1px solid rgba(201,162,39,.4);
-  border-radius:4px;padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.rt-box{width:100%;background:rgba(12,9,8,.93);border:1px solid var(--xx-line-gold);
+  border-radius:var(--xx-r-lg);padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 .rt-who{font-size:12px;color:var(--xx-gold);letter-spacing:4px;margin-bottom:9px;
   display:flex;align-items:center;gap:8px}
 .rt-who::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(201,162,39,.4),transparent)}
 .rt-ask{font-size:15.5px;line-height:1.85;color:var(--xx-paper);white-space:pre-line;
   font-family:"Songti SC",serif;min-height:56px}
 .rt-input{margin-top:12px}
-.rt-input input{width:100%;background:rgba(0,0,0,.42);border:1px solid rgba(201,162,39,.42);
-  border-radius:3px;padding:12px;color:var(--xx-paper);font-size:16px;font-family:inherit;
+.rt-input input{width:100%;background:rgba(0,0,0,.42);border:1px solid var(--xx-line-gold);
+  border-radius:var(--xx-r);padding:12px;color:var(--xx-paper);font-size:16px;font-family:inherit;
   letter-spacing:2px;text-align:center;outline:none}
 .rt-input input:focus{border-color:var(--xx-cinnabar);box-shadow:0 0 0 2px rgba(181,52,42,.2)}
 .rt-hint{font-size:11.5px;color:rgba(232,220,196,.42);margin-top:8px;text-align:center;letter-spacing:1px}
 .rt-opts{margin-top:14px;display:flex;flex-direction:column;gap:8px}
-.rt-opt{background:rgba(232,220,196,.06);border:1px solid rgba(232,220,196,.24);
-  color:var(--xx-paper);border-radius:3px;padding:12px;font-size:14.5px;cursor:pointer;
+.rt-opt{background:var(--xx-bg-2);border:1px solid rgba(232,220,196,.24);
+  color:var(--xx-paper);border-radius:var(--xx-r);padding:12px;font-size:14.5px;cursor:pointer;
   letter-spacing:2px;font-family:inherit;transition:.18s;text-align:center}
 .rt-opt:active{background:rgba(181,52,42,.7);transform:scale(.98)}
 .rt-opt:last-child{border-color:rgba(181,52,42,.45);color:#e8a0a0}
 .rt-foot{margin-top:14px}
 .rt-go{width:100%;background:linear-gradient(135deg,rgba(181,52,42,.9),rgba(120,32,26,.9));
-  border:1px solid var(--xx-cinnabar);color:#fff;border-radius:3px;padding:13px;
+  border:1px solid var(--xx-cinnabar);color:#fff;border-radius:var(--xx-r);padding:13px;
   font-size:15px;letter-spacing:5px;cursor:pointer;font-family:inherit}
 
 /* ===== 贴边选项卡 ===== */
 .bd-hug{position:absolute;right:3%;bottom:16%;width:min(250px,72%);z-index:76;
-  background:rgba(14,11,9,.97);border:1px solid rgba(232,196,150,.55);border-radius:4px;
+  background:rgba(14,11,9,.97);border:1px solid rgba(232,196,150,.55);border-radius:var(--xx-r-lg);
   padding:13px;box-shadow:0 8px 26px rgba(0,0,0,.7);
   opacity:0;transform:translateX(120%);transition:.42s cubic-bezier(.2,.8,.25,1);pointer-events:none}
 .bd-hug.on{opacity:1;transform:translateX(0);pointer-events:auto}
 .bd-line{font-size:13.5px;color:#f0dcc4;line-height:1.75;margin-bottom:11px;
   font-family:"Songti SC",serif;letter-spacing:.5px}
 .bd-hug-opt{display:block;width:100%;background:rgba(232,220,196,.07);
-  border:1px solid rgba(232,220,196,.22);color:var(--xx-paper);border-radius:3px;
+  border:1px solid var(--xx-line-2);color:var(--xx-paper);border-radius:var(--xx-r);
   padding:9px;margin-bottom:6px;font-size:13px;cursor:pointer;font-family:inherit;
   letter-spacing:1px;transition:.16s}
 .bd-hug-opt:active{background:rgba(181,52,42,.7);transform:scale(.98)}
 
 /* 自说自话气泡 */
 .bd-bub{position:absolute;left:50%;top:13%;transform:translateX(-50%) translateY(-8px);
-  max-width:78%;background:rgba(12,9,8,.94);border:1px solid rgba(201,162,39,.5);
+  max-width:78%;background:rgba(12,9,8,.94);border:1px solid var(--xx-line-gold);
   border-radius:16px;padding:9px 17px;color:var(--xx-paper);font-size:13.5px;
   letter-spacing:1px;z-index:74;opacity:0;pointer-events:none;transition:.4s;
   font-family:"Songti SC",serif;text-align:center;line-height:1.6}
@@ -474,7 +371,7 @@
 
 /* ===== 篝火护栏 ===== */
 .bd-ward{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);z-index:70;
-  background:rgba(10,8,7,.9);border:1px solid rgba(201,162,39,.45);border-radius:3px;
+  background:rgba(10,8,7,.9);border:1px solid rgba(201,162,39,.45);border-radius:var(--xx-r);
   padding:7px 15px;text-align:center;opacity:0;transition:.4s;pointer-events:none}
 .bd-ward.on{opacity:1}
 .bd-ward-t{font-size:12.5px;color:var(--xx-gold);letter-spacing:4px}
@@ -482,7 +379,7 @@
 
 /* 怨灵 HUD */
 .bd-ghost-hud{position:absolute;left:3%;top:5.5%;z-index:70;max-width:60%;
-  background:rgba(10,8,7,.88);border:1px solid rgba(181,52,42,.5);border-radius:3px;
+  background:rgba(10,8,7,.88);border:1px solid var(--xx-cinnabar);border-radius:var(--xx-r);
   padding:6px 11px;font-size:11.5px;color:#e8b0a8;letter-spacing:1px;opacity:0;
   transition:.4s;pointer-events:none;line-height:1.5}
 .bd-ghost-hud.on{opacity:1}
@@ -495,7 +392,7 @@
 
 /* ===== 领地建造格 ===== */
 .bd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.bd-slot{aspect-ratio:1/1.15;border-radius:3px;border:1px dashed rgba(232,220,196,.25);
+.bd-slot{aspect-ratio:1/1.15;border-radius:var(--xx-r);border:1px dashed rgba(232,220,196,.25);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   cursor:pointer;transition:.18s;background:rgba(0,0,0,.28);position:relative;padding:5px}
 .bd-slot.empty{color:rgba(232,220,196,.4);font-size:22px;border-style:dashed}
@@ -507,8 +404,8 @@
 .bd-slot-r{position:absolute;top:3px;right:4px;font-size:9px;color:var(--xx-gold);
   background:rgba(0,0,0,.6);padding:1px 4px;border-radius:2px}
 .bd-inv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.bd-inv-i{background:rgba(232,220,196,.05);border:1px solid rgba(232,220,196,.2);
-  border-radius:3px;padding:8px 3px;font-size:17px;cursor:pointer;font-family:inherit;
+.bd-inv-i{background:var(--xx-bg-1);border:1px solid var(--xx-line-1);;
+  border-radius:var(--xx-r);padding:8px 3px;font-size:17px;cursor:pointer;font-family:inherit;
   color:var(--xx-paper);position:relative;transition:.16s;line-height:1.4}
 .bd-inv-i:active{transform:scale(.94);background:rgba(201,162,39,.14)}
 .bd-inv-i span{font-size:9.5px;display:block;margin-top:2px;letter-spacing:.5px}
@@ -517,7 +414,7 @@
 
 /* ===== 图鉴条目 ===== */
 .xx-dxx{display:flex;gap:11px;padding:11px;margin-bottom:9px;
-  border:1px solid rgba(232,220,196,.12);border-radius:3px;background:rgba(232,220,196,.035)}
+  border:1px solid var(--xx-line-1);border-radius:var(--xx-r);background:rgba(232,220,196,.035)}
 .xx-dxx.mine{border-color:var(--xx-cinnabar);background:rgba(181,52,42,.09)}
 .xx-dxx img{width:64px;height:86px;object-fit:cover;border-radius:2px;flex-shrink:0;
   border:1px solid rgba(201,162,39,.28)}
@@ -549,26 +446,63 @@
 .xx-node-lg{position:absolute;bottom:-4px;right:-4px;font-size:11px;color:var(--xx-gold);z-index:6}
 
 /* ===== 叙事弹层 ===== */
-.xx-storycard{position:absolute;left:5%;right:5%;top:16%;z-index:85;
-  background:linear-gradient(160deg,rgba(24,19,15,.98),rgba(12,9,7,.99));
-  border:1px solid rgba(201,162,39,.5);border-radius:4px;padding:18px;
-  box-shadow:0 12px 40px rgba(0,0,0,.8);animation:xxScIn .5s cubic-bezier(.2,.8,.25,1)}
-@keyframes xxScIn{0%{opacity:0;transform:translateY(-14px) scale(.97)}
-  100%{opacity:1;transform:translateY(0) scale(1)}}
-.xx-storycard.legend{border-color:rgba(181,52,42,.55)}
-.xx-sc-img{width:96px;height:128px;margin:0 auto 12px;border-radius:2px;overflow:hidden;
-  border:1px solid rgba(201,162,39,.35)}
+/* ---- 叙事卡 · 墨字浮帖(V0.93 重做) ----
+   旧版:接近不透明的纯黑底 + 占90%宽 + 硬边框 + 重投影,像网页弹窗,把画面堵死。
+   现在:不做底板。只留墨字浮在画面上,靠一道淡墨痕和投影托住。
+   好处:视线不被挡,和「不打断」的调性一致 —— 它是浮字,不是弹窗。 */
+.xx-storycard{
+  position:absolute;
+  left:4%;right:auto;
+  top:50%;transform:translateY(-50%);
+  width:min(76%,330px);
+  max-height:80%;overflow-y:auto;overscroll-behavior:contain;
+  z-index:85;
+  /* 不加底色;只有极淡的一层墨雾托字,保证在亮画面上也能读 */
+  background:radial-gradient(85% 75% at 26% 50%,rgba(10,8,7,.62),rgba(10,8,7,.28) 55%,rgba(10,8,7,0) 88%);
+  -webkit-backdrop-filter:blur(2px);
+  backdrop-filter:blur(2px);
+  border:0;border-left:2px solid rgba(201,162,39,.34);
+  border-radius:0;padding:14px 16px 14px 18px;
+  filter:drop-shadow(0 2px 10px rgba(0,0,0,.55));
+  animation:xxScIn .42s cubic-bezier(.2,.8,.25,1);
+}
+@keyframes xxScIn{
+  0%{opacity:0;transform:translateY(-50%) translateX(-18px)}
+  100%{opacity:1;transform:translateY(-50%) translateX(0)}
+}
+.xx-storycard.legend{
+  background:radial-gradient(85% 75% at 26% 50%,rgba(14,7,7,.64),rgba(11,6,6,.28) 55%,rgba(11,6,6,0) 88%);
+  border-left-color:rgba(181,52,42,.42);
+}
+/* 立绘:小一点、淡一点,像拓片不像贴纸 */
+.xx-sc-img{width:64px;height:86px;margin:0 0 9px;border-radius:1px;overflow:hidden;
+  border:1px solid rgba(201,162,39,.2);opacity:.85}
 .xx-sc-img img{width:100%;height:100%;object-fit:cover}
-.xx-sc-n{font-size:17px;color:var(--xx-gold);letter-spacing:5px;margin-bottom:10px;
-  font-family:"Songti SC",serif;text-align:center}
-.xx-sc-t{font-size:14px;color:var(--xx-paper);line-height:1.85;font-family:"Songti SC",serif}
-.xx-sc-r{font-size:12px;color:var(--xx-jade);line-height:1.7;margin-top:9px;
-  padding-top:9px;border-top:1px solid rgba(232,220,196,.13)}
-.xx-sc-go{font-size:12px;color:var(--xx-cinnabar);margin-top:8px;letter-spacing:1px}
-.xx-sc-x{margin-top:14px;text-align:center;background:rgba(201,162,39,.12);
-  border:1px solid rgba(201,162,39,.4);border-radius:2px;padding:9px;
-  color:var(--xx-gold);font-size:13px;letter-spacing:4px;cursor:pointer}
-.xx-sc-x:active{background:rgba(201,162,39,.28)}
+.xx-sc-n{font-size:17px;color:var(--xx-gold);letter-spacing:5px;margin-bottom:8px;
+  font-family:"Songti SC",serif;text-align:left;
+  text-shadow:0 1px 5px rgba(0,0,0,.95),0 0 12px rgba(0,0,0,.6)}
+.xx-sc-t{font-size:14px;color:var(--xx-paper);line-height:1.85;font-family:"Songti SC",serif;
+  text-shadow:0 1px 5px rgba(0,0,0,.95),0 0 12px rgba(0,0,0,.6)}
+.xx-sc-r{font-size:12px;color:var(--xx-jade);line-height:1.7;margin-top:8px;
+  padding-top:8px;border-top:1px solid rgba(232,220,196,.12);
+  text-shadow:0 1px 5px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.55)}
+.xx-sc-go{font-size:12.5px;color:var(--xx-cinnabar);margin-top:8px;letter-spacing:1px;
+  line-height:1.7;font-family:"Songti SC",serif;text-shadow:0 1px 5px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.55)}
+.xx-sc-x{margin-top:12px;text-align:center;
+  background:rgba(201,162,39,.2);
+  border:0;border-radius:2px;padding:9px;
+  color:var(--xx-gold);font-size:13px;letter-spacing:5px;cursor:pointer;transition:.18s;
+  font-family:"Songti SC",serif;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.xx-sc-x:active{background:rgba(201,162,39,.38)}
+
+/* 窄屏也靠右:通栏会和其他侧卡叠在一起,窄一点更安全 */
+@media (max-width:430px){
+  .xx-storycard{
+    left:2.5%;width:min(80%,300px);max-height:64%;
+  }
+  .xx-sc-n{font-size:16px;letter-spacing:4px}
+  .xx-sc-t{font-size:13.5px;line-height:1.8}
+}
 .xx-dxx.unseen img{filter:grayscale(1) brightness(.35);position:relative}
 .xx-dxx.unseen .xx-dxx-b{opacity:.55}
 
@@ -580,3 +514,160 @@
 .xx-story-b{font-size:13px;color:var(--xx-jade);line-height:1.9;
   padding-left:11px;border-left:2px solid rgba(74,157,224,.42);
   font-family:"Songti SC",serif}
+
+/* 小按钮(卡片内的行内操作):不撑满,只占内容宽度 */
+.xx-btn.mini{display:inline-block;width:auto;padding:4px 10px;margin:0;font-size:11px;
+  letter-spacing:1px;border-radius:2px;flex:0 0 auto;white-space:nowrap;min-width:52px}
+
+/* ---- 初见横幅(V0.94)----
+   原来「初见某只妖」用整张叙事卡弹出来,走一圈图能弹 5 次以上,
+   像连环弹窗骚扰。改成一条窄横幅:告知即可,细节去图鉴看。 */
+.xx-banner{
+  position:absolute;left:3.5%;right:auto;top:11.6%;width:min(58%,282px);z-index:84;
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;
+  background:linear-gradient(90deg,rgba(30,22,19,.82),rgba(18,13,11,.6));
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  border:0;border-left:2px solid rgba(181,52,42,.5);
+  border-radius:0 3px 3px 0;
+  box-shadow:0 3px 14px rgba(0,0,0,.45);
+  animation:xxBnIn .34s cubic-bezier(.2,.8,.25,1);
+  pointer-events:none;
+}
+@keyframes xxBnIn{
+  0%{opacity:0;transform:translateX(-16px)}
+  100%{opacity:1;transform:translateX(0)}
+}
+.xx-bn-img{width:34px;height:44px;flex:0 0 auto;border-radius:1px;overflow:hidden;
+  border:1px solid rgba(201,162,39,.22);opacity:.85}
+.xx-bn-img img{width:100%;height:100%;object-fit:cover}
+.xx-bn-txt{flex:1;min-width:0}
+.xx-bn-n{font-size:13.5px;color:var(--xx-gold);letter-spacing:3px;
+  font-family:"Songti SC",serif}
+.xx-bn-l{font-size:11.5px;color:var(--xx-paper);opacity:.8;line-height:1.5;margin-top:2px;
+  font-family:"Songti SC",serif;overflow:hidden;text-overflow:ellipsis;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.xx-bn-t{font-size:10.5px;color:rgba(232,220,196,.45);margin-top:3px;
+  font-family:"Songti SC",serif}
+
+/* ---- 地图连线(V0.95 补回:曾被一次 CSS 替换误删,边全都不显示) ---- */
+.xx-edge{position:absolute;height:1px;transform-origin:0 50%;opacity:.5;
+  background:linear-gradient(90deg,rgba(201,162,39,.35),rgba(201,162,39,.14));
+  pointer-events:none;z-index:0}   /* 压在节点下面,别穿过圈心 */
+
+/* ---- 地图节点(V0.95)----
+   原来用彩色 emoji,和水墨调不搭。现在单色汉字 + 类型色底。 */
+.xx-glyph{font-family:"Songti SC",serif;font-size:16px;font-weight:600;letter-spacing:0;
+  line-height:1;display:block}
+.xx-glyph.t-village{color:rgba(226,206,160,.95)}
+.xx-glyph.t-field{color:rgba(168,182,150,.9)}
+.xx-glyph.t-elite{color:rgba(214,142,110,.92)}
+.xx-glyph.t-secret{color:rgba(122,178,220,.92)}
+.xx-glyph.t-boss{color:rgba(206,110,96,.95)}
+.xx-node.visited{background:rgba(46,38,26,.9);border-color:rgba(201,162,39,.5)}
+/* 迷雾节点:降饱和,别和已探索的抢视线 */
+.xx-node.fog{border-color:rgba(232,220,196,.14);background:rgba(18,14,11,.7)}
+.xx-node.fog .xx-node-lb{color:rgba(232,220,196,.3);text-shadow:none}
+/* 未到过的节点不该有 hover 光标 —— 点了也点不动 */
+.xx-node.locked{cursor:default;opacity:.55}
+
+/* ---- 空态(V0.95)----
+   原来空页面只有一句「还没什么」,玩家不知道下一步该干嘛。
+   统一成一个组件:一句状态 + 几条「去哪儿能拿到」的线索。 */
+.xx-empty{padding:22px 16px;text-align:center;
+  border:1px dashed var(--xx-line-1);border-radius:var(--xx-r);margin-bottom:var(--xx-gap)}
+.xx-empty-t{font-size:15px;color:var(--xx-gold);letter-spacing:4px;margin-bottom:8px;
+  font-family:"Songti SC",serif}
+.xx-empty-d{font-size:12.5px;color:var(--xx-paper);opacity:.75;line-height:1.9;
+  font-family:"Songti SC",serif}
+.xx-empty-h{display:flex;align-items:baseline;gap:7px;margin:16px 0 8px;
+  padding-top:13px;border-top:1px solid var(--xx-line-1);
+  font-size:11.5px;color:rgba(232,220,196,.5);letter-spacing:3px}
+.xx-clue{display:flex;gap:9px;align-items:flex-start;text-align:left;
+  padding:8px 0;font-size:12px;color:var(--xx-paper);line-height:1.75;
+  font-family:"Songti SC",serif}
+.xx-clue-i{flex:0 0 auto;width:20px;height:20px;border-radius:50%;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;font-size:11px;
+  border:1px solid var(--xx-line-gold);color:var(--xx-gold)}
+.xx-clue-w{color:rgba(232,220,196,.62)}
+
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-skills{position:absolute;left:3%;right:3%;bottom:calc(2.5% + 140px);
+  display:flex;gap:7px;justify-content:center;flex-wrap:wrap;
+  z-index:8;opacity:0;pointer-events:none;transition:.35s}
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-hp{position:absolute;top:5.5%;display:flex;align-items:center;gap:7px;z-index:3;max-width:44%}
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-hp-b{flex:1;min-width:52px;height:5px;background:rgba(0,0,0,.65);border:1px solid rgba(0,0,0,.5);
+  border-radius:3px;overflow:hidden}
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-turn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;
+  font-size:38px;letter-spacing:12px;color:var(--xx-paper);opacity:0;
+  text-shadow:0 4px 22px rgba(0,0,0,.95);font-family:"Songti SC",serif;white-space:nowrap}
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-fighter{position:absolute;bottom:19%;width:49%;max-width:290px;
+  opacity:0;transform:translateY(30px) scale(.97);transition:.75s cubic-bezier(.2,.7,.3,1);
+  display:flex;flex-direction:column;filter:drop-shadow(0 10px 26px rgba(0,0,0,.75))}
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-nameplate{position:absolute;left:50%;transform:translateX(-50%);bottom:13%;
+  font-size:11px;letter-spacing:4px;color:var(--xx-paper);white-space:nowrap;
+  text-shadow:0 2px 8px #000,0 0 16px rgba(0,0,0,.9);opacity:0;transition:.7s;z-index:6}
+/* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
+.xx-box{position:absolute;left:3%;right:3%;bottom:2.5%;background:rgba(12,9,8,.95);
+  border:1px solid rgba(201,162,39,.4);border-radius:3px;padding:13px 16px;min-height:104px;
+  backdrop-filter:blur(3px);box-shadow:0 -4px 24px rgba(0,0,0,.5)}
+
+/* ---- 布局恢复(V0.95) ---- */
+.xx-btn{display:block;width:100%;padding:13px;margin-bottom:9px;background:rgba(232,220,196,.06);
+  border:1px solid rgba(232,220,196,.22);color:var(--xx-paper);border-radius:3px;font-size:15px;
+  cursor:pointer;letter-spacing:3px;font-family:"Songti SC",serif;transition:.2s}
+.xx-btn.main{background:linear-gradient(135deg,rgba(181,52,42,.85),rgba(120,32,26,.85));
+  border-color:var(--xx-cinnabar);color:#fff}
+.xx-ch{display:flex;gap:12px;align-items:flex-start;padding:12px;
+  border:1px solid rgba(232,220,196,.12);border-radius:3px;margin-bottom:10px;
+  background:rgba(232,220,196,.04)}
+.xx-ch h4{margin:0 0 4px;font-size:15px;color:var(--xx-paper);letter-spacing:1px;font-weight:400}
+.xx-ch img{width:58px;height:78px;object-fit:cover;border-radius:2px;flex-shrink:0;
+  border:1px solid rgba(201,162,39,.3)}
+.xx-ch p{margin:0;font-size:12px;color:rgba(232,220,196,.62);line-height:1.65}
+.xx-duel{position:absolute;inset:0;z-index:80;overflow:hidden;background:#0b0908}
+.xx-duel-bg{position:absolute;inset:0;background-size:cover;background-position:center;
+  opacity:0;transition:opacity .8s ease}
+.xx-duel-bg.on{opacity:.42}
+.xx-duel-vig{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.82) 100%)}
+.xx-duel.hidden{display:none}
+.xx-face{position:relative;overflow:hidden;background:#e8dcc4;
+  border-left:1px solid rgba(60,42,26,.35);border-right:1px solid rgba(60,42,26,.35)}
+.xx-face img{width:100%;display:block;
+  -webkit-mask-image:linear-gradient(180deg,#000 70%,rgba(0,0,0,.5) 88%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 70%,rgba(0,0,0,.5) 88%,transparent 100%)}
+.xx-fighter.l{left:0;transform-origin:50% 100%;z-index:2}
+.xx-fighter.l.on{transform:translateY(0) rotate(-1.6deg) scale(1)}
+.xx-fighter.on{opacity:1}
+.xx-fighter.r{right:0;transform-origin:50% 100%;z-index:1}
+.xx-fighter.r.on{transform:translateY(0) rotate(1.6deg) scale(1)}
+.xx-hp-b i{display:block;height:100%;background:linear-gradient(90deg,#7a2018,var(--xx-cinnabar));
+  transition:width .45s ease}
+.xx-hp-n{font-size:11.5px;color:var(--xx-paper);letter-spacing:.5px;white-space:nowrap;
+  text-shadow:0 1px 5px #000,0 0 12px #000;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.xx-hp.l{left:4%}
+.xx-hp.r{right:4%;flex-direction:row-reverse}
+.xx-node.cur{border-color:var(--xx-cinnabar);box-shadow:0 0 0 3px rgba(181,52,42,.28),0 2px 8px rgba(0,0,0,.5);
+  transform:scale(1.16)}
+.xx-rod{flex-shrink:0;height:11px;border-radius:3px;position:relative;z-index:2;
+  background:linear-gradient(180deg,#7a5636 0%,#4a3120 45%,#2e1d10 100%);
+  box-shadow:0 1px 5px rgba(0,0,0,.7),inset 0 1px 0 rgba(201,162,39,.32)}
+.xx-seal{width:24px;height:24px;border:1px solid var(--xx-cinnabar);border-radius:2px;
+  display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--xx-cinnabar);
+  flex-shrink:0;font-family:serif}
+.xx-sk-c{font-size:9.5px;color:var(--xx-gold);margin-top:2px;letter-spacing:.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xx-sk-n{font-size:13px;letter-spacing:1px;font-family:"Songti SC",serif}
+.xx-skills.on{opacity:1;pointer-events:auto}
+.xx-title-i{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;
+  border:1px solid rgba(232,220,196,.12);border-radius:3px;background:rgba(232,220,196,.04);
+  font-size:13px}
+.xx-title-i.off{opacity:.5}
+.xx-title-i.on{border-color:rgba(201,162,39,.5);background:rgba(201,162,39,.08)}
+.xx-turn.on{animation:xxTurn 1.15s ease forwards}

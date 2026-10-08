@@ -238,3 +238,9 @@ python3 scripts/t86.py      # 叙事专项
 仙人墓独立地下层。`ROOMS` 是纯数据,`TOMB` 是状态机。
 与 `story.js` 的关系:墓里 `settle('sj')` 触发叙事线最后一环,`finish(path)` 回写结局。
 与 `quest.js` 的关系:支线「半句话」靠 `TOMB.s.done` 判定完成。无循环依赖(quest → tomb 单向)。
+
+### `js/xiuxian/mount.js`(V0.91 新增)
+坐骑与随行。纯数据(`MOUNTS`)+ 状态(`MOUNT`)。
+接入点:`BUILD.ward()` / `COMPANION.wardRadius()` 加护栏;`main.js` 局内开局把
+拾取/移速/攻击落到 `player.stats`。解锁靠 `checkUnlocks()` 查剧情状态。
+依赖方向 mount → story/tomb/quest(单向,无环)。
