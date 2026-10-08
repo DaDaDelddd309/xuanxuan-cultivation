@@ -3,6 +3,7 @@
 // 切换时有过渡。夜里怪物更强,篝火更重要。
 
 import { DAY } from './items.js';
+import { SFX } from '../core/audio.js';
 import { CHRONICLE } from './chronicle.js';
 
 export const PHASES = {
@@ -41,9 +42,15 @@ function buildAmb(phase, vol) {
   const c = ensureCtx();
   if (!c) return;
   stopAll();
+  // ⚠️ 原来 out.connect(c.destination) —— 绕过了 SFX 的 musicBus。
+  // 结果:UI 上关掉「音乐」只降 musicBus,环境音照样响;
+  // 而且第一次任意点击 ambience.init() 就自动开声,玩家根本没得选。
+  // 表现就是关掉音乐后还有一层「蜂鸣」(白天那个 1400Hz triangle)。
+  // 现在挂到 musicBus —— 音乐开关对它生效。
   const out = c.createGain();
   out.gain.value = 0;
-  out.connect(c.destination);
+  const bus = (typeof SFX !== 'undefined' && SFX && SFX.musicBus) ? SFX.musicBus : c.destination;
+  out.connect(bus);
   out.gain.linearRampToValueAtTime(vol * 0.5, c.currentTime + 2.2);   // 淡入
 
   // 底噪:低频滤波白噪 = 风
@@ -81,14 +88,9 @@ function buildAmb(phase, vol) {
     osc.start(); lfo.start();
     nodes.push(osc, og, lfo);
   }
-  // 日间:一点高亮的"白"
-  if (phase.key === 'day') {
-    const osc = c.createOscillator();
-    osc.type = 'triangle'; osc.frequency.value = 1400;
-    const og = c.createGain(); og.gain.value = 0.012;
-    osc.connect(og); og.connect(out); osc.start();
-    nodes.push(osc, og);
-  }
+  // 日间那声 1400Hz triangle 已删除 ——
+  // gain 只有 0.012,但 1400Hz 落在人耳最敏感的频段,听起来就是「蜂鸣」。
+  // 风声底噪已经够了,不需要再叠一个高频。
 }
 
 export const Ambience = {
