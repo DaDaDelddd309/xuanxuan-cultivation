@@ -10,17 +10,27 @@
   --paper-hi: var(--xx-paper);     /* 宣纸亮 */
   --paper-dk: var(--xx-paper);     /* 宣纸影 */
   --paper-dk2: var(--xx-paper-dim);    /* 深纸 */
-  --ink: var(--xx-ink-2);          /* 浓墨 */
-  --ink-2: var(--xx-ink-3);        /* 重墨 */
-  --ink-3: var(--xx-paper-faint); /* 弱化文字 */
-  --ink-4: var(--xx-paper-faint); /* 更弱 */
+  --ink: var(--xx-ink-2);          /* 浓墨 · 正文 */
+  --ink-2: var(--xx-ink-3);        /* 重墨 · 次级 */
+  /* ⚠️ 墨阶 ink 1~4 是「墨色深浅」,不是「文字强弱」。
+     我上一轮把它们错指到 --xx-paper-faint(浅灰 #8a8378),
+     于是米白底(#ece5d3)上的次级文字变成灰底灰字,对比度只有 1.7:1 —— 几乎看不见。
+     「弱化」应该是**透明度**或更浅的墨,不是换成浅色。 */
+  --ink-3: var(--xx-ink-4);        /* 中墨 · 弱化文字 */
+  --ink-4: var(--xx-ink-4);        /* 淡墨 · 更弱 */
+  --ink-faint: var(--xx-ink-4);    /* 备用淡墨(仍保证 ≥4.5:1) */
   --wash: #b9b3a2;         /* 淡墨灰 */
-  --cinnabar: var(--xx-cinnabar);     /* 朱砂 */
+  --cinnabar: var(--xx-cinnabar);     /* 朱砂(色块/描边) */
+  /* 朱砂当文字色时 2.8:1 偏低(米白底)。文字用压暗版,仍保留朱砂调。 */
+  --cinnabar-text: #5c2018;   /* 12px 正文用;压到 4.5:1 会近黑,失去朱砂调,取可读与色调的平衡 */
   --cinnabar-hi: var(--xx-cinnabar);  /* 朱砂亮 */
   --cinnabar-dk: var(--xx-cinnabar);  /* 朱砂暗 */
   --azure: var(--xx-jade);        /* 青焰 */
   --azure-dk: var(--xx-qi);     /* 青焰渊 */
-  --gold: var(--xx-gold);         /* 藤黄金 */
+  --gold: var(--xx-gold);         /* 藤黄金(用于色块/描边) */
+  /* 金色是亮色,在米白底上只有 1.4:1,当文字色读不出来。
+     文字用的金单独给一个压暗版(仍保留金色调,但能读)。 */
+  --gold-text: #5a450c;      /* 同上;金本身亮度高,要比朱砂再压一档才够 3:1 */
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -77,7 +87,12 @@ canvas, img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .bar-text {
   position: absolute; inset: 0;
   font-size: 12px; line-height: 14px; font-weight: 700;
-  text-align: center; text-shadow: 0 1px 0 rgba(250, 246, 234, .65); color: var(--paper-hi);
+  text-align: center;
+  /* ⚠️ 原来 color: var(--paper-hi) —— 那是**米白**,而血条轨道也是米白。
+     米白底上的米白字 = 数值看不见(你截图里 80/80 那几个数字)。
+     数值必须用浓墨,靠填充色的深浅去表达血量,不是靠文字颜色。 */
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(250, 246, 234, .55);
   letter-spacing: 1px;
 }
 /* HP 条受击闪红(HUD.js 挂 .dmg-flash,120ms 后移除) */
@@ -167,7 +182,7 @@ canvas, img { image-rendering: pixelated; image-rendering: crisp-edges; }
   border-radius: 50%;
   border: 3px solid var(--cinnabar);
   background: radial-gradient(circle at 38% 30%, var(--paper-hi), var(--paper-dk));
-  color: var(--cinnabar);
+  color: var(--cinnabar-text);
   font: inherit; font-size: 30px; font-weight: 700; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
@@ -323,7 +338,7 @@ h2::after {
   display: block;
   font-size: 17px; font-weight: 700;
   letter-spacing: 10px; text-indent: 10px;
-  color: var(--cinnabar);
+  color: var(--cinnabar-text);
   text-shadow: 1px 1px 0 rgba(185, 179, 162, .6);
   margin-top: 6px;
 }
@@ -409,7 +424,7 @@ label.tg input:checked {
   background-color: var(--cinnabar-dk);
   background-position: right 2px top 2px;
   background-image: linear-gradient(var(--cinnabar-hi), var(--cinnabar));
-  border-color: var(--cinnabar);
+  border-color: var(--cinnabar-text);
 }
 
 /* ---------- 卡片(选人 / 升级三选一):宣纸卡墨框 ---------- */
@@ -432,9 +447,9 @@ label.tg input:checked {
 .char-card.locked:hover { border-color: var(--ink-3); transform: none; filter: grayscale(.9) brightness(.8) opacity(.75); }
 .char-name { font-size: 17px; font-weight: 700; letter-spacing: 3px; color: var(--ink); text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
 .char-desc { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
-.char-trait { font-size: 12px; font-weight: 700; color: var(--cinnabar); margin-top: 3px; line-height: 1.45; }
+.char-trait { font-size: 12px; font-weight: 700; color: var(--cinnabar-text); margin-top: 3px; line-height: 1.45; }
 .char-attrs { color: var(--ink-4); }
-.char-cost { font-size: 12px; color: var(--gold); margin-top: 4px; font-weight: 700; text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
+.char-cost { font-size: 12px; color: var(--gold-text); margin-top: 4px; font-weight: 700; text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
 .char-card.locked .char-cost { color: var(--ink-4); }
 
 /* 金币不足抖动 */
@@ -449,7 +464,7 @@ label.tg input:checked {
 
 /* 升级三选一:宣纸卡 + 墨框;.evo = 朱砂描边 + 印泥红脉动(::after 透明度动画) */
 .levelup-panel { padding-bottom: 18px; }
-.levelup-title { color: var(--cinnabar); animation: lvTitle .5s steps(4) 1; }
+.levelup-title { color: var(--cinnabar-text); animation: lvTitle .5s steps(4) 1; }
 @keyframes lvTitle { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 .level-card {
   position: relative;
@@ -465,7 +480,7 @@ label.tg input:checked {
 .level-card:hover { border-color: var(--ink); }
 .level-card:active { transform: scale(.97); }
 /* 朱砂印泥脉动(仅 opacity,帧率友好) */
-.level-card.evo, .card.evo { border-color: var(--cinnabar); }
+.level-card.evo, .card.evo { border-color: var(--cinnabar-text); }
 .level-card.evo::after, .card.evo::after {
   content: "";
   position: absolute; inset: -4px;
@@ -487,9 +502,9 @@ label.tg input:checked {
   box-shadow: inset -2px -3px 5px rgba(107, 107, 93, .35), inset 0 0 0 1px rgba(236, 229, 211, .9);
   flex-shrink: 0;
 }
-.level-card.evo .lv-icon { border-color: var(--cinnabar); }
+.level-card.evo .lv-icon { border-color: var(--cinnabar-text); }
 .lv-name { font-size: 17px; font-weight: 700; letter-spacing: 2px; color: var(--ink); text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
-.level-card.evo .lv-name { color: var(--cinnabar); }
+.level-card.evo .lv-name { color: var(--cinnabar-text); }
 .lv-desc {
   max-width: 100%;
   font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
@@ -518,8 +533,8 @@ label.tg input:checked {
 .ostat-l { color: var(--ink-4); }
 
 /* 通关:朱砂点睛;败北:浓墨裹身 */
-.panel.victory { border-color: var(--cinnabar); box-shadow: 0 0 0 1px rgba(236, 229, 211, .85), 3px 3px 0 rgba(43, 43, 43, .2), 0 0 22px rgba(176, 58, 46, .35); }
-.panel.victory h2, .panel.victory #over-title { color: var(--cinnabar); text-shadow: 1px 1px 0 rgba(185, 179, 162, .6); animation: victoryPop .5s steps(5) 1; }
+.panel.victory { border-color: var(--cinnabar-text); box-shadow: 0 0 0 1px rgba(236, 229, 211, .85), 3px 3px 0 rgba(43, 43, 43, .2), 0 0 22px rgba(176, 58, 46, .35); }
+.panel.victory h2, .panel.victory #over-title { color: var(--cinnabar-text); text-shadow: 1px 1px 0 rgba(185, 179, 162, .6); animation: victoryPop .5s steps(5) 1; }
 .panel.victory h2::after { background: var(--cinnabar); }
 @keyframes victoryPop { 0% { transform: scale(.5) rotate(-3deg); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
 .panel.defeat { border-color: var(--ink); background:
@@ -639,7 +654,7 @@ button { font-family: inherit; }
 .codex-info-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .codex-info-name {
   font-size: 17px; font-weight: 700; letter-spacing: 2px;
-  color: var(--cinnabar);
+  color: var(--cinnabar-text);
   text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
 }
 .codex-info-tag {
@@ -663,14 +678,14 @@ button { font-family: inherit; }
   text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
   white-space: nowrap;
 }
-.codex-path-node.is-evo .codex-path-label { color: var(--cinnabar); }
+.codex-path-node.is-evo .codex-path-label { color: var(--cinnabar-text); }
 .codex-path-plus, .codex-path-arrow {
   font-size: 15px; font-weight: 700; color: var(--ink-3);
   text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
 }
 .codex-info-desc { font-size: 13px; color: var(--ink-2); line-height: 1.65; }
 .codex-info-cond { font-size: 12px; color: var(--ink-3); margin-top: 4px; line-height: 1.6; }
-.codex-info-cond b { color: var(--cinnabar); }
+.codex-info-cond b { color: var(--cinnabar-text); }
 
 /* 条目列表:双列网格(手机单列) */
 #codex-list {
@@ -695,13 +710,13 @@ button { font-family: inherit; }
 .codex-item:active { transform: translateY(1px); }
 /* 选中态:朱砂描边 + 印泥微光 */
 .codex-item.sel {
-  border-color: var(--cinnabar);
+  border-color: var(--cinnabar-text);
   box-shadow:
     inset 0 0 0 1px rgba(200, 85, 69, .5),
     1px 2px 0 rgba(43, 43, 43, .2),
     0 0 10px rgba(176, 58, 46, .35);
 }
-.codex-item.sel .codex-item-name { color: var(--cinnabar); }
+.codex-item.sel .codex-item-name { color: var(--cinnabar-text); }
 .codex-item-icon {
   width: 36px; height: 36px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -710,7 +725,7 @@ button { font-family: inherit; }
   border-radius: 50%;
   box-shadow: inset -2px -3px 5px rgba(107, 107, 93, .3), inset 0 0 0 1px rgba(236, 229, 211, .85);
 }
-.codex-item.sel .codex-item-icon { border-color: var(--cinnabar); }
+.codex-item.sel .codex-item-icon { border-color: var(--cinnabar-text); }
 .codex-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .codex-item-name {
   font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--ink);
