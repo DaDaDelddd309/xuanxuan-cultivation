@@ -84,7 +84,7 @@ with sync_playwright() as p:
       const {Cult}=await import('/js/xiuxian/index.js');
       Cult.get().arts={jianqi:5,wulei:3}; Cult.commit();
       Duel.start({node:{id:'n5',type:'elite',name:'黑风岭'},hero:{img:'assets/portrait/hero.jpg',realmIdx:0},
-        foe:{name:'黑风散修',title:'炼气中期',img:'assets/portrait/foe.jpg',realmIdx:0,stronger:false,isNemesis:false},
+        foe:{name:'黑风散修',title:'炼气中期',img:'assets/portrait/villain-moying.jpg',realmIdx:0,stronger:false,isNemesis:false},
         onWin:()=>{},onLose:()=>{}});
       await new Promise(r=>setTimeout(r,600));
       Duel.busy=false; Duel.playerTurn();
