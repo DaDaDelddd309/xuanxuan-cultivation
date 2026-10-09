@@ -198,20 +198,27 @@ export const Hall = {
         // addExp 返回的是 {levels, broke},不是数字。
         // 之前直接 `${g}` 插值 → 吐纳 [object Object] 点修为(每次点必现)。
         const r = addExp(s, 40);
+        // ⚠️ XX-FIX-017:道行**每次吐纳都给**,原来它被写在了下面的 `if (yr)` 里。
+        // 而 CHRONICLE.day() 只在「跨年那一 tick」返回对象(见 chronicle.js 契约注释),
+        // 于是 +200 道行一年才发一次 —— 跨一次年要点 3650 下,实测道行永远是 0。
+        // 给资源和报事件是两件事,不该共用一个分支。
+        Cult.get().dao += 200;
         const yr = CHRONICLE.day();
         if (yr) {
-          Cult.get().dao += 200;
-          toast(`第${yr.year}年:${yr.ev}`);
+          toast(`吐纳 · 修为 +40 · 道行 +200 · 第${yr.year}年:${yr.ev}`);
         } else {
           // 跨层要报出来,否则玩家点了没反应还以为坏了
           if (r.levels > 0) {
             toast(r.broke
-              ? `吐纳 · 已达 ${realmTitle(s)}圆满,可冲击突破`
-              : `吐纳 · 精进至 ${realmTitle(s)}`);
+              ? `吐纳 · 道行 +200 · 已达 ${realmTitle(s)}圆满,可冲击突破`
+              : `吐纳 · 修为 +40 · 道行 +200 · 精进至 ${realmTitle(s)}`);
           } else {
-            toast('吐纳 · 修为 +40');
+            toast('吐纳 · 修为 +40 · 道行 +200');
           }
         }
+        // 原来这个分支既不 commit 也不 render —— 页面要切页签才刷新,
+        // 存档全靠 Profile.auto() 的节流自动存档兜着。
+        Cult.commit(); this.render();
         break;
       }
       case 'break': {
@@ -1614,7 +1621,9 @@ export const Hall = {
   // 这里让低阶源石 + 催化剂 → 高阶源石,把那条链闭上。
   vCraft() {
     const rows = CRAFT.recipes().map((r, i) => {
-      const chk = CRAFT.can(r, Bag);
+      // XX-FIX-018:can() 现在也收名字解析器,和 do() 用同一套 ——
+      // 原来按钮上写的是「缺 stone_1 ×2」,而这张卡的标题写的是「碎灵石」。
+      const chk = CRAFT.can(r, Bag, id => (STONES[id] || GOODS[id] || {}).name || id);
       const fromN = (STONES[r.from] || {}).name || r.from;
       const toN = (STONES[r.to] || {}).name || r.to;
       const catN = (GOODS[r.cat] || {}).name || r.cat;

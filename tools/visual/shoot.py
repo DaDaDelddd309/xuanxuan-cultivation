@@ -121,8 +121,52 @@ def click_safe(page, selector: str, timeout: int = 4000) -> bool:
         return False
 
 
+def grow(page, base: str, rounds: int):
+    """把存档养到中期,再截图。
+
+    为什么需要:原来 18 张截图全是新档 —— 行囊空、支线空、家族未立、称号全锁。
+    那种状态下「页面看着空」根本分不清是**设计好的空状态**还是**内容缺失**。
+    我就因为这个在联系表缩略图上误判过三页(见 XX-CONTENT-001 作废记录)。
+
+    这里**用游戏自己的机制推进**(吐纳/点火/休息),不手写存档 JSON ——
+    手写就得凭空编字段和 id,那是重演当初编造 `herb`/`iron` 未定义、
+    最后「行囊放不下」那次事故的路。
+    """
+    if rounds <= 0:
+        return
+    print(f"[shoot] 养存档:{rounds} 轮吐纳 + 点火 + 休息")
+    if not click_safe(page, "#btn-cult", timeout=6000):
+        print("  ! 进不了修仙阁,跳过养成")
+        return
+    page.wait_for_timeout(900)
+
+    # 境界页:吐纳(每点 +40 修为 +200 道行)
+    click_safe(page, '.xx-tab[data-tab="realm"]')
+    got = 0
+    for i in range(rounds):
+        if not click_safe(page, '[data-act="meditate"]', timeout=2500):
+            break
+        got = i + 1
+        if i % 5 == 4:
+            page.wait_for_timeout(120)
+    print(f"  · 吐纳 {got} 次")
+
+    # 营地:点火(篝火) + 休息(回气血)
+    click_safe(page, '.xx-tab[data-tab="camp"]')
+    for a in ("light", "rest", "light", "rest"):
+        click_safe(page, f'[data-act="{a}"]', timeout=2500)
+    print("  · 篝火与休息已点过")
+
+    # 回主菜单,把页面交给截图流程
+    page.evaluate("""() => {
+        const b = document.querySelector('.xx-screen:not(.hidden) [data-act="back"]');
+        if (b) b.click();
+    }""")
+    page.wait_for_timeout(600)
+
+
 def run(base: str, outdir: Path, only: list[str] | None, do_play: bool,
-        label: str) -> int:
+        label: str, grow_n: int = 0) -> int:
     outdir.mkdir(parents=True, exist_ok=True)
     manifest = {
         "label": label, "base": base, "viewport": VIEWPORT,
@@ -164,6 +208,9 @@ def run(base: str, outdir: Path, only: list[str] | None, do_play: bool,
                 pass_onboarding(page)
 
         page.wait_for_timeout(900)
+
+        if grow_n:
+            grow(page, base, grow_n)
 
         # ---- 局外各屏 (逐屏进出) ----
         for key, enter, leave in OUTER_FLOW:
@@ -250,13 +297,15 @@ def main():
     ap.add_argument("--label", default="local")
     ap.add_argument("--only", default=None, help="逗号分隔:menu,xx-realm,xx-bag ...")
     ap.add_argument("--play", action="store_true", help="进一局截 HUD/暂停")
+    ap.add_argument("--grow", type=int, default=0,
+                    help="先把存档养成中期再截图(默认 0 = 新档视角)")
     a = ap.parse_args()
     only = [x.strip() for x in a.only.split(",")] if a.only else None
     base = ensure_server(a.port, a.base)
     outdir = Path(a.out)
     if not outdir.is_absolute():
         outdir = REPO / outdir
-    sys.exit(run(base, outdir, only, a.play, a.label))
+    sys.exit(run(base, outdir, only, a.play, a.label, a.grow))
 
 
 if __name__ == "__main__":

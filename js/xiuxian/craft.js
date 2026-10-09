@@ -39,15 +39,25 @@ export const CRAFT = {
 
   recipes() { return RECIPES; },
 
-  /** 某条配方现在能不能做 */
-  can(r, bag) {
+  /** 某条配方现在能不能做
+   *  names: id → 显示名的解析器(和 do() 用同一套)。
+   *  ⚠️ XX-FIX-018:原来这个函数签名里没有 names,拼 `miss` 时直接把
+   *  `r.from`/`r.cat` 原始 id 写进了文案 —— 玩家看到的是「缺 stone_1 ×2」。
+   *  而同一张卡的标题走 ui.js 已经解析过的 fromN/catN,一页两种语言。
+   *  不给 names 时退回 id,保证老调用方不炸。 */
+  can(r, bag, names) {
+    const nm = typeof names === 'function' ? names : (id => id);
     const hasFrom = bag.count(r.from) >= r.n;
     const hasCat = bag.count(r.cat) >= r.catN;
+    const need = (id, n) => {
+      const short = Math.max(0, n - bag.count(id));
+      return `缺 ${nm(id)} ×${short}`;
+    };
     return {
       ok: hasFrom && hasCat,
       fromNeed: r.n, fromHave: bag.count(r.from),
       catNeed: r.catN, catHave: bag.count(r.cat),
-      miss: hasFrom ? (hasCat ? '' : `缺催化剂 ${r.cat} ×${r.catN - bag.count(r.cat)}`) : `缺 ${r.from} ×${r.n - bag.count(r.from)}`,
+      miss: hasFrom ? (hasCat ? '' : `缺催化剂 ${need(r.cat, r.catN)}`) : need(r.from, r.n),
     };
   },
 

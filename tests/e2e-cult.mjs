@@ -173,6 +173,25 @@ console.log('\n[8] 灵伴在局内:真的动、真的捡');
   ok('年表记了这一笔', COMPANION.s.log.length === 0 || typeof COMPANION.s.log[0].picks === 'number');
 }
 
+
+// ---- XX-FIX-017 防回归:吐纳必须给道行 ----
+// 背景:道行曾经被写进 `if (yr)` 分支,而 CHRONICLE.day() 只在跨年那一 tick
+// 返回对象 —— 于是 +200 道行一年才发一次,实测道行永远是 0。
+// 这条断言盯的是**行为**:点一次吐纳,道行必须 +200。
+{
+  const { Cult } = await import('../js/xiuxian/index.js');
+  guard('回到境界页', () => { Hall.tab = 'realm'; Hall.render(); });
+  const before = Cult.get().dao;
+  guard('点一次吐纳', () => Hall.act('meditate'));
+  const after = Cult.get().dao;
+  ok('吐纳给了道行', after - before === 200, `+${after - before}(应为 200)`);
+  ok('吐纳没把道行扣成负数', after >= 0, `dao=${after}`);
+  const again0 = Cult.get().dao;
+  guard('再点一次吐纳', () => Hall.act('meditate'));
+  ok('第二次也给道行(不是只有第一次)', Cult.get().dao - again0 === 200,
+     `+${Cult.get().dao - again0}`);
+}
+
 console.log(`\ne2e-cult: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);
 if (failed.length) { console.log('失败项:'); failed.forEach(f => console.log('  - ' + f)); }
 process.exit(fail ? 1 : 0);

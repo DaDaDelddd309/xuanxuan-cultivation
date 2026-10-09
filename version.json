@@ -1,5 +1,5 @@
 {
-  "version": "xuanxuan-v099f",
+  "version": "xuanxuan-v099g",
   "build": "20261008-1710",
   "count": 104,
   "files": {
@@ -73,7 +73,7 @@
     "js/xiuxian/clock.js": "f7b8628dee8f",
     "js/xiuxian/companion-actor.js": "d72b2dc3ab97",
     "js/xiuxian/companion.js": "e9f6d0682160",
-    "js/xiuxian/craft.js": "2cae0e01e1cb",
+    "js/xiuxian/craft.js": "cf3acd2ebc9b",
     "js/xiuxian/duel.js": "846d1a6d7629",
     "js/xiuxian/family.js": "8a66b5458cf1",
     "js/xiuxian/illust.js": "ad4f11991b99",
@@ -95,17 +95,17 @@
     "js/xiuxian/story.js": "dc97f8f3d344",
     "js/xiuxian/tavern.js": "62a1d0410251",
     "js/xiuxian/tomb.js": "26b169d6c97c",
-    "js/xiuxian/ui.js": "fc2cef1a0e3a",
+    "js/xiuxian/ui.js": "f0a26f6189cb",
     "js/xiuxian/world.js": "cc159952defa",
     "manifest.webmanifest": "60162ce41f9e",
     "package.json": "36ada53c0fbe",
     "probe.html": "c2d3540d9ecd",
-    "sw.js": "3d0718df3dcd",
+    "sw.js": "fec0f2b54d9c",
     "tests/t80.js": "b33a89596da5",
     "tests/t81.js": "8e1dfb512a33",
     "tests/t82.js": "c1cbdc68200b",
     "tests/t83.js": "08a5781276d2",
     "tools/visual/README.md": "8fda6117a576",
-    "tools/visual/shots/manifest.json": "322615640851"
+    "tools/visual/shots/manifest.json": "8c9fb5cef57c"
   }
 }

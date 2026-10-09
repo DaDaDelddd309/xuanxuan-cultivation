@@ -122,6 +122,18 @@ console.log('\n[8] 合成入口已接进界面');
   ok('有合成样式', /\.xx-cf-row/.test(css));
 }
 
+
+// ---- XX-FIX-018 防回归:合成缺料文案不能出现内部 id ----
+{
+  const Bag2 = { count: () => 0 };
+  const r0 = CRAFT_RECIPES[0];
+  const nm = id => (STONES[id] || {}).name || id;
+  const chk = CRAFT.can(r0, Bag2, nm);
+  ok('缺料文案不含 "_" 尾巴的内部 id', !/\bstone_\d/.test(chk.miss), chk.miss);
+  ok('缺料文案用的是中文名', chk.miss.includes(nm(r0.from)), chk.miss);
+  const raw = CRAFT.can(r0, Bag2);
+  ok('不给解析器时退回 id,老调用方不炸', typeof raw.miss === 'string' && raw.miss.length > 0, raw.miss);
+}
 console.log(`\ntest-craft: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);
 if (failed.length) { console.log('失败项:'); failed.forEach(f => console.log('  - ' + f)); }
 process.exit(fail ? 1 : 0);
