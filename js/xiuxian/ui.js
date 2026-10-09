@@ -42,6 +42,24 @@ const PORTRAIT = {
   companion:'assets/portrait/companion.jpg', momocha:'assets/portrait/momocha.jpg',
   merchant:'assets/portrait/merchant.jpg',
   foe:'assets/portrait/villain-moying.jpg', hero:'assets/portrait/knight.jpg', aunt:'assets/portrait/companion.jpg',
+  // ── 六位反派专属立绘(XX-AUDIT-011)───────────────────────────
+  // 这 6 张**早就画好了**,却因为下面这行注释的判断而从未被引用:
+  //   「立绘:仓库里独立立绘只有 8 张……所以反派只能用 foe/momocha/
+  //     merchant/companion 这几张轮换。想让反派各有专属脸,得补美术
+  //     —— 代码解决不了。」
+  // **那个判断在写下的当时是对的,后来就不对了。**
+  // 实测:6 张 villain-*.jpg 共 681 KB,全在 sw.js 预缓存里,
+  // 即**每台设备都在下载**,而 asset-reach 检索确认它们零引用。
+  // 敌人数据(`foes` 数组第 6 位)早就带了专属 key:
+  //   moying / heifeng / shougu / youfang
+  // 也就是说:数据早就准备好了,只差一张映射表。
+  // 接上之后:反派不再轮换同一张脸 —— 这是**观感修复**,不只是带宽。
+  heifeng:'assets/portrait/villain-heifeng.jpg',
+  shougu: 'assets/portrait/villain-shougu.jpg',
+  youfang: 'assets/portrait/villain-youfang.jpg',
+  shemie: 'assets/portrait/villain-shexie.jpg',
+  nvxia:  'assets/portrait/villain-nvxia.jpg',
+  yaohou: 'assets/portrait/villain-yaohou.jpg',
 };
 const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['market','集市'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
@@ -626,15 +644,20 @@ export const Hall = {
          ['守谷妖修','妖修','momocha', false, 'shougu'],
          ['游方剑客','筑基初期','merchant', false, 'youfang']];
     const pick = foes[Math.floor(Math.random() * foes.length)];
-    // 立绘:仓库里独立立绘只有 8 张,其中 4 张是玩家可选的四个主角,
-    // 所以反派只能用 foe / momocha / merchant / companion 这几张轮换。
-    // 想让四个反派各有专属脸,得补美术 —— 代码解决不了。
+    // 立绘分派(XX-AUDIT-011):按敌人的**专属 key** 取,不再轮换。
+    // 旧逻辑只有 4 个键(foe/momocha/merchant/aunt),于是 4 个敌人挤在
+    // 3 张脸上轮换 —— 玩家反复遇到不同妖,看到的却是同一张脸。
+    // 旧注释说「想让反派各有专属脸,得补美术 —— 代码解决不了」:
+    // 美术**早就补好了**(6 张 villain-*.jpg),数据里也早就有专属 key,
+    // 缺的只是这张映射表。现在它接上了。
+    const artKey = pick[4];                       // moying/heifeng/shougu/youfang
     const FOE_ART = { foe: PORTRAIT.foe, momocha: PORTRAIT.momocha,
                       merchant: PORTRAIT.merchant, aunt: PORTRAIT.aunt };
     return {
       key: pick[4],                       // ← 台词/立绘分派用
       name: pick[0], title: pick[1],
-      img: FOE_ART[pick[2]] || PORTRAIT.foe,
+      // 优先专属立绘;没有专属图才退回旧的轮换表,最后兜底 foe
+      img: PORTRAIT[artKey] || FOE_ART[pick[2]] || PORTRAIT.foe,
       realmIdx: foeIdx,
       stronger: foeIdx > pIdx,
       isNemesis: !!pick[3],
