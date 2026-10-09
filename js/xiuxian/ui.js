@@ -5,7 +5,7 @@
 import { Cult } from './index.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
-import { WORLD, nodeById, neighbors, pathBetween } from './world.js';
+import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES } from './world.js';
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
@@ -472,13 +472,14 @@ export const Hall = {
   //   secret  → 进回合制,且必掉丹药(n.pill)
   //   boss    → 进回合制,ENEMY_POOL.boss 只有 devil;宿敌在这一档
   nodeTip(n, s) {
-    const t = {
-      village: n.shop ? '补给 · 集市' : '安宁 · 休整',
-      field:   '荒野 · 不打断',
-      elite:   '险地 · 回合制',
-      secret:  '秘境 · 回合制 · 丹药',
-      boss:    '妖巢 · 回合制 · 宿敌',
-    }[n.type] || '';
+    // 用 world.js 里现成的 NODE_TYPES(它本来是死代码,自带 desc/turnBased/dropsPill),
+    // 不再在这里手写第二份 —— 两份描述迟早会对不上(XX-DROP-003)。
+    const nt = NODE_TYPES[n.type] || {};
+    const bits = [n.shop ? '补给 · 集市' : (nt.safe ? '安宁 · 休整' : '不打断')];
+    if (nt.turnBased) bits.push('回合制');
+    if (nt.dropsPill) bits.push('丹药');
+    if (nt.boss) bits.push('宿敌');
+    const t = bits.join(' · ');
     const marks = [];
     if (STORY.activeList().some(a => a.next && a.next.node === n.id)) marks.push('有事');
     if (LEGEND_LIST.some(l => l.where === n.type && !STORY.met(l.key))) marks.push('异兽');

@@ -217,8 +217,13 @@ function toTurnBased(bossName) {
   setTimeout(() => {
     if (!Duel) { inTurnBased = false; engine.resume(); return; }
     try {
+      // D-01:血量继承。局内已经把 boss 砍掉的血要带进回合制,
+      // 否则玩家打了那么久等于白打(boss 永远满血进回合制)。
+      // hpRatio = 当前剩余 / 最大。
+      const bhp = boss.hpMax ? Math.max(0.05, Math.min(1, boss.hp / boss.hpMax)) : 1;
       Duel.start({
         node: { type: 'boss' },
+        hpRatio: bhp,          // ← Duel 内部会走 enterTurnBased 归一到 0~100
         hero: {
           name: '轩轩', img: PORTRAIT.hero,
           realmIdx: Math.max(0, REALMS.findIndex(r => r.id === Cult.get().realm)),

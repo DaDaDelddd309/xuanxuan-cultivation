@@ -1,5 +1,5 @@
 {
-  "version": "xuanxuan-v099o",
+  "version": "xuanxuan-v099p",
   "build": "20261008-1710",
   "count": 112,
   "files": {
@@ -44,7 +44,7 @@
     "js/game/spawner.js": "afa6c4998541",
     "js/game/upgrades.js": "5427c13a2d59",
     "js/game/weapons.js": "0d12d64539ce",
-    "js/main.js": "96b166784188",
+    "js/main.js": "a8f8676ba660",
     "js/pix/bosses.js": "a13565349b44",
     "js/pix/brush.js": "db12e23e3747",
     "js/pix/enemies-a.js": "5d1242224c09",
@@ -79,7 +79,7 @@
     "js/xiuxian/companion-actor.js": "d72b2dc3ab97",
     "js/xiuxian/companion.js": "e9f6d0682160",
     "js/xiuxian/craft.js": "cf3acd2ebc9b",
-    "js/xiuxian/duel.js": "b81b5830edeb",
+    "js/xiuxian/duel.js": "3dce30776ad8",
     "js/xiuxian/family.js": "8a66b5458cf1",
     "js/xiuxian/illust.js": "ad4f11991b99",
     "js/xiuxian/index.js": "348ed1c31704",
@@ -107,7 +107,7 @@
     "manifest.webmanifest": "60162ce41f9e",
     "package.json": "3bb380d9a06a",
     "probe.html": "c2d3540d9ecd",
-    "sw.js": "955591693a06",
+    "sw.js": "bc7de393d31e",
     "tests/t80.js": "b33a89596da5",
     "tests/t81.js": "8e1dfb512a33",
     "tests/t82.js": "c1cbdc68200b",

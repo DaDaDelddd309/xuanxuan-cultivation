@@ -49,8 +49,13 @@ export const Duel = {
     const key = cfg.node.type === 'boss' ? 'devil'
       : cfg.node.type === 'elite' ? 'yao' : 'wanderer';
     const e = makeEnemy(key);
-    // 血量继承:自动阶段打完的比例(秘境首次遭遇 = 满血 1.0)
-    const autoRatio = cfg.node.type === 'secret' ? 1.0 : 0.4;
+    // 血量继承(D-01):
+    //   cfg.hpRatio 是**局内实际打剩的比例**(main.js 从 boss 身上量出来的)。
+    //   没有传才回退到原来的猜测值(秘境首次遭遇 = 满血)。
+    //   之前写死 0.4,导致局内砍了半天进回合制 boss 又是满血 —— 白打。
+    const autoRatio = typeof cfg.hpRatio === 'number'
+      ? Math.max(0.05, Math.min(1, cfg.hpRatio))
+      : (cfg.node.type === 'secret' ? 1.0 : 0.4);
     e.hpMax = 100;
     e.hp = Math.max(1, Math.round(100 * autoRatio));
     e.title = cfg.foe.name;

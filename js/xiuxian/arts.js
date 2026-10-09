@@ -69,6 +69,9 @@ function key2(a, b) { return [a, b].sort().join('+'); }
 const RECIPE_MAP = new Map();
 for (const r of RECIPES) RECIPE_MAP.set(key2(r.a, r.b), r);
 
+// 超武表的对外别名(与 SUPER_ARTS 同源,保留以免打断外部引用)
+export const SUPER_ARTS_EXPORT = SUPER_ARTS;
+
 export function findRecipe(a, b) {
   if (!a || !b || a === b) return null;
   return RECIPE_MAP.get(key2(a, b)) || null;
@@ -114,4 +117,3 @@ export function superSet(arts) {
   for (const k in arts || {}) if (SUPER_ARTS[k] && arts[k] > 0) out[k] = 1;
   return out;
 }
-export const SUPER_ARTS_EXPORT = SUPER_ARTS;

@@ -87,4 +87,4 @@ export const CRAFT = {
   },
 };
 
-export const CRAFT_RECIPES = RECIPES;
+export const CRAFT_RECIPES = RECIPES;   // 配方表(测试与外部消费用这个名字)
