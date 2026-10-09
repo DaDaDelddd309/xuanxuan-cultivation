@@ -18,7 +18,7 @@ const CORE = [
   'js/core/engine.js', 'js/core/camera.js', 'js/core/input.js', 'js/core/save.js', 'js/core/audio.js',
   'js/game/player.js', 'js/game/map.js', 'js/game/particles.js', 'js/game/enemies.js',
   'js/game/weapons.js', 'js/game/director.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
-  'assets/portrait/villain-shexie.jpg', , 'assets/portrait/villain-nvxia.jpg', , 'assets/portrait/villain-yaohou.jpg', , 'assets/portrait/villain-youfang.jpg', , 'assets/portrait/villain-heifeng.jpg', , 'assets/portrait/villain-shougu.jpg',
+  'assets/portrait/villain-shexie.jpg', 'assets/portrait/villain-nvxia.jpg', 'assets/portrait/villain-yaohou.jpg', 'assets/portrait/villain-youfang.jpg', 'assets/portrait/villain-heifeng.jpg', 'assets/portrait/villain-shougu.jpg',
   'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/bestiary.js', 'js/ui/screens.js', 'js/ui/joystick.js',
 ];
 const XX = [
@@ -37,6 +37,16 @@ const XX = [
   'js/xiuxian/codex.js',
   'js/xiuxian/story.js', 'js/xiuxian/spine.js',
   'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js', 'js/xiuxian/market.js', 'js/xiuxian/tavern.js', 'js/xiuxian/artstar.js', 'js/xiuxian/craft.js',
+  // 2026-10-10 补齐:程序化生成 + 分层种子 + 局内配置链(V0.97~V0.98)。
+  // world.js 已经 import 了 worldgen/seed,vendor/rot-rng 是它们的底座,
+  // ui.js 又 import 了 runcfg —— 5 个文件全在静态 import 图上,一个都不能少。
+  // 同样的道理:原生 ESM 是全有或全无,离线拉不到任意一个就是整页白屏。
+  'js/xiuxian/seed.js', 'js/xiuxian/worldgen.js', 'js/xiuxian/runcfg.js',
+  'js/xiuxian/vendor/rot-rng.js',
+  // ★ 曾在此处列过 'js/xiuxian/save-keys.js'(注释称 V0.99 已建「存档键集中注册表」),
+  //   但该文件在磁盘和 git 全历史里都不存在 —— 清单指向一个不存在的资源,
+  //   离线时是一次注定 404 的请求,lint-precache 也会因此报错。
+  //   已移除条目。真正的注册表见 TICKETS.md XX-AUDIT-006:那批工单**未兑现**。
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',
