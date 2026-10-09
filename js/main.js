@@ -166,14 +166,30 @@ function endRun(victory) {
   // 灵气结算:砍杀的产出回流到修仙阁(道行 + 源石)
   const sp = SPIRIT.settle(g0(), s);
   if (sp && cult) sp.exp = cult.exp;
-  Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level,
-    gold: s.gold, spirit: sp }, {
-    victory,
+  // ⚠️ 结算层必须包 try/catch,否则抛异常会把玩家锁死在暂停的局里。
+  //   症状描述见本文件第 34 行的注释:「engine.pause() 也执行了,
+  //   但 Screens.showResult 从来没跑到,玩家卡在暂停的局里,什么都点不动」。
+  //   那个 bug 当年是靠修 g0 的作用域解决的,**但这条路径本身没关掉** ——
+  //   将来 showResult 内部任何一处抛异常,同样的软锁会原样复现。
+  //   对照:showLevelUp 有双层 try/catch + skipLevelUp() 自愈(见第 108 行),
+  //   注释写着「绝不把游戏锁死在暂停态」。**升级防了,结算没防。**
+  //   这里补上同等自愈:渲染不出来就退回主菜单,保证玩家永远能继续操作。
+  try {
+    Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level,
+      gold: s.gold, spirit: sp }, {
+      victory,
     endless: victory,
     onAgain: () => startRun(lastChar),
     onEndless: () => { setEndless(engine); inRun = true; HUD.show(true); Screens.hide(); engine.resume(); },
     onMenu: () => { engine.reset(); showMenu(); },
-  });
+    });
+  } catch (err) {
+    console.error('[结算] 结算层渲染失败,退回主菜单', err);
+    // 自愈:绝不能把玩家留在「已 pause 但没有任何可点界面」的状态。
+    try { engine.reset(); } catch (e2) { console.warn('[结算] reset 也失败', e2); }
+    HUD.show(false);
+    showMenu();
+  }
 }
 
 
