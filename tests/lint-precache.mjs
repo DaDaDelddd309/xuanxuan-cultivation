@@ -3,10 +3,14 @@ const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 预缓存清单重复 → 每次 addAll 白下载一遍
 // 清单里有文件不存在 → 整个 install 失败,SW 不注册
 import { readFileSync, existsSync, readdirSync } from 'fs';
+import { stripComments } from './lib-swlist.mjs';
 const ROOT=__ROOT__+'';
 const s=readFileSync(ROOT+'/sw.js','utf8');
-const blocks=[...s.matchAll(/const\s+\w+\s*=\s*\[([\s\S]*?)\]/g)].map(m=>m[1]);
-const per=blocks.map(b=>[...b.matchAll(/'([^']+)'/g)].map(m=>m[1].replace(/^\.\//,'')));
+// 去注释后再取条目 —— 见 lib-swlist.mjs 顶部的说明:
+// 直接扫全文会把**注释里提到的路径**当成清单项,报出假红。
+// 逐块解析(而不是整文件取并集),因为下面要分别检查「块内重复」与「跨块重复」。
+const per=[...s.matchAll(/const\s+\w+\s*=\s*\[([\s\S]*?)\]/g)]
+  .map(m=>[...stripComments(m[1]).matchAll(/'([^']+)'/g)].map(x=>x[1].replace(/^\.\//,'')));
 let bad=0;
 // 1) 块内重复
 per.forEach((items,i)=>{
