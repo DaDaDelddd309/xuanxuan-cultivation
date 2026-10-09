@@ -14,7 +14,8 @@
 //   2. **有上限** —— 最顶的石头(太虚)不能合成,那是纯粹的 boss 掉落物
 //   3. **不免费** —— 除了源石,还要催化剂(杂货/丹药),避免"石头无限刷"
 
-const K = 'xx_craft_v099';
+import { SAVE_KEYS } from './save-keys.js';
+const K = SAVE_KEYS.craft;
 
 // 配方表:from + catalyst → to
 // 比例刻意做成「2 换 1」而不是「4 换 1」:

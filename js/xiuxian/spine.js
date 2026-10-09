@@ -20,7 +20,8 @@
 //   · 现有模块通过 BACKBONE.observe() 挂进来,不反向依赖
 //   · 任何阶段判定都必须可解释(玩家能看出为什么推进)
 
-const K = 'xx_spine_v099';
+import { SAVE_KEYS } from './save-keys.js';
+const K = SAVE_KEYS.spine;
 
 // ————————————————— 阶段定义 —————————————————
 

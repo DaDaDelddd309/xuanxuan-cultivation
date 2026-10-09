@@ -37,6 +37,10 @@ const XX = [
   'js/xiuxian/codex.js',
   'js/xiuxian/story.js', 'js/xiuxian/spine.js',
   'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js', 'js/xiuxian/market.js', 'js/xiuxian/tavern.js', 'js/xiuxian/artstar.js', 'js/xiuxian/craft.js',
+  // V0.99 补齐:存档键集中注册表(XX-AUDIT-006 批 1)。
+  // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
+  // 离线拉不到就是整页白屏。
+  'js/xiuxian/save-keys.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',

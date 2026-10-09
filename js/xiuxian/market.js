@@ -14,11 +14,12 @@
 //   · 酒馆招揽  —— 雇一个同伴进下一局(接得上生成预算系统)
 //   · 功法      —— 见 arts.js,这里只做统一入口
 
+import { SAVE_KEYS } from './save-keys.js';
 import { Bag } from './items.js';   // 只取真的用得上的,别把一堆没用到的名字也 import 进来
 import { Cult } from './index.js';
 import { TAVERN } from './tavern.js';   // 同伴线索折成酒馆招募次数,单一真源
 
-const K = 'xx_market_v099';
+const K = SAVE_KEYS.market;
 
 // 金币挂在局内存档(save.js)上。这里通过全局拿,
 // 局内结束 → 局外,同一个存档对象。

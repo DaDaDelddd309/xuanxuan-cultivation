@@ -2,11 +2,12 @@
 // 一个游戏年 = 12 日(与 items.js 的 DAY 共用 CLOCK 这一个真源)。每过一年抽一件「世纪事」。
 // 这些是跨存档、跨周目的世界底色——江湖不会等你。
 
+import { SAVE_KEYS } from './save-keys.js';
 import { Cult } from './index.js';
 import { Bag, STONES } from './items.js';
 import { CLOCK } from './clock.js';   // V0.99 唯一时间真源(不再自己数 12 天)
 
-const K = 'xx_chronicle_v081';
+const K = SAVE_KEYS.chronicle;
 
 // 世纪事件池:年号 + 大事件(改变世界状态,不是数值堆料)
 export const ERAS = [

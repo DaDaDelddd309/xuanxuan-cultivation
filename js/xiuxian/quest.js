@@ -1,6 +1,7 @@
 // ===== 支线任务 · 追踪 / 推进 / 结案 =====
 // 每只传说妖一条支线,每条叙事线一个结案选择。
 // 设计:任务不打断,只在修仙阁里显示进度。完成后弹结算。
+import { SAVE_KEYS } from './save-keys.js';
 import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY } from './story.js';
 import { Cult } from './index.js';
@@ -8,7 +9,7 @@ import { Bag, STONES, SCROLLS, GOODS } from './items.js';
 import { BUILDINGS } from './bestiary.js';   // 触发建材注册(Bag 白名单)
 import { TOMB } from './tomb.js';            // 石将支线在墓里结案
 
-const K = 'xx_quest_v087';
+const K = SAVE_KEYS.quest;
 
 // 支线完成条件表:不同妖,不同的结法
 export const QUEST_COND = {
