@@ -66,13 +66,18 @@ t('围攻结算',typeof at.ok==='boolean');
 t('围攻次数+1',F.FAMILY.s.attacks>=1);
 
 console.log('\n=== 万年历 ===');
+// V0.99(XX-FIX-003)时间语义变更:CHRONICLE.day() 不再自己数一天,
+// 改为委托 CLOCK.action(),即「一次行动」。
+// clock.js 常量 ACTIONS_PER_DAY=12、DAYS_PER_YEAR=12,所以 144 次行动 = 1 年。
+// 下面按 ACTS_PER_DAY 换算,保留原断言意图(12 日 = 1 年),不写魔数。
+const ACTS_PER_DAY=12;
 CH.CHRONICLE.reset();CH.CHRONICLE.load();
 t('初始第1年',CH.CHRONICLE.s.year===1);
-for(let i=0;i<12;i++)CH.CHRONICLE.day();
+for(let i=0;i<12*ACTS_PER_DAY;i++)CH.CHRONICLE.day();   // 12 日
 t('12日=1年',CH.CHRONICLE.s.year===2);
 t('第2年有事件',CH.CHRONICLE.s.log.length===1);
 t('怪物变强',CH.CHRONICLE.mobMul()>1);
-for(let i=0;i<36;i++)CH.CHRONICLE.day();
+for(let i=0;i<36*ACTS_PER_DAY;i++)CH.CHRONICLE.day();   // 再 36 日 → 累计 48 日 = 第 5 年
 t('第5年源石涨价',CH.CHRONICLE.stoneMul()>1);
 t('第5年Boss变强',CH.CHRONICLE.bossMul()>1);
 t('有时间戳',CH.CHRONICLE.stamp().includes('年'));
