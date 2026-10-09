@@ -97,10 +97,10 @@ console.log('\n[7] 昼夜 / 年表 同源');
   for (let i = 0; i < 30; i++) { CLOCK.action(); CHRONICLE.sync(); }
   ok('年表年 = 时钟年', CHRONICLE.s.year === CLOCK.year(), `${CHRONICLE.s.year} vs ${CLOCK.year()}`);
   ok('年表日 = 时钟日', CHRONICLE.s.day === CLOCK.day(), `${CHRONICLE.s.day} vs ${CLOCK.day()}`);
-  // 走 CHRONICLE.day() 也要跟着 CLOCK
+  // 走 CHRONICLE.action() 也要跟着 CLOCK
   const d0 = CLOCK.day();
-  CHRONICLE.day();
-  ok('CHRONICLE.day() 推进了 CLOCK', CLOCK.day() !== d0 || true);
+  CHRONICLE.action();
+  ok('CHRONICLE.action() 推进了 CLOCK', CLOCK.day() !== d0 || true);
   ok('推完仍然同步', CHRONICLE.s.day === CLOCK.day(), `${CHRONICLE.s.day} vs ${CLOCK.day()}`);
 }
 

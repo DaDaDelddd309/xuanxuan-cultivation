@@ -95,9 +95,21 @@ export const CLOCK = {
 
   /** 0..1,今天过了多少 */
   dayProgress() {
-    const byReal = this.s.ms / DAY_MS;
-    const byAct = (this.s.actions % ACTIONS_PER_DAY) / ACTIONS_PER_DAY;
-    return Math.min(1, Math.max(0, (byReal + byAct) % 1));
+    // 只认 ms —— 它已经是**统一累加器**:
+    //   真实时间经 catchUp()/advanceReal() 进来,
+    //   行动也经 action() → advanceReal(ACTION_MS) 进来,
+    //   跨天由它触发 _nextDay()。
+    //
+    // 【V0.99 修掉的重复计数】
+    // 这里原来还额外加了一项 (s.actions % ACTIONS_PER_DAY) / ACTIONS_PER_DAY,
+    // 理由是文件头那句「真实时间是底座、行动是加速器,两者相加」。
+    // 但 action() 已经把 ACTION_MS 加进 ms 了,再把 actions 加一次,
+    // 等于**一次行动算两遍**。实测后果:
+    //   · 12 行动/日 实际 6 次行动就走完一天(act6 就回到 hour=0)
+    //   · 「暮」(17:00~19:00)永远采样不到 —— hour 只落在 …16, 20…,
+    //     中间那三小时被整个跳过,黄昏这个相位等于不存在
+    // ms 这一条路径已经同时承载了真实时间与行动,再相加就是重复计数。
+    return Math.min(1, Math.max(0, this.s.ms / DAY_MS));
   },
 
   /** 游戏内小时 0..23 */
