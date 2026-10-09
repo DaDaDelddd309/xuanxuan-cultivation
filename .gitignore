@@ -4,7 +4,7 @@ tests/_shots/
 *.log
 
 # 一次性改写脚本:用完即弃,不该进仓库
-# (它们把绝对路径写死了,留���反而误导下一个人)
+# (它们把绝对路径写死了,留着反而误导下一个人)
 apply_hints.py
 apply_palette.py
 fixpaths.mjs
