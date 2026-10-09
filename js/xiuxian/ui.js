@@ -572,8 +572,17 @@ export const Hall = {
     // bug(V0.92 修):checkUnlocks 以前全项目零调用,坐骑永远发不出去。
     // 现在每次抵达节点就查一次,拿到就给提示。
     // 坐骑解锁:排队等本节点的弹层演完再出,别和「初见妖」叠在一起
+    //
+    // bug(2026-10-10 修):**弹层从来没弹过**。
+    //   这里把坐骑塞进 `this._pendingMount` 队列,但全项目**没有任何地方调用
+    //   `_nextPending()`** —— 它只被自己递归(1923)和同样零调用的 `showMountGet` 调用。
+    //   也就是说:坐骑**发到了**(MOUNT.s.have 更新),玩家却**看不到任何提示**,
+    //   不知道刚拿到什么、去哪换。
+    //   为什么一直没人发现:`t92.mjs` 只断言 `MOUNT.checkUnlocks()` 的返回值,
+    //   **从头到尾没断言过 UI 有没有弹** —— 又是一次「可达性只测了一半」。
     const gotMounts = MOUNT.checkUnlocks();
     for (const m of gotMounts) this._pendingMount = (this._pendingMount||[]).concat(m);
+    if (gotMounts.length) this._nextPending();
 
     // 村庄:不战斗,给休整
     if (n.type === 'village') { this.enterVillage(n); return; }

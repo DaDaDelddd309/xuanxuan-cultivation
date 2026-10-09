@@ -41,6 +41,34 @@ console.log('\n=== 断链 1b:冷却不能吞掉「见到」本身 ===');
   t('STORY.see 在冷却判断之前', iSee>-1 && iCool>-1 && iSee<iCool);
 }
 
+console.log('\n=== 断链 1c:坐骑发到了,UI 真的有弹吗 ===');
+// 2026-10-10 新增。这条存在的理由:
+//   V0.92 修了「checkUnlocks 零调用」,但**只修了一半** ——
+//   arrive() 把坐骑塞进 `this._pendingMount` 队列,然后就没人管了。
+//   消费队列的 `_nextPending()` 全项目**没有任何外部调用者**
+//   (只被自己递归和同样零调用的 `showMountGet` 调用)。
+//   结果:坐骑发到了(MOUNT.s.have 更新),玩家却**看不到任何提示**。
+//
+//   为什么上面那些断言全绿:
+//   「抵达节点能发出坐骑」测的是 checkUnlocks 的**返回值**,
+//   「发出来之后坐骑在手」测的是 MOUNT.has(),
+//   **从头到尾没有一条断言过 UI 有没有弹** —— 可达性只测了一半。
+{
+  const ui=readFileSync('js/xiuxian/ui.js','utf8');
+  const fills = /this\._pendingMount\s*=\s*\(this\._pendingMount\|\|\[\]\)\.concat\(m\)/.test(ui);
+  t('arrive 把坐骑塞进待弹队列', fills);
+  // 关键:队列必须有人消费。只填充不消费 = 弹层永远不出现。
+  const drains = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(ui);
+  t('填充后立刻消费队列(否则弹层永远不弹)', drains,
+    '找不到 arrive 里对 _nextPending() 的调用 —— 坐骑到手但玩家看不到提示');
+  t('_nextPending 确实读这个队列', /const q = this\._pendingMount;/.test(ui));
+  // 反向:确认不是「靠别处间接调用」蒙混过关
+  const calls = (ui.match(/_nextPending\(\)/g) || []).length;
+  const fromArrive = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(ui);
+  t('_nextPending 的调用点存在外部入口', fromArrive,
+    `全文件出现 ${calls} 次`);
+}
+
 console.log('\n=== 断链 2:同类型节点的第二只妖能不能见到 ===');
 // 以前是 LEGEND_LIST.filter(w=>w.where===type)[0] —— 剑骨/灯尸永远见不到
 const byType={};
