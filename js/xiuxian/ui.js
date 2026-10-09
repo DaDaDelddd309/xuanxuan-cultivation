@@ -15,6 +15,7 @@ import { CAMP, CAMP_TIERS, offlineReport } from './camp.js';
 import { Merchant } from './merchant.js';
 import { ENCOUNTERS } from './lore.js';
 import { COMPANION } from './companion.js';
+import { MUTATION } from './mutation.js';   // V0.99 灵伴变异(XX-MUTATION-003/004)
 import { CLOCK } from './clock.js';
 import { MARKET, MARKET_GOODS } from './market.js';   // V0.99 局外集市
 import { TAVERN, MATES } from './tavern.js';   // V0.99 酒馆同伴
@@ -158,6 +159,48 @@ export const Hall = {
   act(a, v, v2, slot) {
     const s = Cult.get();
     switch (a) {
+      // ===== 灵伴变异(XX-MUTATION-003/004)=====
+      // 载体是**真的把源石丢进漩涡**:石头被扣掉、状态永久变。
+      case 'feedpick':
+        this._feedStone = v;
+        if (this._feedPart && !MUTATION.PART_KEYS.includes(this._feedPart)) this._feedPart = null;
+        this.render();
+        break;
+      case 'feedpart':
+        this._feedPart = v;
+        this.render();
+        break;
+      case 'feeddo': {
+        const stone = STONES[v];
+        if (!stone || !COMPANION.born()) return;
+        if (MUTATION.isDone(COMPANION.s.mut)) { toast('真身已定稿,再投也没有回响了。'); return; }
+        if (!Bag.take(v, 1)) { toast('源石不够'); return; }
+        const finalTurn = COMPANION.canChooseFinal();
+        const r = COMPANION.feed(stone.tier, v2);
+        this._feedStone = null;
+        if (finalTurn) {
+          // 「再投一颗下去」= 伸手:路线修正 + 跳过化形过场
+          const res = COMPANION.chooseFinal(true);
+          this._feedPart = null;
+          toast(`你把${stone.name}投了进去。她没有变 —— 是你变了。`);
+          console.log('[mutation] 伸手分支', res);
+        } else {
+          const fam = MUTATION.FAMILIES[r.family];
+          toast(r.stageUp
+            ? `她动了一下。${MUTATION.STAGES[r.to].name} —— ${fam.sigil}${fam.name}`
+            : `${fam.sigil}${fam.name}的气息浓了一分`);
+        }
+        this.render();
+        break;
+      }
+      case 'feedstop': {
+        if (!COMPANION.canChooseFinal()) return;
+        const res = COMPANION.chooseFinal(false);
+        this._feedPart = null;
+        toast(`你收回了手。${MUTATION.FAMILIES[res.family].sigil}${MUTATION.FAMILIES[res.family].name}·真身`);
+        this.render();
+        break;
+      }
       // ===== 集市(V0.99 · XX-META-001)=====
       case 'mk-buy': {
         const r = MARKET.buy(+v);
@@ -1832,6 +1875,9 @@ export const Hall = {
       <div class="xx-label">道 行</div><div class="xx-big">${Cult.get().dao}</div>
       <div class="xx-dim" style="margin-top:5px">可用道行兑换源石与传承书 —— 比商人便宜,但不打折。</div>
     </div>`;
+    h += this._vMutCard();
+    if (this._feedStone && !keys.includes(this._feedStone)) this._feedStone = null;
+    if (this._feedStone) h += this._vPartPicker();
     if (!keys.length) return h + this.empty('空 空 如 也',
       '源石用来生篝火,传承书用来补突破溢出。丹药得去秘境才有。',
       [['荒野 · 打散妖','掉落源石,品质随机'],
@@ -1852,6 +1898,8 @@ export const Hall = {
           </div>
           ${!isStone && GOODS[k] ? `<button class="xx-btn" style="width:auto;margin:0;padding:8px 15px;font-size:13px"
             data-act="usegood" data-v="${k}">使 用</button>` : ''}
+          ${isStone && this._sFeedable(k) ? `<button class="xx-btn" style="width:auto;margin:0;padding:8px 15px;font-size:13px"
+            data-act="feedpick" data-v="${k}">${this._feedBtnText()}</button>` : ''}
         </div></div>`;
     }
     // 兑换区
@@ -1865,6 +1913,75 @@ export const Hall = {
             data-act="exch" data-v="${sid}">${e.dao}</button>
         </div></div>`).join('');
     return h;
+  },
+
+  // ---------- 灵伴变异(XX-MUTATION-003/004)----------
+  // 载体是**真的把源石丢进漩涡**:石头会被扣掉、状态会永久变。
+  // 不是 45 秒计时器弹四个按钮 —— 那是 V0.98 删掉 kiss 路线的理由。
+  /** 当前能不能喂(未遇灵伴 / 已达真身上限 / 没选部位时不给「喂」) */
+  _sFeedable(stoneId) {
+    if (!COMPANION.born()) return false;
+    if (MUTATION.isDone(COMPANION.s.mut)) return false;   // 真身已定稿,再投没意义
+    if (!this._feedStone) return false;
+    if (this._feedStone !== stoneId) return false;
+    return !!this._feedPart;
+  },
+
+  /** 真身抉择待定时,按钮文案从「饲」变成「投进漩涡」 */
+  _feedBtnText() { return COMPANION.canChooseFinal() ? '投 进 漩 涡' : '饲'; },
+
+  _vMutCard() {
+    const m = COMPANION.s.mut;
+    const nm = esc(COMPANION.get());
+    if (!COMPANION.born()) {
+      return `<div class="xx-card"><div class="xx-label">灵 伴</div>
+        <div class="xx-dim" style="margin-top:5px">还没遇上她。走完开局仪式才会出现。</div></div>`;
+    }
+    const st = MUTATION.STAGES[m.stage];
+    const p = MUTATION.progress(m);
+    const left = COMPANION.toNextStage();
+    const fam = m.family ? MUTATION.FAMILIES[m.family] : null;
+    let line;
+    if (COMPANION.canChooseFinal()) {
+      line = `漩涡停了,${nm}跪坐在墨里,看不清脸。` +
+             `<br>再投一颗下去,你就再也收不回来了。`;
+    } else if (left > 0) {
+      line = `离「${MUTATION.STAGES[m.stage + 1].name}」还差 ${left} 次投喂。`;
+    } else {
+      line = '封印已经全开。';
+    }
+    return `<div class="xx-card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="xx-label" style="color:var(--xx-gold)">灵 伴 · ${nm}</div>
+        <div class="xx-dim">${fam ? fam.sigil + ' ' : ''}${st.name}</div>
+      </div>
+      <div class="xx-val" style="font-size:13px;margin-top:6px">${p.feeds} / ${p.total}</div>
+      <div class="xx-dim" style="margin-top:5px">${line}</div>
+      ${COMPANION.canChooseFinal() ? `<button class="xx-btn" style="width:auto;margin:9px 0 0;padding:7px 13px;font-size:12px"
+        data-act="feedstop">收 手</button>` : ''}
+    </div>`;
+  },
+
+  /** 部位选择器 —— 玩家唯一的手动权:决定这次先变哪儿 */
+  _vPartPicker() {
+    const m = COMPANION.s.mut;
+    const sid = this._feedStone;
+    const stone = STONES[sid];
+    if (!stone) return '';
+    return `<div class="xx-card">
+      <div class="xx-label">以 ${esc(stone.name)} 饲 ${esc(COMPANION.get())}</div>
+      <div class="xx-dim" style="margin-top:4px">选一处。喂得多、喂得专,这处才明显。</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+        ${MUTATION.PARTS.map(p => `<button class="xx-btn" style="width:auto;margin:0;padding:6px 11px;font-size:12px;
+          ${this._feedPart === p.key ? 'border-color:var(--xx-gold);color:var(--xx-gold)' : ''}"
+          data-act="feedpart" data-v="${p.key}">${p.name}<span class="xx-dim" style="margin-left:5px">${m.parts[p.key] || 0}</span></button>`).join('')}
+      </div>
+      <div class="xx-dim" style="margin-top:8px;font-size:11px">
+        ${(MUTATION.PARTS.find(p => p.key === this._feedPart) || {}).desc || '先选一处,再按下方的键。'}
+      </div>
+      ${this._feedPart ? `<button class="xx-btn main" style="margin-top:9px"
+        data-act="feeddo" data-v="${sid}" data-v2="${this._feedPart}">${this._feedBtnText()}</button>` : ''}
+    </div>`;
   },
 
   // ---------- 人物 ----------

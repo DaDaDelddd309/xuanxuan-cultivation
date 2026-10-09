@@ -294,5 +294,30 @@ function census(tier, n, seed) {
   ok('sw.js 已登记 mutation.js', readFileSync(ROOT + '/sw.js','utf8').includes("'js/xiuxian/mutation.js'"));
 }
 
+// ————————————————— 10. 接线契约(AGENTS.md §0A 三问) —————————————————
+// 只测 mutation.js 等于自嗨:玩家可能根本走不到。这里断言 UI 真的调得到。
+{
+  const ui = readFileSync(ROOT + '/js/xiuxian/ui.js', 'utf8');
+  ok('ui.js 引入 MUTATION', /import\s*\{[^}]*MUTATION[^}]*\}\s*from\s*'\.\/mutation\.js'/.test(ui));
+  ok('ui.js 有 选石 动作', ui.includes("case 'feedpick'"));
+  ok('ui.js 有 选部位 动作', ui.includes("case 'feedpart'"));
+  ok('ui.js 有 投喂 动作', ui.includes("case 'feeddo'"));
+  ok('ui.js 有 收手 动作', ui.includes("case 'feedstop'"));
+  ok('投喂真的调用 COMPANION.feed', /COMPANION\.feed\(stone\.tier,\s*v2\)/.test(ui));
+  ok('抉择真的调用 COMPANION.chooseFinal', /COMPANION\.chooseFinal\((true|false)\)/.test(ui));
+  ok('投喂真的扣源石(消耗型动作)', /Bag\.take\(v,\s*1\)/.test(ui));
+  ok('行囊渲染真的调了进度卡', /this\._vMutCard\(\)/.test(ui));
+
+  // 谁调用 COMPANION.feed —— 必须有非测试调用点
+  const comp = readFileSync(ROOT + '/js/xiuxian/companion.js', 'utf8');
+  ok('COMPANION.feed 定义存在', comp.includes('feed(tier, part, rng)'));
+
+  // 收口:定稿后不能再喂
+  const done = MUTATION.defaultMut(); done.feeds = 10; done.stage = 4;
+  MUTATION.resolveFinal(done, false);
+  ok('定稿后 isDone=true', MUTATION.isDone(done));
+  ok('未定稿时 isDone=false', !MUTATION.isDone(MUTATION.defaultMut()));
+}
+
 console.log(`\n灵伴变异体系: ${pass} 通过, ${fail} 失败`);
 if (fail) { console.log('失败项:\n  - ' + failed.join('\n  - ')); process.exit(1); }

@@ -243,6 +243,13 @@ export const MUTATION = {
   canChooseFinal(mut) { return mut.stage >= MAX_STAGE && !mut.chosen; },
 
   /**
+   * 体系是否已完结(真身抉择已定)。
+   * 定稿之后不能再投喂 —— 阶段在 MAX_STAGE 已经封顶,再投只会让部位点数
+   * 无限增长而什么都不变。UI 用它来关掉入口。
+   */
+  isDone(mut) { return !!mut.chosen; },
+
+  /**
    * 真身抉择结算。
    * @param {object} mut
    * @param {boolean} reach true=伸手(路线修正) / false=收回(维持随机结果)
