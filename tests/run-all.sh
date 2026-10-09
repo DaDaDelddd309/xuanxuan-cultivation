@@ -21,11 +21,10 @@ echo ""
 node tests/lint-imports.mjs || fail=$((fail+1))
 node tests/lint-precache.mjs || fail=$((fail+1))
 node tests/lint-version.mjs || fail=$((fail+1))
-node tests/lint-methods.mjs || fail=$((fail+1))
-node tests/lint-testversion.mjs || fail=$((fail+1))
-node tests/lint-nsaccess.mjs || fail=$((fail+1))
-node tests/lint-syntax.mjs || fail=$((fail+1))
-node tests/lint-css.mjs || fail=$((fail+1))
-node tests/lint-tokens.mjs || fail=$((fail+1))
+# 完整 lint 套件:19 项,单一真源在 package.json 的 npm run lint。
+# 原先这里手工列了 9 项,与 npm run lint 的 19 项不一致 —— 漏掉的 10 项
+# (含 lint-arts / lint-contrast / lint-scope / lint-portraits 等)从来没被 run-all 检查过,
+# 于是「run-all 全绿」并不代表基线完整(见 TICKETS XX-AUDIT-001)。
+npm run lint || fail=$((fail+1))
 if [ $fail -eq 0 ]; then echo "✅ 全部通过"; else echo "❌ 有失败"; fi
 exit $fail

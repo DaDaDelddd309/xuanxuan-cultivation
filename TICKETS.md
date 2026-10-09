@@ -2009,20 +2009,53 @@ knip 报的是「未使用的**导出**」（外部没人 import），不是「�
 
 ---
 
-## XX-AUDIT-001 完整 lint 套件只跑了 9/19 ⬜ 待办
+## XX-AUDIT-001 完整 lint 套件只跑了 9/19 ✅ 已完成
 
 **问题**：`AGENTS.md` 写「`run-all.sh` 全绿是基线」，但 `npm run lint` 里有 **19 个 lint**，
 `run-all.sh` 只调了 9 个，漏掉 10 个（含 `lint-arts` / `lint-contrast` / `lint-scope` /
-`lint-portraits` / `lint-updaters` / `lint-titles` / `lint-dists` 等）。
+`lint-portraits` / `lint-updaters` / `lint-titles` 等）。
 
 **影响面**：**基线本身是不完整的**。漏掉的 lint 里若有红的，历史上就是这样被漏过去的
 （V0.88 死代码事故、P0-1 版本号不一致都是「测试全绿」掩盖过去的）。
 
 **修法**：让 `run-all.sh` 直接调 `npm run lint`，单一真源，不再手工维护两份列表。
 
-**验收**：`bash tests/run-all.sh` 覆盖 19 个 lint；故意让其中之一失败时 run-all 必须红。
+**验收**：
+- `bash tests/run-all.sh` 覆盖 19 个 lint ✅
+- 故意弄红一个 lint 时 run-all 必须红 ✅（已实测：移除 `css/xiuxian.css` 的 `--xx-r` 定义 →
+  `lint-tokens` 退出 1 → `npm run lint` 退出 1 → `run-all.sh` 退出 1，全链路失败可传播）
+- 全量 19 项 lint 退出码 0 ✅
 
 ---
+
+## XX-AUDIT-008 两个 lint 的检查范围比名字暗示的窄 ⬜ 待办
+
+**审计中发现，验证 `XX-AUDIT-001` 时两次找错文件才定位到，暴露两个盲区**：
+
+### 1. 硬编码颜色**不扫 CSS 文件**
+
+`lint-tokens2.mjs:77` 的正则只匹配 `index.html` 里的**内联 style 属性**：
+```js
+const hard = [...html.matchAll(/style="[^"]*?(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))[^"]*"/g)];
+```
+往 `css/palette.css` 里追加 `.bad{color:#123456}` —— **任何 lint 都不报**。
+而 `lint-tokens.mjs` 只查 8 个令牌**是否被定义**（且只读 `css/xiuxian.css`），不查硬编码值。
+
+**即：V0.95「50 处硬编码收敛到 :root 令牌」之后，没有任何机制阻止新硬编码回流。**
+
+### 2. 该检查**设计上就不阻断**
+
+`lint-tokens2.mjs:81` 输出的是 `⚠️ …（不阻断，建议迁到令牌）`。
+按 TECHDEBT `XX-DEC-001`（lint 阻断力度 A报错阻断 / B仅警告）**目前未决**，
+这条正是该决策需要的具体输入。
+
+**修法**：
+1. 扩 `lint-tokens.mjs`：扫全部 `css/*.css`，把 `#hex` / `rgba()`（令牌定义块与纯黑遮罩除外）报出来
+2. 扩 `lint-tokens.mjs` 的令牌存在性检查：读全部 css 而非只读 `xiuxian.css`
+3. 阻断力度按 `XX-DEC-001` 的结论落地
+
+**验收**：往任一 `css/*.css` 追加硬编码颜色会让 lint 变红；
+移除任一 css 里的令牌定义也会红。
 
 ## XX-AUDIT-002 `lint-portraits` 是哑闸门（缺 Pillow） ⬜ 待办
 
