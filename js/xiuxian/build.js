@@ -7,6 +7,7 @@
 //  · 灵田按 10 分钟一熟,产量受 族人属性 + 区域怪物密度 影响
 //  · 晋升看 建筑数 + 人口 + 篝火数
 
+import { SAVE_KEYS } from './save-keys.js';
 import { BUILDINGS, TIERS, BESTIARY, RICE } from './bestiary.js';
 import { CAMP } from './camp.js';
 import { MOUNT } from './mount.js';
@@ -15,7 +16,7 @@ import { Cult } from './index.js';
 import { Bag, DAY } from './items.js';
 import { momochaIn } from './camp.js';
 
-const K = 'xx_build_v083';
+const K = SAVE_KEYS.build;
 export const FIELD_PERIOD = 10 * 60 * 1000;   // 灵田 10 分钟一熟(按需求)
 
 export const BUILD = {

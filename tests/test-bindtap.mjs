@@ -1,5 +1,10 @@
 // bindTap 防连点回归测试(XX-AUDIT-017)
 //
+// 2026-10-10 改名:原名 bindtap-regression.mjs —— 它既不匹配 run-all.sh 的
+// `test-*.mjs` / `e2e-*.mjs` glob,也不在任何 npm script 里,
+// 于是**文件存在却从来没被执行过**(孤儿检测只报警不红,因为它被 package.json
+// 的 grep 规则跳过了)。测试不在基线里跑,和不存在是一回事。
+//
 // 背景:外部审计发现 `js/ui/screens.js` 的防连点状态是**模块级单例**
 //   `let _lastTap`,被全站 10 处 bindTap 共享。
 //   后果:在任何按钮点了之后的 300ms 内点**另一个**按钮,会被静默吞掉。

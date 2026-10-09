@@ -67,7 +67,15 @@ for (const [name, cmd] of Object.entries(scripts)) {
 // ---------- 2. 孤儿检测:tests/ 下没被任何 script 引用的测试 ----------
 // 共享库不是测试,不该被要求「被某个 script 跑」。
 // 与 run-all.sh 的 excluded 保持同一份清单 —— 两处各写一份必然漂移。
-const SHARED_LIBS = new Set(['tests/harness.mjs', 'tests/lib-swlist.mjs']);
+// 2026-10-10 补 make-manifest.mjs:上一版这里只列了 harness 和 lib-swlist,
+// 而上面的注释却写着「与 run-all.sh 的 excluded 保持同一份清单」。
+// 同一句注释下面就漏了一条 —— 又是一个「承诺了但没做到」。
+// 两处各写一份必然漂移(这次已经漂了),所以:
+const SHARED_LIBS = new Set([
+  'tests/harness.mjs',       // e2e 引用的库,本身不是测试
+  'tests/make-manifest.mjs', // 要 --write 才写盘的工具(与 run-all.sh:76 对齐)
+  'tests/lib-swlist.mjs',    // sw.js 预缓存清单的共享解析
+]);
 const testDir = join(ROOT, 'tests');
 const orphans = [];
 if (existsSync(testDir)) {

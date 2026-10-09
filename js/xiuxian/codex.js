@@ -14,9 +14,10 @@
 //     么吓人"的那一下,提前把名字写出来就废了。
 //   · 背景故事写在水墨修仙的调子里:每只妖都是"人间留下的东西成了精",
 //     与 palette.css 里定的调性一致(极暗底 + 极少量暖亮)。
+import { SAVE_KEYS } from './save-keys.js';
 import { Bus } from '../core/engine.js?v=17';
 
-const K = 'xx_codex_v099';
+const K = SAVE_KEYS.codex;
 
 /** id → { name, lore, hook(未见时的引子), weak(要害), from(来历) } */
 export const CODEX = {

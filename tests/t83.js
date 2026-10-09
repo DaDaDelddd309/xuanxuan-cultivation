@@ -137,14 +137,30 @@ console.log('\n=== 固定NPC图鉴 ===');
 // 留下的是不依赖路线、始终在场的固定角色。
 const KS=Object.keys(BI.NPCS);
 t('4个NPC', KS.length===4, `实际 ${KS.length}: ${KS.join(',')}`);
+// 2026-10-10 合并补强(桌面侧同期也重写了这一节,取并集):
+//   只断言「长度 = 4」有个真实的缺口 —— 把 momocha 改名成 momotea、
+//   再同时增删一位 NPC,长度仍是 4,上面那条照样绿,但图鉴里再没人叫么么茶。
+//   所以再加一条「名单身份」断言,与长度断言构成双重钉。
+t('名单与预期一致', ['baby','merchant','momocha','moying'].every(k=>KS.includes(k)),
+  `实际: ${KS.join(',')}`);
+// 防 V0.98 重做被回潮:这两位原本是三条灵伴路线的人格化,路线已删,人也该撤下。
+t('已删的两形不再出现', !('ghostfire' in BI.NPCS) && !('revenant' in BI.NPCS),
+  `实际: ${KS.join(',')}`);
 t('宝宝=灵伴', BI.NPCS.baby.form==='灵 伴');
 t('宝宝威胁=无', BI.NPCS.baby.threat.startsWith('无'), `实际 ${BI.NPCS.baby.threat}`);
 t('商人=过路', BI.NPCS.merchant.form==='过 路');
 t('商人标注不打断', BI.NPCS.merchant.ability.includes('不打断'));
 t('么么茶=茶摊', BI.NPCS.momocha.form==='茶 摊');
-t('魔影=宿敌', BI.NPCS.moying.form==='宿 敌');
-t('宿敌威胁极高', BI.NPCS.moying.threat.includes('极高'), `实际 ${BI.NPCS.moying.threat}`);
+// 「墨影」不是「魔影」—— 数据里 NPC 的显示名是墨影(bestiary.js)。
+// 断言体查的是 moying 键(对),但名字写错会误导排障的人。
+t('墨影=宿敌', BI.NPCS.moying.form==='宿 敌');
+// 严格相等而非 includes:威胁文案若被改成「极高(但其实不怎样)」,
+// includes 仍会绿 —— 而这份文案是要给玩家看的,含混就是退化。
+t('宿敌威胁极高', BI.NPCS.moying.threat==='极高', `实际 ${BI.NPCS.moying.threat}`);
 t('都已无路线字段(重做后应为空)', KS.every(k=>!('route' in BI.NPCS[k])));
+// 可达性:图鉴里有人但立绘 404,是上面任何一条都抓不到的故障。
+t('都有立绘', Object.values(BI.NPCS).every(n=>n.img&&n.img.startsWith('assets/portrait/')),
+  `缺: ${Object.entries(BI.NPCS).filter(([,n])=>!n.img).map(([k])=>k).join(',')||'无'}`);
 t('都有人物背景', Object.values(BI.NPCS).every(n=>n.bio&&n.bio.length>20));
 t('都有能力说明', Object.values(BI.NPCS).every(n=>n.ability));
 

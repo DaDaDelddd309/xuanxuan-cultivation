@@ -120,11 +120,15 @@ python -m http.server 8894
 | [LOOP.md](LOOP.md) | 核心循环设计(砍杀 ⇄ 修仙阁 怎么串起来的) |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块分层、数据流、扩展指南 |
-| [CHANGELOG.md](CHANGELOG.md) | V0.76 → **v099p** 完整演进 |
+| [CHANGELOG.md](CHANGELOG.md) | V0.76 → **v099q** 完整演进 |
 | [ROADMAP.md](ROADMAP.md) | 待做清单 + 设计思路 |
 | [AGENTS.md](AGENTS.md) | **给接手的 AI agent:架构约束、踩坑清单、验证方法** |
 | [TICKETS.md](TICKETS.md) | 工单库 —— 改了什么、还欠什么 |
+| [TICKETS-GUIDE.md](TICKETS-GUIDE.md) | **工单怎么开工、怎么算做完**(状态流转、验收四类含反向验证、完工回写) |
 | [TECHDEBT.md](TECHDEBT.md) | 技术债清单(按 P0/P1/P2 分级,带验收标准) |
+| [WORKING-TOGETHER.md](WORKING-TOGETHER.md) | **手机侧 ⇄ 桌面侧并行协作规约**(先 fetch、工单认领、合并纪律) |
+| [VERSION-CONVENTION.md](VERSION-CONVENTION.md) | 两边并行时的版本号协同约定 |
+| [DECISIONS.md](DECISIONS.md) | **决策日志** —— 为什么这么取舍(附可复现证据) |
 | [docs/](docs/) | 分册:`ARCHITECTURE` / `ART-PORTRAIT-SPEC` / `COMPANION-PLAN` / `SPAWN-DESIGN` |
 
 > 2026-10-10:原文这里列的 `NOTES.md` **在仓库里已不存在**(git 历史 `1fefd61` 曾有过),

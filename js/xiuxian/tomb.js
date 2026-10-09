@@ -2,11 +2,12 @@
 // 墓不在图上。古战场遗迹(n8)往下挖,才到得了门口。
 // 设计:独立子地图,5 个房间,玩家自己走。不打断,不弹窗。
 // 契约:纯数据 + 纯状态。渲染在 ui.js。
+import { SAVE_KEYS } from './save-keys.js';
 import { STORY } from './story.js';
 import { Cult } from './index.js';
 import { Bag, SCROLLS } from './items.js';
 
-const K = 'xx_tomb_v089';
+const K = SAVE_KEYS.tomb;
 
 // 墓里的五个房间。edge 是走得过去的相邻关系。
 // 排布:墓道在最外,主墓在最里。石将守在主墓门外。

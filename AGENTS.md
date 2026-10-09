@@ -8,11 +8,21 @@
 ## 零、先做这件事
 
 ```bash
-bash tests/run-all.sh        # 逻辑测试 + 静态检查(9个lint),~590 项,秒级
-bash tests/run-browser.sh    # 浏览器全流程(Playwright),较慢
+python3 -m pip install Pillow   # 前置依赖,见下方说明,不装则 lint-portraits 直接跳过
+bash tests/run-all.sh           # 逻辑测试 + 静态检查(9个lint),~590 项,秒级
+bash tests/run-browser.sh       # 浏览器全流程(Playwright),较慢
+npm run lint                    # 完整 19 个 lint(run-all.sh 只跑其中 9 个)
 ```
 
 全绿是基线。**改任何东西之前先跑一次**,知道哪些是本来就红的。
+
+> **Pillow 是硬前置**:`tools/art/measure_style.py` 依赖它做立绘调色板采样,
+> 也就是 `XX-ART-001`「把风格从形容词变成数字」那道闸门。不装的话它会输出
+> `SKIP 缺依赖(退出码 2)` 而不是 `FAIL`,**不会再伪装成「立绘风格超标」**。
+> 这条曾经哑了很久 —— 缺依赖和真超标输出长得一模一样,没人发现闸门根本没在工作。
+>
+> **`run-all.sh` 只跑 9 个 lint,`npm run lint` 有 19 个。**
+> 只跑前者会让你以为基线是全的,实际有 10 个没检查(见 TICKETS `XX-AUDIT-001`)。
 
 `run-all.sh` 里除了 9 个 `.mjs` 逻辑测试(t80-t92),还跑 9 个静态检查:
 

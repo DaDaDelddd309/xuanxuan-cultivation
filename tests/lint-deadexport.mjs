@@ -58,6 +58,27 @@ function walk(dir, out = []) {
 }
 const files = SCAN_ROOTS.flatMap(r => walk(r));
 
+// C1 的后半条:**自检断言 tests/ 真的被扫到了**
+// 工单(TICKETS XX-AUDIT-007 的 C1)写的是「roots 硬编码 js/ tests/ tools/,
+// 并加自检断言 tests/ 文件数 > 0」。前一句做了,后一句两版都漏了。
+// 为什么这条自检值钱:当初「39→30」那次事故的根因就是只扫了 js/、漏掉 tests/。
+//
+// ⚠️ 这里踩过一次坑,值得写下来:
+//   第一版自检写成「SCAN_ROOTS 里的每个根都得扫到文件」——
+//   于是有人把 'tests' 从 SCAN_ROOTS 里删掉时,自检**照样通过**
+//   (配置里没列 tests,自然不会因 tests 为空而红)。
+//   断言跟着配置走,它就只会验证配置自己的自洽,永远抓不到「少扫了根」。
+//   正解是**固定期望**:不管 SCAN_ROOTS 怎么写,tests/ 下必须有源文件。
+const MUST_HAVE_FILES = ['js', 'tests', 'tools'];
+for (const root of MUST_HAVE_FILES) {
+  const n = files.filter(f => f.startsWith(root + '/')).length;
+  if (!n) {
+    console.error(`❌ C1 自检失败:'${root}/' 一个源文件都没扫到(实际扫到 ${files.length} 个)。`);
+    console.error('   少扫一个根不会让报告变红,只会让它悄悄漏报 —— 这条自检就是防这个的。');
+    process.exit(1);
+  }
+}
+
 // ---------- 收集导出 ----------
 /** @type {{name:string, file:string, line:string, kind:string}[]} */
 const exportsList = [];

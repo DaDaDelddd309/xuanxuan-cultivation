@@ -3,6 +3,7 @@
 // 关键:不侵入 engine / weapons / enemies 原有循环,只通过 Bus 事件挂接。
 // 原有割草玩法完全不受影响;新系统是「局外」层,单局结束后才结算。
 
+import { SAVE_KEYS } from './save-keys.js';
 import { Save } from '../core/save.js';
 import { Bus } from '../core/engine.js';
 import { defaultCultivation, addExp, canBreakthrough, doBreakthrough, combatPower, realmTitle } from './realms.js';
@@ -10,7 +11,7 @@ import { defaultArts, enlighten, canEnlighten } from './arts.js';
 import { Nemesis, DEFEAT, Titles, BGM } from './relations.js';
 import { unlock as unlockAudio, play as playBGM } from './assets.js';
 
-const CKEY = 'xx_cultivation_v077';
+const CKEY = SAVE_KEYS.cultivation;
 
 function defaultState() {
   const c = defaultCultivation();

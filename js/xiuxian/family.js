@@ -1,11 +1,12 @@
 // ===== 修仙家族 · 繁衍 / 关系 / 领地 / 矿脉 =====
 // 营地是家族的地基,宗门是家族的天花板。中间这段就是繁衍与经营。
+import { SAVE_KEYS } from './save-keys.js';
 import { Bag, STONES, SCROLL_LIST, GOODS } from './items.js';
 import { PAL } from '../core/palette.js';
 import { CAMP } from './camp.js';
 import { Cult } from './index.js';
 
-const K = 'xx_family_v081';
+const K = SAVE_KEYS.family;
 
 // —— 族人模板 ——
 const SURNAME = ['轩','白','陆','沈','谢','萧','慕容','独孤','南宫','云','墨','苏','楚','姜','燕'];

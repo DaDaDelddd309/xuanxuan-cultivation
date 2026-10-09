@@ -8,11 +8,12 @@
 //  · 坐骑不打断游戏。骑上就生效,不需要点任何东西。
 //  · 每条坐骑必须有差异化效果,不能只是「数字更大」。
 //  · 宠物要真的上场打,不是纯装饰数值。
+import { SAVE_KEYS } from './save-keys.js';
 import { STORY } from './story.js';
 import { TOMB } from './tomb.js';
 import { QUEST } from './quest.js';
 
-const K = 'xx_mount_v091';
+const K = SAVE_KEYS.mount;
 
 // 坐骑图鉴。kind: ride(骑) / pet(带)
 //   ward   篝火护栏半径 +px

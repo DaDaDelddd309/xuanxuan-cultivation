@@ -84,8 +84,10 @@ with sync_playwright() as p:
       const {Cult}=await import('/js/xiuxian/index.js');
       Cult.get().arts={jianqi:5,wulei:3}; Cult.commit();
       Duel.start({node:{id:'n5',type:'elite',name:'黑风岭'},hero:{img:'assets/portrait/hero.jpg',realmIdx:0},
-        // 原 foe.jpg 已被 villain-moying 取代(提交 93984d2),它作为测试夹具
-        // 又被单独引用了一次,导致那张图移出部署范围后这张图一直 404。跟着改。
+// 原 foe.jpg 已移出部署范围(93984d2 把它从部署路径清掉,020d8d8 清死资源)。
+        // 它作为夹具被这里单独引用了一次,不跟着改就是一张 404 的图。
+        // 换用 villain-heifeng.jpg:与夹具语义对齐(节点「黑风岭」/ 对手「黑风散修」),
+        // 且它已在 sw.js 预缓存里,离线也不会 404。
         foe:{name:'黑风散修',title:'炼气中期',img:'assets/portrait/villain-heifeng.jpg',realmIdx:0,stronger:false,isNemesis:false},
         onWin:()=>{},onLose:()=>{}});
       await new Promise(r=>setTimeout(r,600));

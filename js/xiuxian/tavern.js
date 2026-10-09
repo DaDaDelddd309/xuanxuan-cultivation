@@ -13,7 +13,8 @@
 // 线索不是直接带人,是提高遇到好同伴的概率 —— 酒馆是**赌运气**的,
 // 符合肉鸽的调性(不是攒够就必得)。
 
-const K = 'xx_tavern_v099';
+import { SAVE_KEYS } from './save-keys.js';
+const K = SAVE_KEYS.tavern;
 
 // 同伴表:数据驱动,想加人就加一行
 //   mods 里的键直接对应局内可用的东西:

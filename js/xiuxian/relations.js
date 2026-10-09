@@ -5,9 +5,10 @@
 //  · 战败不清档:废修为 / 赎金 / 分期 / 反抗,四条路
 //  · 称号由行为触发,带隐藏条件
 
+import { SAVE_KEYS } from './save-keys.js';
 import { Bus } from '../core/engine.js';
 
-const NK = 'xx_nemesis_v077';
+const NK = SAVE_KEYS.nemesis;
 
 // ---------- 宿敌 ----------
 export const Nemesis = {

@@ -44,8 +44,25 @@ def measure(path: pathlib.Path):
     )
 
 
+def _need_pillow():
+    """Pillow 是硬依赖。之前它包在 measure() 内部,异常被吞掉后一律输出 FAIL,
+    导致「环境缺依赖」和「立绘风格超标」长得一模一样 —— 闸门哑了很久没人发现。
+    现在在入口显式检测,缺依赖单独报、退出码 2,与质量不达标(退出码 1)区分。"""
+    try:
+        import PIL  # noqa: F401
+        return None
+    except ImportError as e:
+        return str(e)
+
+
 def main() -> int:
     gate = "--gate" in sys.argv
+    miss = _need_pillow()
+    if miss:
+        print("SKIP  缺依赖 Pillow,采样器无法运行 —— 这不是风格超标")
+        print(f"      原因: {miss}")
+        print("      修复: python3 -m pip install Pillow")
+        return 2
     files = sorted([f for f in DIR.iterdir()
                     if f.suffix.lower() in (".jpg", ".png", ".webp")])
     if not files:
@@ -73,6 +90,8 @@ def main() -> int:
         if not okl:
             bad.append((f.name, f"均亮{m['meanL']:.0f} 饱和{m['satPct']:.2f}%"))
     if bad:
+        for name, why in bad:
+            print(f"  超标 {name}: {why}")
         print("FAIL")
         return 1
     print(f"全部 {len(files)} 张落在实测区间内")

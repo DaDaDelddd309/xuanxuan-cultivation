@@ -11,7 +11,8 @@
 //   2. **消耗递增** —— 星越高越贵,不会出现"一星性价比碾压后续"
 //   3. **有上限** —— max 由 ARTS 自带,到顶了不能无限升
 
-const K = 'xx_artstar_v099';
+import { SAVE_KEYS } from './save-keys.js';
+const K = SAVE_KEYS.artstar;
 
 // 每星的金币消耗倍率(相对神通基础价)
 const STAR_COST = [0, 1.0, 1.6, 2.6, 4.2, 6.8];   // 升到第 n 星要花 基础价 × STAR_COST[n]

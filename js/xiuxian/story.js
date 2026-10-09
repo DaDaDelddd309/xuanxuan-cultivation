@@ -4,7 +4,8 @@
 // 一个事件发生 → 产生余波 → 余波改变地图/流言/可刷的怪 → 再产生下一环。
 // 每条线都有 3~4 环,玩家介入能改结局。
 
-const K = 'xx_story_v086';
+import { SAVE_KEYS } from './save-keys.js';
+const K = SAVE_KEYS.story;
 
 // —— 剧本:每条线一个「剧情」,多环推进 ——
 // 每条线的结案奖励(path 1 / path 2)
