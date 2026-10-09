@@ -46,6 +46,9 @@ const XX = [
   'js/xiuxian/outcomes.js',
   // V0.99 补齐:局内广播条(XX-COMPANION-003)。bond.js 静态 import 它。
   'js/xiuxian/companion-broadcast.js',
+  // V0.99 补齐:灵伴变异体系数据层(XX-MUTATION-002)。companion.js 静态 import 它,
+  // 离线拉不到 → companion.js 整条 import 图失败 → 整页白屏。
+  'js/xiuxian/mutation.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',
