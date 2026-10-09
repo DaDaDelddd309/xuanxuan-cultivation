@@ -1,5 +1,6 @@
 const R=await import('../js/xiuxian/items.js');
 const C=await import('../js/xiuxian/camp.js');
+const {CLOCK}=await import('../js/xiuxian/clock.js');
 let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v};
 
@@ -74,11 +75,16 @@ t('小溢出→低阶书', R.scrollForExp(300).id==='scroll_1');
 
 console.log('\n=== 昼夜 ===');
 t('12 行动/日', R.DAY.ACTIONS_PER_DAY===12);
-R.DAY.reset(); R.DAY.s.actions=3;
+// V0.99(XX-FIX-003):phase()/isNight()/bonus() 全部委托 CLOCK,
+// DAY.s.actions 已降级为只读镜像,写它不再影响相位 —— 原来这三行写的是失效字段,
+// 于是「夜里」成了假通过(CLOCK 一直停在 hour=0,注入的 10 从未生效)。
+// 现在直接写 CLOCK.s.actions。
+// ⚠️ 不能用 DAY.tick() 代替:tick 会同时推进 ms,tick×3 实测 hour=12→'day',不等于 dawn。
+R.DAY.reset(); CLOCK.s.actions=3;
 t('3行动=清晨(非夜)', R.DAY.phase().key==='dawn'&&!R.DAY.isNight());
-R.DAY.s.actions=6;
+CLOCK.s.actions=6;
 t('正午=昼', R.DAY.phase().key==='day'&&!R.DAY.isNight());
-R.DAY.s.actions=10;
+CLOCK.s.actions=10;
 t('夜里', R.DAY.isNight());
 t('夜间收益更高', R.DAY.bonus()>1);
 
