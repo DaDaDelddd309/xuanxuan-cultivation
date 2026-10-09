@@ -1,0 +1,1555 @@
+[
+  {
+    "id": "F-SPIRIT-001",
+    "name": "灵气(局内)",
+    "layer": "局内",
+    "modules": [
+      "js/xiuxian/spirit.js"
+    ],
+    "ui": "HUD 顶部「灵」",
+    "note": "砍杀唯一的产出通道，局末折道行+源石",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/spirit.js:install",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/spirit.js:tick",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/spirit.js:settle",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/spirit.js": [
+          "js/main.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/spirit.js": [
+          "js/core/engine.js:73",
+          "js/main.js:32",
+          "js/main.js:150"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/spirit.js": [
+          "SPIRIT"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/spirit.js": 5
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-CAMP-001",
+    "name": "篝火",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/camp.js"
+    ],
+    "ui": "页签:营地 (light/feed)",
+    "note": "源石是燃料，会被 Bag.take 消耗",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/spirit.js:settle",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/camp.js:light",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/camp.js:feed",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/main.js:CAMP.burning",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/camp.js": [
+          "js/main.js",
+          "js/xiuxian/bond.js",
+          "js/xiuxian/build.js",
+          "js/xiuxian/companion.js",
+          "js/xiuxian/family.js",
+          "js/xiuxian/spirit.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/camp.js": [
+          "js/xiuxian/ui.js:14",
+          "js/game/pickups.js:30",
+          "js/main.js:316",
+          "js/main.js:374"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/camp.js": [
+          "setMomocha",
+          "momochaIn",
+          "CAMP_TIERS",
+          "CAMP",
+          "offlineReport"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/camp.js": 38
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-BAG-001",
+    "name": "行囊",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/items.js"
+    ],
+    "ui": "页签:行囊",
+    "note": "所有物品的存取中枢",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/items.js:add",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/items.js:take",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/items.js": [
+          "js/main.js",
+          "js/xiuxian/ambience.js",
+          "js/xiuxian/bestiary.js",
+          "js/xiuxian/build.js",
+          "js/xiuxian/camp.js",
+          "js/xiuxian/chronicle.js",
+          "js/xiuxian/companion.js",
+          "js/xiuxian/family.js",
+          "js/xiuxian/market.js",
+          "js/xiuxian/merchant.js",
+          "js/xiuxian/quest.js",
+          "js/xiuxian/spirit.js",
+          "js/xiuxian/tomb.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/items.js": [
+          "js/xiuxian/camp.js:97",
+          "js/xiuxian/camp.js:8",
+          "js/xiuxian/camp.js:95",
+          "js/xiuxian/ui.js:1057",
+          "js/xiuxian/ui.js:13"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/items.js": [
+          "STONES",
+          "STONE_LIST",
+          "SCROLLS",
+          "SCROLL_LIST",
+          "GOODS",
+          "GOODS_LIST",
+          "OVERFLOW_RATE",
+          "scrollForExp",
+          "REGISTRY",
+          "registerExtras",
+          "registerBuildings",
+          "Bag",
+          "DAY"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/items.js": 128
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-REALM-001",
+    "name": "境界/修为",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/realms.js"
+    ],
+    "ui": "页签:境界 (meditate/break)",
+    "note": "XX-FIX-017 修过：道行曾被门在跨年分支里",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/ui.js#act:meditate",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/realms.js:addExp",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/realms.js:canBreakthrough",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/realms.js:doBreakthrough",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/realms.js": [
+          "js/xiuxian/duel.js",
+          "js/xiuxian/index.js",
+          "js/xiuxian/items.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/realms.js": [
+          "js/xiuxian/duel.js:46",
+          "js/xiuxian/duel.js:58",
+          "js/xiuxian/duel.js:58",
+          "js/xiuxian/items.js:98",
+          "js/xiuxian/ui.js:232"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/realms.js": [
+          "REALMS",
+          "PILLS",
+          "realmIndex",
+          "getRealm",
+          "maxLayerOf",
+          "isFinalRealm",
+          "layerCost",
+          "nextRealm",
+          "canBreakthrough",
+          "doBreakthrough",
+          "addExp",
+          "combatPower",
+          "realmTitle",
+          "defaultCultivation"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/realms.js": 28
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-PILL-001",
+    "name": "丹药",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/realms.js"
+    ],
+    "ui": "页签:境界 (buy)",
+    "note": "突破高境界的硬门槛，靠集市买",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/realms.js:PILLS",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/ui.js#act:mk-buy",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/realms.js": [
+          "js/xiuxian/duel.js",
+          "js/xiuxian/index.js",
+          "js/xiuxian/items.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/realms.js": [
+          "js/xiuxian/duel.js:46",
+          "js/xiuxian/duel.js:58",
+          "js/xiuxian/duel.js:58",
+          "js/xiuxian/items.js:98",
+          "js/xiuxian/ui.js:232"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/realms.js": [
+          "REALMS",
+          "PILLS",
+          "realmIndex",
+          "getRealm",
+          "maxLayerOf",
+          "isFinalRealm",
+          "layerCost",
+          "nextRealm",
+          "canBreakthrough",
+          "doBreakthrough",
+          "addExp",
+          "combatPower",
+          "realmTitle",
+          "defaultCultivation"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/realms.js": 28
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-MARKET-001",
+    "name": "集市",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/market.js"
+    ],
+    "ui": "页签:集市 (mk-buy/mk-refresh)",
+    "note": "货币是金币，只来自局内结算",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/market.js:buy",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/market.js:sellStone",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/market.js": [
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/market.js": [
+          "js/xiuxian/ui.js:145",
+          "js/xiuxian/ui.js:151",
+          "js/xiuxian/ui.js:157",
+          "js/xiuxian/ui.js:1661",
+          "js/xiuxian/ui.js:1680"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/market.js": [
+          "MARKET",
+          "MARKET_GOODS"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/market.js": 10
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-CRAFT-001",
+    "name": "合成",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/craft.js"
+    ],
+    "ui": "页签:集市 (craft-do)",
+    "note": "XX-FIX-018 修过：缺料文案曾甩内部 id",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/craft.js:can",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/craft.js:do",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/craft.js": [
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/craft.js": [
+          "js/xiuxian/ui.js:163",
+          "js/xiuxian/ui.js:1709",
+          "js/xiuxian/ui.js:1712"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/craft.js": [
+          "CRAFT",
+          "CRAFT_RECIPES"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/craft.js": 3
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-ART-001",
+    "name": "功法/神通",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/arts.js"
+    ],
+    "ui": "页签:神通 (enlighten)",
+    "note": "✅ XX-ARCH-006 已修(owner 选 A):局内升级池参悟神通 + 局末 syncArt 回写。实测 局内 guanglei:3 → 局末修仙阁 {jianqi:1, guanglei:3}。闸门 tests/lint-arts.mjs",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/game/upgrades.js:rollChoices",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/game/upgrades.js:applyChoice",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/main.js:Cult.syncArt",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/arts.js:enlighten",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/arts.js": [
+          "js/xiuxian/battle.js",
+          "js/xiuxian/duel.js",
+          "js/xiuxian/index.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/arts.js": [
+          "js/xiuxian/ui.js:170",
+          "js/xiuxian/ui.js:170",
+          "js/xiuxian/ui.js:578",
+          "js/xiuxian/ui.js:7",
+          "js/xiuxian/artstar.js:5"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/arts.js": [
+          "ARTS",
+          "SUPER_ARTS",
+          "findRecipe",
+          "canEnlighten",
+          "enlighten",
+          "defaultArts",
+          "artName",
+          "artFull",
+          "isSuper",
+          "superSet",
+          "SUPER_ARTS_EXPORT"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/arts.js": 19
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-STAR-001",
+    "name": "神通升星",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/artstar.js"
+    ],
+    "ui": "页签:神通 (art-star)",
+    "note": "升星材料是传承书,来源为境界页溢出转化 —— 这条已确认可达",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/artstar.js:star",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/artstar.js:up",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/artstar.js": [
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/artstar.js": [
+          "js/xiuxian/ui.js:171",
+          "js/xiuxian/ui.js:1029",
+          "js/xiuxian/ui.js:1030"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/artstar.js": [
+          "ARTSTAR",
+          "STAR_NOTES_ALL"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/artstar.js": 4
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-TAVERN-001",
+    "name": "酒馆招揽",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/tavern.js"
+    ],
+    "ui": "页签:集市 (mk-recruit)",
+    "note": "同伴改规则，不只是加数值",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/tavern.js:recruit",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/main.js:TAVERN.mods",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/tavern.js": [
+          "js/main.js",
+          "js/xiuxian/market.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/tavern.js": [
+          "js/xiuxian/ui.js:1744",
+          "js/game/director.js:215",
+          "js/main.js:182",
+          "js/main.js:429"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/tavern.js": [
+          "MATES",
+          "TAVERN"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/tavern.js": 13
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-BUILD-001",
+    "name": "领地",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/build.js"
+    ],
+    "ui": "页签:领地 (plant/harvest/mine)",
+    "note": "灵米种植→收获→出售/食用",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/build.js:replant",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/build.js:harvest",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/build.js": [
+          "js/main.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/build.js": [
+          "js/main.js:331",
+          "js/main.js:336",
+          "js/main.js:516"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/build.js": [
+          "FIELD_PERIOD",
+          "BUILD"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/build.js": 42
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-FAM-001",
+    "name": "家族",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/family.js"
+    ],
+    "ui": "页签:家族 (found/call/birth)",
+    "note": "族人产出、结亲、传承",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/family.js:found",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/family.js:addMember",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/family.js": [
+          "js/main.js",
+          "js/xiuxian/build.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/family.js": [
+          "js/main.js:329",
+          "js/main.js:335",
+          "js/main.js:535"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/family.js": [
+          "FAMILY"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/family.js": 19
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-MOUNT-001",
+    "name": "坐骑",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/mount.js"
+    ],
+    "ui": "页签:大地图",
+    "note": "局内护栏加成",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/mount.js:eff",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/main.js:MOUNT.eff",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/mount.js": [
+          "js/main.js",
+          "js/xiuxian/build.js",
+          "js/xiuxian/companion.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/mount.js": [
+          "js/xiuxian/ui.js:352",
+          "js/xiuxian/ui.js:1962",
+          "js/xiuxian/ui.js:1963",
+          "js/xiuxian/ui.js:2009",
+          "js/main.js:397"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/mount.js": [
+          "MOUNTS",
+          "MOUNT_LIST",
+          "MOUNT",
+          "MOUNT_BLUEPRINT"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/mount.js": 17
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-COMP-001",
+    "name": "灵伴",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/companion.js"
+    ],
+    "ui": "局内跟随 + 气泡台词",
+    "note": "台词受每局 ≤2 句预算约束",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/companion.js:beginRun",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/companion.js:say",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/main.js:endRun",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/companion.js": [
+          "js/main.js",
+          "js/xiuxian/bond.js",
+          "js/xiuxian/companion-actor.js",
+          "js/xiuxian/ritual.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/companion.js": [
+          "js/main.js:124",
+          "js/main.js:126",
+          "js/main.js:129"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/companion.js": [
+          "COMPANION",
+          "HOSTS"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/companion.js": 32
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-QUEST-001",
+    "name": "支线",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/quest.js"
+    ],
+    "ui": "页签:支线 (qtake/qdone)",
+    "note": "✅ XX-ARCH-003 实测通过:travel→STORY.see→met→autoTake 全通。注意验前必须先推进存档",
+    "ticket": "XX-ARCH-003",
+    "chain": [
+      {
+        "ref": "js/xiuxian/ui.js#act:qtake",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/ui.js#act:qdone",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/quest.js": [
+          "js/main.js",
+          "js/xiuxian/mount.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/quest.js": [
+          "js/main.js:333",
+          "js/xiuxian/tomb.js:180",
+          "js/xiuxian/ui.js:331"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/quest.js": [
+          "QUEST_COND",
+          "QUEST"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/quest.js": 17
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-SPINE-001",
+    "name": "主线脉络",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/spine.js"
+    ],
+    "ui": "页签:支线 (同步)",
+    "note": "支线实测时同步推进过 arc;主线的 phase 单独验过没有",
+    "ticket": "XX-ARCH-004",
+    "chain": [
+      {
+        "ref": "js/xiuxian/spine.js:observeLegend",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/spine.js:observeQuest",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/spine.js:phase",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/spine.js": [
+          "js/main.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/spine.js": [
+          "js/xiuxian/ambience.js:114",
+          "js/xiuxian/ambience.js:125",
+          "js/xiuxian/ui.js:360",
+          "js/xiuxian/ui.js:524",
+          "js/xiuxian/ui.js:1258"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/spine.js": [
+          "PHASES",
+          "CAUSAL_LINKS",
+          "SPINE",
+          "installSpine"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/spine.js": 6
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-STORY-001",
+    "name": "秘境叙事",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/story.js"
+    ],
+    "ui": "页签:支线 (sfinal)",
+    "note": "看完后的抉择",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/story.js:readyList",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/ui.js#act:sfinal",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/story.js": [
+          "js/main.js",
+          "js/xiuxian/merchant.js",
+          "js/xiuxian/mount.js",
+          "js/xiuxian/quest.js",
+          "js/xiuxian/tomb.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/story.js": [
+          "js/xiuxian/ui.js:1341",
+          "js/xiuxian/ui.js:1341",
+          "js/xiuxian/ui.js:1344",
+          "js/xiuxian/ui.js:1224",
+          "js/xiuxian/ui.js:1332"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/story.js": [
+          "ARC_REWARD",
+          "ARCS",
+          "STORY"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/story.js": 39
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-DEX-001",
+    "name": "怪物图鉴",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/bestiary.js",
+      "js/xiuxian/codex.js"
+    ],
+    "ui": "页签:图鉴",
+    "note": "✅ 已接收集感:enemy-death → mark → 未见剪影+引子,见过给背景故事/来历/要害/见了几只",
+    "ticket": "XX-ARCH-007",
+    "chain": [
+      {
+        "ref": "js/xiuxian/codex.js:mark",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/codex.js:has",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/ui/bestiary.js:renderList",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/ui/bestiary.js:renderInfo",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/bestiary.js": [
+          "js/main.js",
+          "js/xiuxian/build.js",
+          "js/xiuxian/quest.js",
+          "js/xiuxian/ui.js"
+        ],
+        "js/xiuxian/codex.js": [
+          "js/ui/bestiary.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/bestiary.js": [
+          "js/xiuxian/build.js:171",
+          "js/xiuxian/build.js:10",
+          "js/xiuxian/ui.js:35",
+          "js/xiuxian/build.js:53",
+          "js/xiuxian/build.js:138"
+        ],
+        "js/xiuxian/codex.js": [
+          "js/ui/bestiary.js:65",
+          "js/main.js:204",
+          "js/ui/bestiary.js:64",
+          "js/ui/bestiary.js:90"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/bestiary.js": [
+          "BESTIARY",
+          "BOSS_KEYS",
+          "RICE",
+          "BUILDINGS",
+          "TIERS",
+          "NPCS"
+        ],
+        "js/xiuxian/codex.js": [
+          "CODEX",
+          "Codex"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/bestiary.js": 34,
+        "js/xiuxian/codex.js": 9
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-TITLE-001",
+    "name": "称号",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/relations.js"
+    ],
+    "ui": "页签:称号 (0 可点)",
+    "note": "⚠️ 授予链完好,但 4/8 条件 flag 无数据源",
+    "ticket": "XX-ARCH-006",
+    "chain": [
+      {
+        "ref": "js/xiuxian/relations.js:track",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/relations.js:check",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/relations.js:add",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/relations.js": [
+          "js/main.js",
+          "js/xiuxian/duel.js",
+          "js/xiuxian/index.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/relations.js": [
+          "js/main.js:338",
+          "js/xiuxian/index.js:10",
+          "js/xiuxian/index.js:76",
+          "js/xiuxian/index.js:10",
+          "js/xiuxian/index.js:77"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/relations.js": [
+          "Nemesis",
+          "DEFEAT",
+          "Titles",
+          "BGM"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/relations.js": 14
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-NEMESIS-001",
+    "name": "宿敌",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/relations.js"
+    ],
+    "ui": "?",
+    "note": "待查:是否有 UI 入口",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/relations.js:Nemesis",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/relations.js": [
+          "js/main.js",
+          "js/xiuxian/duel.js",
+          "js/xiuxian/index.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/relations.js": [
+          "js/main.js:338",
+          "js/xiuxian/index.js:10",
+          "js/xiuxian/index.js:76",
+          "js/xiuxian/index.js:10",
+          "js/xiuxian/index.js:77"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/relations.js": [
+          "Nemesis",
+          "DEFEAT",
+          "Titles",
+          "BGM"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/relations.js": 14
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-TOMB-001",
+    "name": "墓",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/tomb.js"
+    ],
+    "ui": "页签:大地图",
+    "note": "待查:进入条件",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/tomb.js:enter",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/ui.js#act:tomb-enter",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/tomb.js": [
+          "js/xiuxian/mount.js",
+          "js/xiuxian/quest.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/tomb.js": [
+          "js/xiuxian/ui.js:357",
+          "js/xiuxian/ui.js:365",
+          "js/xiuxian/ui.js:864"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/tomb.js": [
+          "ROOMS",
+          "ROOM_BY_ID",
+          "WORDS",
+          "TOMB"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/tomb.js": 13
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-WORLD-001",
+    "name": "大地图",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/world.js"
+    ],
+    "ui": "页签:大地图 (travel/mine)",
+    "note": "✅ XX-ARCH-008 已接:pathBetween(BFS)做悬停最短路高亮 + 节点副标题(回合制/丹药/宿敌)。实测 悬停n8 亮起 n0→n1→n2→n4→n5→n8",
+    "ticket": "",
+    "chain": [
+      {
+        "ref": "js/xiuxian/ui.js#act:travel",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/world.js:neighbors",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/world.js": [
+          "js/main.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/world.js": [
+          "js/main.js:336",
+          "js/xiuxian/ui.js:801",
+          "js/xiuxian/ui.js:8",
+          "js/xiuxian/ui.js:8",
+          "js/xiuxian/ui.js:8"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/world.js": [
+          "NODE_TYPES",
+          "ENEMY_POOL",
+          "SECRET_PILL",
+          "buildEdges",
+          "WORLD",
+          "nodeById",
+          "neighbors",
+          "homeNode",
+          "rollEnemy",
+          "travel",
+          "pathBetween"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/world.js": 5
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-MINIMAP-001",
+    "name": "小地图",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/world.js"
+    ],
+    "ui": "无",
+    "note": "✅ 已接:悬停点亮最短路",
+    "ticket": "XX-ARCH-008",
+    "chain": [
+      {
+        "ref": "js/xiuxian/ui.js:pathTo",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/world.js": [
+          "js/main.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/world.js": [
+          "js/main.js:336",
+          "js/xiuxian/ui.js:801",
+          "js/xiuxian/ui.js:8",
+          "js/xiuxian/ui.js:8",
+          "js/xiuxian/ui.js:8"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/world.js": [
+          "NODE_TYPES",
+          "ENEMY_POOL",
+          "SECRET_PILL",
+          "buildEdges",
+          "WORLD",
+          "nodeById",
+          "neighbors",
+          "homeNode",
+          "rollEnemy",
+          "travel",
+          "pathBetween"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/world.js": 5
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-DUEL-001",
+    "name": "回合制战役",
+    "layer": "叙事",
+    "modules": [
+      "js/xiuxian/duel.js"
+    ],
+    "ui": "无",
+    "note": "⚠️ 更正:实为**已接线** —— 大地图走到险地/秘境/妖巢即 Duel.start()。零调用的是 battle.js 的 enterTurnBased(局内砍杀不转回合制)",
+    "ticket": "XX-ARCH-009",
+    "chain": [
+      {
+        "ref": "js/xiuxian/ui.js#act:travel",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/duel.js": [
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/duel.js": [
+          "js/xiuxian/ui.js:570"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/duel.js": [
+          "Duel"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/duel.js": 1
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-TURN-001",
+    "name": "回合制战斗",
+    "layer": "局内",
+    "modules": [
+      "js/xiuxian/battle.js"
+    ],
+    "ui": "无",
+    "note": "🔴 enterTurnBased 0 调用",
+    "ticket": "XX-ARCH-009",
+    "chain": [
+      {
+        "ref": "js/xiuxian/battle.js:enterTurnBased",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/battle.js:carryOver",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/battle.js": [
+          "js/xiuxian/duel.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/battle.js": [
+          "js/xiuxian/duel.js:6",
+          "js/xiuxian/duel.js:6",
+          "js/xiuxian/duel.js:6",
+          "js/xiuxian/duel.js:6",
+          "js/xiuxian/duel.js:6"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/battle.js": [
+          "makeEnemy",
+          "enterTurnBased",
+          "inheritedRatio",
+          "availableArts",
+          "canUseArt",
+          "playerAct",
+          "enemyAct",
+          "isDead",
+          "playerDead",
+          "carryOver",
+          "realmDisplay"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/battle.js": 6
+      }
+    },
+    "status": "decoration",
+    "status_why": "enterTurnBased 0 调用"
+  },
+  {
+    "id": "F-SUPER-001",
+    "name": "超级神通",
+    "layer": "修仙阁",
+    "modules": [
+      "js/xiuxian/arts.js"
+    ],
+    "ui": "无",
+    "note": "✅ XX-ARCH-010 实测通过:10 个配方,悟道实测产出「万剑归宗」。knip 报的 0 调用是**外部**没人 import,模块内部在用 —— 又一次误判",
+    "ticket": "XX-ARCH-010",
+    "chain": [
+      {
+        "ref": "js/xiuxian/arts.js:SUPER_ARTS",
+        "exists": true,
+        "why": ""
+      },
+      {
+        "ref": "js/xiuxian/arts.js:findRecipe",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/xiuxian/arts.js": [
+          "js/xiuxian/battle.js",
+          "js/xiuxian/duel.js",
+          "js/xiuxian/index.js",
+          "js/xiuxian/ui.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/xiuxian/arts.js": [
+          "js/xiuxian/ui.js:170",
+          "js/xiuxian/ui.js:170",
+          "js/xiuxian/ui.js:578",
+          "js/xiuxian/ui.js:7",
+          "js/xiuxian/artstar.js:5"
+        ]
+      },
+      "exported": {
+        "js/xiuxian/arts.js": [
+          "ARTS",
+          "SUPER_ARTS",
+          "findRecipe",
+          "canEnlighten",
+          "enlighten",
+          "defaultArts",
+          "artName",
+          "artFull",
+          "isSuper",
+          "superSet",
+          "SUPER_ARTS_EXPORT"
+        ]
+      },
+      "external_calls": {
+        "js/xiuxian/arts.js": 19
+      }
+    },
+    "status": "vertical"
+  },
+  {
+    "id": "F-HASH-001",
+    "name": "空间哈希",
+    "layer": "基础设施",
+    "modules": [
+      "js/core/engine.js"
+    ],
+    "ui": "无",
+    "note": "⚠️ 不接(实测):正常对局 69 敌人 60 FPS;247 压满才掉到 7(且是慢容器)。这是性能优化不是补功能,应在真机量到掉帧再做,不该拿不可靠读数改碰撞逻辑",
+    "ticket": "XX-ARCH-011",
+    "chain": [
+      {
+        "ref": "js/core/engine.js:SpatialHash",
+        "exists": true,
+        "why": ""
+      }
+    ],
+    "evidence": {
+      "reachable": {
+        "js/core/engine.js": [
+          "js/game/boss.js",
+          "js/game/enemies.js",
+          "js/game/particles.js",
+          "js/game/pickups.js",
+          "js/game/player.js",
+          "js/game/upgrades.js",
+          "js/game/weapons.js",
+          "js/main.js",
+          "js/xiuxian/assets.js",
+          "js/xiuxian/codex.js",
+          "js/xiuxian/index.js",
+          "js/xiuxian/relations.js",
+          "js/xiuxian/spirit.js"
+        ]
+      },
+      "unreachable_modules": [],
+      "call_sites": {
+        "js/core/engine.js": [
+          "js/game/boss.js:41",
+          "js/game/boss.js:70",
+          "js/game/boss.js:80",
+          "js/main.js:2"
+        ]
+      },
+      "exported": {
+        "js/core/engine.js": [
+          "Bus",
+          "SpatialHash",
+          "Engine"
+        ]
+      },
+      "external_calls": {
+        "js/core/engine.js": 37
+      }
+    },
+    "status": "vertical"
+  }
+]

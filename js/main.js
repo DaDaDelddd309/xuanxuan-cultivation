@@ -14,7 +14,7 @@ import { initSpawner, setEndless } from './game/spawner.js?v=17';
 import * as Enemies from './game/enemies.js?v=17';
 import { initBoss } from './game/boss.js?v=17';
 import { initPickups } from './game/pickups.js?v=17';
-import { rollChoices, applyChoice } from './game/upgrades.js?v=17';
+import { rollChoices, applyChoice , runArtSync } from './game/upgrades.js?v=17';
 import { makeWeapon } from './game/weapons.js?v=17';
 import { HUD } from './ui/hud.js?r=8';
 import { Screens } from './ui/screens.js?v=17';
@@ -140,6 +140,12 @@ function endRun(victory) {
   if (engine.player.level > d.best.level) d.best.level = engine.player.level;
   if (victory) d.best.victory = true;
   Save.commit();
+  // 神通回流(XX-ARCH-006 / owner 选 A):局内参悟的等级带回修仙阁。
+  // 这一步之前从来没接过 —— Cult.syncArt 0 调用,于是修仙阁的悟道永远凑不满两门满级。
+  try {
+    for (const [id, , lv] of runArtSync(g0())) { Cult.syncArt(id, lv); }
+    Cult.commit();
+  } catch (e) { console.warn('[art-sync]', e); }
   // 灵气结算:砍杀的产出回流到修仙阁(道行 + 源石)
   const sp = SPIRIT.settle(g0(), s);
   Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level,
@@ -358,6 +364,15 @@ import { BESTIARY } from './xiuxian/bestiary.js';
           el.textContent = n;
           const box = document.getElementById('hud-xx');
           if (box && n > 0) { box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop'); }
+        }
+        // 局内灵气是个抽象数字,玩家不知道它能干什么。
+        // 局末 SPIRIT.settle 的公式是 dao = (ling*0.5 + kills*1.2) * boost,
+        // 这里只把 ling 的那半实时折出来显示 —— 砍杀和修仙阁就接上了。
+        // 击杀那半不在这里算(会跳变),局末结算面板会给出准确值。
+        const de = document.getElementById('hud-xx-dao');
+        if (de) {
+          const approx = Math.round(n * 0.5 * (CAMP.burning() ? 1.25 : 1));
+          de.textContent = n > 0 ? `≈ 道行 +${approx}` : '';
         }
         const f = document.getElementById('hud-xx-fire');
         if (f) f.hidden = !CAMP.burning();

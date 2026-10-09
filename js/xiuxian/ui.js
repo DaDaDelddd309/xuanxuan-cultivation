@@ -5,7 +5,7 @@
 import { Cult } from './index.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
-import { WORLD, nodeById, neighbors } from './world.js';
+import { WORLD, nodeById, neighbors, pathBetween } from './world.js';
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
@@ -203,6 +203,10 @@ export const Hall = {
         // 于是 +200 道行一年才发一次 —— 跨一次年要点 3650 下,实测道行永远是 0。
         // 给资源和报事件是两件事,不该共用一个分支。
         Cult.get().dao += 200;
+        // 修炼狂(XX-ARCH-006):连续修炼 30 天。休息一次就断,断点记在 rest 里。
+        const _ms = Cult.get();
+        _ms.medStreak = (_ms.medStreak || 0) + 1;
+        if (_ms.medStreak >= 30) { Cult.titles.track('streak', 1); _ms.medStreak = 0; }
         const yr = CHRONICLE.day();
         if (yr) {
           toast(`吐纳 · 修为 +40 · 道行 +200 · 第${yr.year}年:${yr.ev}`);
@@ -316,11 +320,19 @@ export const Hall = {
       case 'mine': { const r=BUILD.claimMine(v, v2); toast(r.msg); this.render(); break; }
       case 'tp': { const r=BUILD.teleportTo(v); toast(r.msg); this.render(); break; }
       case 'pact': { const r=BUILD.signPact('落云散修'); toast(r.msg); this.render(); break; }
+      // 「不鸟」称号:拒绝所有结盟邀请。游戏原本只能签不能拒,这个称号永远拿不到。
+      case 'refuse': {
+        if (!BUILD.canPact()) { toast('契约已满,没什么可拒的。'); break; }
+        Cult.titles.track('refuse_alliance', 1);
+        toast('你摆了摆手。');
+        this.render(); break;
+      }
       // —— 支线 ——
       case 'qtake': { const r=QUEST.take(v); toast(r.ok?`接下「${r.quest.title}」`:(r.msg||'接不了')); this.render(); break; }
       case 'sfinal': this.askStoryPath(v); break;
       case 'rest': {
         const st = Cult.get();
+        st.medStreak = 0;              // 休息一次,「修炼狂」的连续就断了
         st.hp = st.maxHp || 100;
         Cult.commit(); toast('睡了一觉。气血已满。'); this.render(); break;
       }
@@ -433,6 +445,41 @@ export const Hall = {
 
   // ---- 抵达节点:村庄休整 / 野地自动遭遇 / 强敌才打断 ----
   // 设计:普通地图内容自动播放、不打断操作。只有 elite/secret/boss 才进回合制。
+  // 路径提示(XX-ARCH-008):把当前位置 → 目标节点的最短路画出来。
+  // world.js 的 pathBetween 是现成的 BFS,注释写着「供小地图提示」,
+  // 但全项目零调用 —— 这条终于给它用上了。
+  // 为什么需要:大地图 11 个节点只连了邻接,玩家看不出"去黑风岭要绕几步",
+  // 于是选点不构成决策(owner 原话:「11 个节点打起来长得一样」)。
+  pathTo(target) {
+    const s = Cult.get();
+    if (!target || target === s.current) return null;
+    try {
+      const p = pathBetween(s.current, target);
+      return Array.isArray(p) && p.length > 1 ? new Set(p) : null;
+    } catch (e) { return null; }
+  },
+
+  // 节点副标题(XX-ARCH-008)
+  // **每一句都对应代码里真实存在的行为**,不写"灵气 +40%"这种编出来的数字。
+  //   village → arrive() 不打断,是补给点(n9 带 shop)
+  //   field   → 同样不打断;ENEMY_POOL.field 以游荡/守卫为主
+  //   elite   → 进回合制(Duel.start);ENEMY_POOL.elite 有 yao/elder/devil
+  //   secret  → 进回合制,且必掉丹药(n.pill)
+  //   boss    → 进回合制,ENEMY_POOL.boss 只有 devil;宿敌在这一档
+  nodeTip(n, s) {
+    const t = {
+      village: n.shop ? '补给 · 集市' : '安宁 · 休整',
+      field:   '荒野 · 不打断',
+      elite:   '险地 · 回合制',
+      secret:  '秘境 · 回合制 · 丹药',
+      boss:    '妖巢 · 回合制 · 宿敌',
+    }[n.type] || '';
+    const marks = [];
+    if (STORY.activeList().some(a => a.next && a.next.node === n.id)) marks.push('有事');
+    if (LEGEND_LIST.some(l => l.where === n.type && !STORY.met(l.key))) marks.push('异兽');
+    return marks.length ? t + ' · ' + marks.join('·') : t;
+  },
+
   arrive(id) {
     const s = Cult.get();
     const n = nodeById(id);
@@ -519,11 +566,19 @@ export const Hall = {
     }
 
     // 险地 / 秘境 / 妖巢:才打断,进回合制
+    const _foe = this.makeFoe(n, s);
     Duel.start({
       node: n,
       hero: { name:'轩轩', img: PORTRAIT.hero, realmIdx: REALMS.findIndex(r => r.id === s.realm) },
-      foe: this.makeFoe(n, s),
+      foe: _foe,
       onWin: (r) => {
+        // 剑神(单次战斗以剑系神通斩杀越级对手)/ 赤水真人(击败宿敌 ≥3)
+        // —— 以前这两个称号的条件 flag 从来没人 track,页面上写着却永远拿不到。
+        if (n.type === 'boss' && _foe.stronger) {
+          const hasSword = Object.keys(s.arts || {}).some(a => ARTS[a] && ARTS[a].family === 'sword');
+          if (hasSword) Cult.titles.track('sword_kill_boss', 1);
+        }
+        if (_foe.isNemesis) Cult.titles.track('nemesis_win', 1);
         const s2 = Cult.get();
         s2.dao += r.dao; s2.totalKills += 1;
         if (r.pill) s2.pills[r.pill] = (s2.pills[r.pill] || 0) + 1;
@@ -558,13 +613,22 @@ export const Hall = {
       pIdx + (stronger ? 1 : 0)));
     // bug(V0.92 修):LORE 是 lore.js 里 WORLD 的别名,没有 CHARACTERS 属性
     // → 去妖巢(boss)节点时直接 TypeError,回合制开不起来
-    const foes = isBoss ? [[CHARACTERS.moying.name, CHARACTERS.moying.title, 'foe', true]]
-      : [['黑风散修','炼气中期','foe', false], ['守谷妖修','妖修','aunt', false],
-         ['游方剑客','筑基初期','foe', false]];
+    // 每类敌人带一个稳定 key:台词与立绘都靠它分派,不要靠随机顺序。
+    const foes = isBoss
+      ? [['墨影', CHARACTERS.moying.title, 'foe', true, 'moying']]
+      : [['黑风散修','炼气中期','foe', false, 'heifeng'],
+         ['守谷妖修','妖修','momocha', false, 'shougu'],
+         ['游方剑客','筑基初期','merchant', false, 'youfang']];
     const pick = foes[Math.floor(Math.random() * foes.length)];
+    // 立绘:仓库里独立立绘只有 8 张,其中 4 张是玩家可选的四个主角,
+    // 所以反派只能用 foe / momocha / merchant / companion 这几张轮换。
+    // 想让四个反派各有专属脸,得补美术 —— 代码解决不了。
+    const FOE_ART = { foe: PORTRAIT.foe, momocha: PORTRAIT.momocha,
+                      merchant: PORTRAIT.merchant, aunt: PORTRAIT.aunt };
     return {
+      key: pick[4],                       // ← 台词/立绘分派用
       name: pick[0], title: pick[1],
-      img: isBoss ? PORTRAIT.foe : (pick[2] === 'aunt' ? PORTRAIT.aunt : PORTRAIT.foe),
+      img: FOE_ART[pick[2]] || PORTRAIT.foe,
       realmIdx: foeIdx,
       stronger: foeIdx > pIdx,
       isNemesis: !!pick[3],
@@ -632,6 +696,23 @@ export const Hall = {
       : tabIllustUrl(tab);
     applyBg(il, url);
     if (il) il.classList.toggle('on', !!url);
+    // 悬停点亮最短路(XX-ARCH-008)。**必须事件委托**:vXxx 返回的是 HTML 字符串,
+    // 在 vMap 内部查 DOM 时元素还没插进页面 —— 第一版就栽在这,查到 0 个节点。
+    // 委托挂在 bodyEl 上,重绘也不会丢。
+    if (!this._pathHooked) {
+      this._pathHooked = true;
+      bodyEl.addEventListener('mouseover', e => {
+        const n = e.target.closest('.xx-node');
+        if (!n) return;
+        const set = this.pathTo(n.dataset.v);
+        for (const el of bodyEl.querySelectorAll('.xx-node'))
+          el.classList.toggle('onpath', !!set && set.has(el.dataset.v));
+      });
+      bodyEl.addEventListener('mouseout', e => {
+        if (e.target.closest('.xx-node'))
+          for (const el of bodyEl.querySelectorAll('.xx-node')) el.classList.remove('onpath');
+      });
+    }
     bodyEl.innerHTML =
       tab === 'realm' ? this.vRealm(s)
       : tab === 'map'   ? (TOMB.s.in ? this.vTomb() : this.vMap(s))
@@ -756,6 +837,7 @@ export const Hall = {
       nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
         data-act="travel" data-v="${n.id}" title="${esc(n.name || '')}">
         ${unseen?'<div class="xx-fogq">?</div>':`<span class="xx-glyph t-${n.type}">${t}</span>`}<div class="xx-node-lb">${unseen?(n.name||'未知之地'):esc(n.name || n.id)}</div>
+        <div class="xx-node-tip">${esc(this.nodeTip(n, s))}</div>
         ${storyHere?'<div class="xx-node-st" title="有事发生">!</div>':''}
         ${legHere?'<div class="xx-node-lg" title="有异兽">◆</div>':''}
         ${isMine?`<div class="xx-node-mine" data-act="mine" data-v="${n.id}" data-v2="${n.type}">占</div>`:''}
@@ -1453,7 +1535,11 @@ export const Hall = {
         <div class="xx-label">同 盟 契 约 (${BUILD.s.pacts.signed}/3)</div>
         <div class="xx-dim" style="margin-bottom:8px">
           缔结后受袭盟友驰援,围攻率 -${Math.round(BUILD.pactShield()*100)}%,集市互通。</div>
-        <button class="xx-btn" data-act="pact" ${BUILD.canPact()?'':'disabled'}>缔 结 同 盟</button>
+        <div style="display:flex;gap:8px">
+          <button class="xx-btn" data-act="pact" style="flex:1"
+            ${BUILD.canPact()?'':'disabled'}>缔 结 同 盟</button>
+          <button class="xx-btn" data-act="refuse" style="flex:1">拒 绝</button>
+        </div>
         ${(()=>{const _g=BUILD.pactGap();return _g.full?'<div class="xx-hint">契约已满(3/3)</div>':(_g.ok?'<div class="xx-hintok">道行已足,可缔约</div>':`<div class="xx-hint">还需 <b>${_g.lack}</b> 道行(需 ${_g.cost})</div>`);})()}
       </div>
 

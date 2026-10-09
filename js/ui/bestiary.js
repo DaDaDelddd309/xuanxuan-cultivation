@@ -4,6 +4,7 @@ import { PAL } from '../core/palette.js';
 import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
 import { Screens } from './screens.js?v=17';
 import { SFX } from '../core/audio.js?v=17';
+import { Codex, CODEX } from '../xiuxian/codex.js';
 const TAU = Math.PI * 2;
 const W = 480, H = 270;
 const BEH_DESC = {
@@ -60,10 +61,46 @@ function iconCanvas(spec, px) {
 }
 function renderInfo(e) {
   const box = ui.info; box.innerHTML='';
+  const known = Codex.has(e.id);
+  const lore = CODEX[e.id];
   const head = document.createElement('div'); head.className='codex-info-head';
-  const nm = document.createElement('span'); nm.className='codex-info-name'; nm.textContent=e.name;
-  const tag = document.createElement('span'); tag.className='codex-info-tag'; tag.textContent = e.boss ? 'Boss' : (BEH_DESC[e.beh]||'');
+  const nm = document.createElement('span'); nm.className='codex-info-name';
+  nm.textContent = known ? e.name : '？？？';
+  const tag = document.createElement('span'); tag.className='codex-info-tag';
+  tag.textContent = known ? (e.boss ? 'Boss' : (BEH_DESC[e.beh]||'')) : '未 见';
   head.append(nm, tag); box.appendChild(head);
+
+  // 未见:只给一句引子。名字和数值都先不给 —— 图鉴的乐趣是"原来那么吓人"那一下,
+  // 提前把名字写出来就废了。
+  if (!known) {
+    const hook = document.createElement('div');
+    hook.className = 'codex-info-desc';
+    hook.style.opacity = '.8';
+    hook.textContent = lore ? lore.hook : '尚未遭遇。';
+    box.appendChild(hook);
+    const tip = document.createElement('div');
+    tip.className = 'codex-info-cond';
+    tip.style.marginTop = '6px';
+    tip.textContent = '击倒它才能看到来历与要害。';
+    box.appendChild(tip);
+    return;
+  }
+  const seenN = document.createElement('div');
+  seenN.className = 'codex-info-cond';
+  seenN.innerHTML = '已见 <b>' + Codex.count(e.id) + '</b> 只';
+  box.appendChild(seenN);
+  if (lore) {
+    const story = document.createElement('div');
+    story.className = 'codex-info-desc';
+    story.style.marginTop = '6px';
+    story.textContent = lore.lore;
+    box.appendChild(story);
+    const extra = document.createElement('div');
+    extra.className = 'codex-info-cond';
+    extra.style.marginTop = '6px';
+    extra.innerHTML = '来历：<b>' + lore.from + '</b><br>要害：<b>' + lore.weak + '</b>';
+    box.appendChild(extra);
+  }
   const stats = document.createElement('div'); stats.className='codex-info-cond'; stats.style.lineHeight='1.9';
   stats.innerHTML = '生命 <b>'+e.hp+'</b> · 速度 <b>'+e.speed+'</b> · 碰撞伤害 <b>'+e.dmg+'</b> · 半径 <b>'+e.r+'</b><br>经验 <b>'+e.xp+'</b> · 金币概率 <b>'+Math.round(e.coinP*100)+'%</b> · 击退系数 <b>'+e.kb+'</b><br>出现：<b>'+(SPAWN_INFO[e.id]||'—')+'</b>';
   box.appendChild(stats);
@@ -88,8 +125,12 @@ function renderList() {
     const b = document.createElement('button'); b.className='codex-item'+(sel && sel.id===id?' sel':'');
     const ic = document.createElement('span'); ic.className='codex-item-icon'; ic.appendChild(iconCanvas({sprite:e.sprite},30));
     const tx = document.createElement('span'); tx.className='codex-item-text';
-    const nm = document.createElement('span'); nm.className='codex-item-name'; nm.textContent=e.name;
-    const sb = document.createElement('span'); sb.className='codex-item-sub'; sb.textContent = e.boss ? 'Boss' : BEH_DESC[e.beh]||'';
+    const known = Codex.has(id);
+    b.className += known ? '' : ' un';
+    const nm = document.createElement('span'); nm.className='codex-item-name';
+    nm.textContent = known ? e.name : '？？？';
+    const sb = document.createElement('span'); sb.className='codex-item-sub';
+    sb.textContent = known ? ((e.boss ? 'Boss' : (BEH_DESC[e.beh]||'')) + (Codex.count(id)>1 ? ' · 见'+Codex.count(id) : '')) : '未 见';
     tx.append(nm,sb); b.append(ic,tx);
     b.onclick=()=>{ SFX.play('click'); select({id,...e}); };
     list.appendChild(b);
@@ -141,4 +182,11 @@ function select(e){ sel=e; renderList(); renderInfo(e); }
 function bindOnce(){ if(bound) return; bound=true; el('btn-bestiary-back').addEventListener('click',()=>{ SFX.play('click'); close();}); window.addEventListener('resize',()=>{ if(openFlag) fitStage();}); }
 function stopLoop(){ if(raf){ cancelAnimationFrame(raf); raf=0; } }
 function close(){ openFlag=false; stopLoop(); el('screen-bestiary').classList.add('hidden'); Screens.show('screen-menu'); }
-export const Bestiary = { open(){ if(!ui) buildUI(); bindOnce(); openFlag=true; el('screen-menu').classList.add('hidden'); el('screen-bestiary').classList.remove('hidden'); fitStage(); animT=0; if(!raf) raf=requestAnimationFrame(loop); } };
+export const Bestiary = { open(){
+  Codex.init();                 // 读 seen + 挂击杀监听(只挂一次)
+  if(!ui) buildUI();
+  // ⚠️ 必须每次重绘。以前 open() 只在首次 buildUI,列表画一次就再也不刷新了 ——
+  // 图鉴全亮时看不出来,加了「未见/已见」之后就是致命 bug:
+  // 杀了一整局妖,再打开看到的还是「全未见过」。
+  renderTabs(); renderList();
+  bindOnce(); openFlag=true; el('screen-menu').classList.add('hidden'); el('screen-bestiary').classList.remove('hidden'); fitStage(); animT=0; if(!raf) raf=requestAnimationFrame(loop); } };

@@ -97,6 +97,69 @@ function weightedPick(pool) {
 }
 
 // 被动等级记录在 g.passiveLv(main 开局创建;crit 等新键由 applyChoice 动态补)
+// ══════ 神通(XX-ARCH-006 / owner 选 A:接上局内)══════════════
+//
+// 背景:修仙阁有 14 门神通,起始只有剑气 1 级;悟道要「两门都满级」才产出第三门,
+// 而局内升级池根本没有神通 —— 于是 13/14 门永久锁死。
+// Cult.syncArt 的注释写明原设计是「局内学会的 → 局外记录」,两头都没接。
+//
+// 本轮(owner 选 A)补上两头:
+//   局内:升级池出现「参悟 X」,给**真实属性增益**(按 family 映射到既有 stats,
+//         不新造 14 套弹道 —— 那会变成第二套战斗系统)
+//   局末:runArtSync 把本局练到的等级 syncArt 回修仙阁
+//
+// 为什么用属性增益而不是每门一套弹道:
+// 局内已经有完整的武器开火循环(js/game/weapons.js 的 w.update)。
+// 再造 14 套神通弹道 = 两套战斗并行,平衡没法调,也和「一个决策点」的
+// 核心循环打架。先让神通有**可感知的确定收益**,再谈差异化形态。
+
+/** family → 局内属性增益。键名对应 player.stats 里的字段。 */
+export const ART_FAMILY = {
+  sword:  { might: 0.10, cd: 0.04 },   // 攻伐系:伤害 + 频率
+  wind:   { might: 0.07, speed: 0.05 },// 风系:伤害 + 移速
+  thunder:{ might: 0.09, cd: 0.05 },
+  fire:   { might: 0.11 },             // 攻伐偏伤害
+  water:  { might: 0.06, area: 0.05 },
+  shield: { armor: 0.08, hp: 0.05 },   // 守御系:护甲 + 生命
+  orb:    { might: 0.05, area: 0.07 },
+  move:   { speed: 0.06, cd: 0.03 }, // 身法系:移速 + 冷却
+};
+
+/** 局内神通等级上限(和修仙阁 max=5 对齐) */
+const ART_RUN_MAX = 5;
+
+/** 局内神通表 —— 只带修仙阁神通页需要的三项,避免把整张 ARTS 拖进局内 */
+/** 局内神通表 —— id/name/family 全部**从 arts.js 的 ARTS 实抄**,不手写。
+ * (第一版手写,编出了 sha/shalei 两个根本不存在的 id)
+ */
+const RUN_ARTS = [
+  ['jianqi','剑气','sword'],
+  ['wanjian','御风','wind'],
+  ['guanglei','贯日','sword'],
+  ['wanjian2','流云扇','wind'],
+  ['yubiyu','暴雨针','wind'],
+  ['wulei','五雷','thunder'],
+  ['fentian','焚天','fire'],
+  ['moyu','墨雨','water'],
+  ['jinzhong','金钟罩','shield'],
+  ['zhenshen','玄武盾','shield'],
+  ['moyuan','墨渊','orb'],
+  ['huohuo','引魂灯','orb'],
+  ['suodi','缩地成寸','move'],
+  ['feibo','御风诀','move'],
+];
+
+/** 局内已练到的最高等级(供局末 syncArt 回写) */
+export function runArtSync(g) {
+  const out = [];
+  const held = (g.player && g.player.arts) || {};
+  for (const [id, name] of RUN_ARTS) {
+    const lv = held[id] || 0;
+    if (lv > 0) out.push([id, name, lv]);
+  }
+  return out;
+}
+
 export function rollChoices(g) {
   const p = g.player;
   const plv = g.passiveLv || (g.passiveLv = {});
@@ -123,6 +186,20 @@ export function rollChoices(g) {
       if (owned.has(id)) continue;
       const d = WEAPONS[id];
       cands.push({ kind: 'newWeapon', id, name: d.name, desc: d.desc, icon: d.icon, w: 6 });
+    }
+  }
+  // 神通(XX-ARCH-006):局内参悟,局末 syncArt 回修仙阁。
+  // 权重低于被动 —— 局内战斗的决策重心仍应在武器,神通是长期投资。
+  const held = p.arts || (p.arts = {});
+  for (const [id, name, family] of RUN_ARTS) {
+    const lv = held[id] || 0;
+    if (lv < ART_RUN_MAX) {
+      cands.push({
+        kind: 'art', id, family, name: lv ? `参悟 ${name} ${lv + 1}` : `初窥 ${name}`,
+        desc: lv ? `道法精进 · 局末带回修仙阁(现 ${lv}/${ART_RUN_MAX})`
+                 : '初窥门径 · 局末带回修仙阁',
+        icon: 'gem_g', w: 5,
+      });
     }
   }
   // 被动(含 crit 暴击之眼)
@@ -179,6 +256,21 @@ export function applyChoice(g, c) {
       g.spawnText(p.x, p.y - 64, `${evo.evoName}!`, { color: PAL.cinnabar, size: 24, life: 1.6 });
       Bus.emit('sfx', 'levelup');
     }
+  } else if (c.kind === 'art') {
+    const held = p.arts || (p.arts = {});
+    const lv = (held[c.id] || 0) + 1;
+    held[c.id] = lv;
+    // 真实属性增益:每级按 family 给固定加成,和局内既有 stats 同一套口径。
+    const fam = ART_FAMILY[c.family] || { might: 0.06 };
+    for (const [k, v] of Object.entries(fam)) {
+      if (k === 'cd' || k === 'speed') p.stats[k] *= (1 + v);
+      else if (k === 'area') p.stats.areaMult = (p.stats.areaMult || 1) * (1 + v);
+      else if (k === 'hp') p.stats.maxHp = (p.stats.maxHp || p.hp || 100) * (1 + v), p.hp = p.stats.maxHp;
+      else if (k === 'armor') p.stats.armor = (p.stats.armor || 0) + v * 100;
+      else p.stats.might = (p.stats.might || 1) * (1 + v);
+    }
+    g.spawnText(p.x, p.y - 60, `${c.name}!`, { color: PAL.gold, size: 20, life: 1.4 });
+    Bus.emit('sfx', 'levelup');
   } else if (c.kind === 'passive') {
     g.passiveLv[c.id] = (g.passiveLv[c.id] || 0) + 1;
     const b = PASSIVE_BONUS[c.id];

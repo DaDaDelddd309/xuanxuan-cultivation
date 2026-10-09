@@ -252,7 +252,13 @@
 .xx-off .sub{font-size:11px;color:rgba(232,220,196,.45);letter-spacing:2px;margin-bottom:20px}
 
 /* ===== 开局仪式 ===== */
-.xx-ritual{position:absolute;inset:0;z-index:200;background:
+/* ⚠️ pointer-events:auto 不能省(XX-BUG-C)
+   nag.js 会拦截 appendChild,把 xx-ritual 挪进 #xx-nag-host 统一管理浮层。
+   而那个宿主的样式是 `pointer-events:none` —— **该值会被子元素继承**。
+   .xx-ritual 没把它改回 auto,于是整个取名弹层点不动:
+   点击穿透到下面,被主菜单的设置复选框接走。
+   表现为:新玩家看到开屏,点「就 这 样 吧」没反应,反复点却把设置开关 togg 了。 */
+.xx-ritual{pointer-events:auto;position:absolute;inset:0;z-index:200;background:
   radial-gradient(circle at 50% 30%,#2a2018 0%,#140f0c 55%,#0a0706 100%);
   display:flex;align-items:center;justify-content:center;overflow:hidden}
 .xx-ritual.hidden{display:none}
@@ -580,8 +586,11 @@
 .xx-glyph.t-secret{color:rgba(122,178,220,.92)}
 .xx-glyph.t-boss{color:rgba(206,110,96,.95)}
 .xx-node.visited{background:rgba(46,38,26,.9);border-color:rgba(201,162,39,.5)}
-/* 迷雾节点:降饱和,别和已探索的抢视线 */
-.xx-node.fog{border-color:rgba(232,220,196,.14);background:rgba(18,14,11,.7)}
+/* ⚠️ 迷雾节点的样式在上面 443 行已经定义过一次(border-style/background/opacity)。
+   这里只补 443 行没写的属性 —— 别再整体重写选择器。
+   两处整选择器覆盖同一批属性,正是 lint-css 检测不到的盲区:
+   它按「同属性」判定重复,而这两次写的是不同属性。 */
+.xx-node.fog{border-color:rgba(232,220,196,.14)}
 .xx-node.fog .xx-node-lb{color:rgba(232,220,196,.3);text-shadow:none}
 /* 未到过的节点不该有 hover 光标 —— 点了也点不动 */
 .xx-node.locked{cursor:default;opacity:.55}
@@ -743,3 +752,23 @@
 .xx-cf-b .xx-btn{padding:5px 11px;font-size:11px;margin:0;width:auto;
   min-height:44px;box-sizing:border-box}
 .xx-cf-b .xx-btn:disabled{opacity:.55}
+
+/* HUD 灵气 → 道行 的实时换算(XX-ARCH-007)
+   局内那个数字本身没有意义,玩家不知道它能干什么。
+   局末 SPIRIT.settle 的 dao 公式是 (ling*0.5 + kills*1.2) * boost,
+   这里只折 ling 的那半 —— 击杀那半会跳变,放结算面板给准确值。 */
+.hud-xx-dao{font-size:10px;opacity:.72;margin-left:5px;letter-spacing:0;color:inherit}
+
+/* 节点副标题(XX-ARCH-008)
+   owner 原话:「11 个节点打起来长得一样」—— 11 个节点里只有 4 个有名字,
+   其余是 n1/n2/n3…玩家没有理由选任何一个。
+   副标题写清这一档**实际**给什么(回合制/丹药/宿敌),让选点成为决策。
+   文案一律照代码实情写,没有编造数值。 */
+.xx-node-tip{position:absolute;top:100%;margin-top:20px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;font-size:9px;letter-spacing:0;color:rgba(232,220,196,.42);
+  pointer-events:none;text-shadow:none;opacity:0;transition:opacity .2s}
+.xx-node:hover .xx-node-tip{opacity:1}
+/* 悬停时点亮的最短路 */
+.xx-node.onpath{border-color:var(--xx-gold)!important;
+  box-shadow:0 0 0 2px rgba(201,162,39,.28),0 2px 8px rgba(0,0,0,.5)}
+.xx-node.onpath .xx-glyph{color:var(--xx-gold)}

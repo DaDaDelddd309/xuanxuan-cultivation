@@ -5,7 +5,7 @@
   "type": "module",
   "description": "轩轩修仙传 —— 水墨修仙割草 roguelite",
   "scripts": {
-    "lint": "node tests/lint-syntax.mjs && node tests/lint-deps.mjs && node tests/lint-css.mjs && node tests/lint-methods.mjs && node tests/lint-nsaccess.mjs && node tests/lint-tokens.mjs && node tests/lint-version.mjs && node tests/lint-imports.mjs && node tests/lint-precache.mjs && node tests/lint-testversion.mjs && node tests/lint-palette.mjs && node tests/lint-tokens2.mjs && node tests/lint-css-parse.mjs && node tests/lint-contrast.mjs && node tests/lint-updaters.mjs && node tests/lint-scope.mjs",
+    "lint": "node tests/lint-syntax.mjs && node tests/lint-deps.mjs && node tests/lint-css.mjs && node tests/lint-methods.mjs && node tests/lint-nsaccess.mjs && node tests/lint-tokens.mjs && node tests/lint-version.mjs && node tests/lint-imports.mjs && node tests/lint-precache.mjs && node tests/lint-testversion.mjs && node tests/lint-palette.mjs && node tests/lint-tokens2.mjs && node tests/lint-css-parse.mjs && node tests/lint-contrast.mjs && node tests/lint-updaters.mjs && node tests/lint-scope.mjs && node tests/lint-titles.mjs && node tests/lint-arts.mjs",
     "test": "node tests/test-companion.mjs && node tests/test-spine.mjs && node tests/test-spine-wiring.mjs && node tests/test-director.mjs && node tests/test-clock.mjs && node tests/test-drops.mjs && node tests/test-market.mjs && node tests/test-tavern.mjs && node tests/test-artstar.mjs && node tests/test-craft.mjs && node tests/test-canvas.mjs && node tests/test-uitext.mjs && node tests/test-sprites.mjs && node tests/test-assets.mjs",
     "test:legacy": "node tests/t84.mjs && node tests/t85.mjs && node tests/t86.mjs && node tests/t87.mjs && node tests/t88.mjs && node tests/t89.mjs && node tests/t90.mjs && node tests/t91.mjs && node tests/t92.mjs && node tests/t93.mjs",
     "test:rng": "node tests/test-rng.mjs && node tests/test-seed.mjs && node tests/test-worldgen.mjs && node tests/test-world-compat.mjs && node tests/test-mine.mjs && node tests/test-runcfg.mjs",
@@ -13,7 +13,10 @@
     "check": "npm run lint && npm test && npm run test:legacy && npm run test:e2e",
     "check:full": "npm run lint && npm test && npm run test:legacy && npm run test:rng",
     "test:visual": "python3 tools/visual/selftest.py && python3 tools/visual/audit.py",
-    "visual:shots": "python3 tools/visual/shoot.py --out tools/visual/shots && python3 tools/visual/sheet.py sheet tools/visual/shots -o tools/visual/shots/board.png"
+    "visual:shots": "python3 tools/visual/shoot.py --out tools/visual/shots && python3 tools/visual/sheet.py sheet tools/visual/shots -o tools/visual/shots/board.png",
+    "arch": "python3 tools/arch/extract.py",
+    "arch:check": "python3 tools/arch/extract.py --check",
+    "arch:dead": "npx knip --no-progress"
   },
   "devDependencies": {
     "playwright": "^1.44.1"

@@ -1,0 +1,5 @@
+{
+  "entry": ["js/main.js", "js/xiuxian/index.js", "index.html"],
+  "project": ["js/**/*.js"],
+  "ignore": ["tests/**", "tools/**"]
+}

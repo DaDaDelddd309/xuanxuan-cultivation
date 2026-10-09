@@ -14,6 +14,28 @@ const SCENE_BY_TYPE = { elite:'duel', boss:'duel', secret:'cave', field:'duel' }
 const $ = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+
+// —— 每类敌人的专属台词 ——
+// 一律短句。反派解释自己为什么强大,就等于把紧张感拆了。
+const FOE_LINES = {
+  moying:   `「你不该来。」`,
+  heifeng:  `「这条道是我清出来的。想走?先问我的剑。」`,
+  shougu:   `「守谷的活儿干了两百年。你算第几任来送命的?」`,
+  youfang:  `「听闻轩氏出了个狠人。巧了,我也是。」`,
+};
+const HERO_LINES = {
+  moying:   `「……这名字,我不该记得。」`,
+  heifeng:  `「清路的不止你一个。」`,
+  shougu:   `「两百年前没人拦得住我。今天试试。」`,
+  youfang:  `「狠人不多。两个一起,正好。」`,
+};
+const FOE_HIT = {
+  moying:   `「碑上是你的名字。」`,
+  heifeng:  `「路,断了。」`,
+  shougu:   `「谷里的规矩,由我定。」`,
+  youfang:  `「接得住再说。」`,
+};
+
 export const Duel = {
   root: null, S: null, busy: false,
 
@@ -173,17 +195,29 @@ export const Duel = {
       });
     }, 1150);
   },
+  // 开场白(XX-ARCH-009)
+  // 设计原则(owner 原话):「反派死于废话多」。
+  // 所以每句**只说一件事**,不给对方解释立场的余地,也不给自己抒情的机会。
+  // 越级时不说"我比你强",只让对方**动手** —— 台词越短,压迫感越强。
   foeLine(S) {
     if (S.cfg.foe.isNemesis)
       return `断剑冢里又添一块碑。这一块,写的是你的名字。`;
+    const key = S.cfg.foe.key || '';
+    if (FOE_LINES[key]) return FOE_LINES[key];
     if (S.cfg.foe.stronger)
       return `${S.e.realm}的气息压过来,像一座山。你知道自己打不过——但你也退不了。`;
     return `${S.e.line}你退了半步,又站住了。`;
   },
   heroLine(S) {
     if (S.cfg.foe.isNemesis) return `墨影。我们又见面了。`;
-    if (S.cfg.foe.stronger) return `……境界差了一整个大境。但路是我自己选的。`;
+    if (S.cfg.foe.stronger) return `……差了一整个大境。但路是我自己选的。`;
+    if (HERO_LINES[S.cfg.foe.key]) return HERO_LINES[S.cfg.foe.key];
     return `既然你要拦,那就别怪我不留情。`;
+  },
+  // 出招时的短促一击 —— 不解释,只报数
+  foeHitLine(S) {
+    if (S.cfg.foe.isNemesis) return `「这一剑,替那些碑。」`;
+    return FOE_HIT[S.cfg.foe.key] || null;
   },
 
   playerTurn(preId) {
