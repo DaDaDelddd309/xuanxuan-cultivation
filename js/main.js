@@ -26,6 +26,14 @@ const canvas = document.getElementById('game');
 const engine = new Engine(canvas);
 engine.save = Save;
 window.__g = engine; // 调试句柄(测试/排查用)
+
+// g0 必须住在**模块顶层**(XX-BUG-B)。
+// 原来它定义在「开局装配」那个函数内部(第 485 行),而同为顶层函数的
+// endRun() 在结算时也要用它(第 136 行 SPIRIT.settle(g0(), s))——
+// 够不着,一局结束就 ReferenceError。表现为:气泡台词照常冒出来,
+// engine.pause() 也执行了,但 Screens.showResult 从来没跑到,
+// 玩家卡在暂停的局里,什么都点不动。
+const g0 = () => window.__g || engine;
 const cam = new Camera();
 engine.cam = cam;
 
@@ -340,7 +348,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     try { Bond._bubBudget = 6; } catch {}
     // —— 灵气(V0.96):砍杀 ↔ 修仙阁 的连接 ——
     SPIRIT.install(engine, g0());
-    engine.addUpdater(dt => {
+    engine.addUpdaterOnce('spirit-hud', dt => {
       SPIRIT.tick(g0());
       // HUD:灵气数 + 篝火加成提示
       const el = document.getElementById('hud-xx-ling');
@@ -356,7 +364,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
       }
     });
     // 篝火在烧时局内灵气更浓,视觉上给个提示
-    engine.addUpdater(dt => {
+    engine.addUpdaterOnce('spirit-glow', dt => {
       const p0 = g0().player;
       if (!p0) return;
       const on = CAMP.burning();
@@ -367,7 +375,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     });
 
     // 增益条:把「修仙阁带来的东西」在局内列出来
-    engine.addUpdater(dt => {
+    engine.addUpdaterOnce('buff-bar', dt => {
       const box = document.getElementById('hud-xx-buf');
       if (!box) return;
       const sig = [];
@@ -385,7 +393,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     // 只在开局设一次,不是每帧改(每帧改会盖掉局内其他来源)
     MOUNT.load();
     installNagger();
-    engine.addUpdater(dt => {
+    engine.addUpdaterOnce('mount-on', dt => {
       const p0 = g0().player;
       if (!p0 || p0._xxMountOn) return;
       p0._xxMountOn = true;
@@ -399,7 +407,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     });
     // 同伴(XX-META-003):属性类的 mods 落到 player 上。
     // 只在开局设一次 —— 每帧改会盖掉局内其他来源(和坐骑同一个理由)。
-    engine.addUpdater(() => {
+    engine.addUpdaterOnce('tavern-mate', () => {
       const p0 = g0().player;
       if (!p0 || p0._xxMateOn) return;
       p0._xxMateOn = true;
@@ -414,7 +422,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     // 闪烁频率随夜色推进变化 —— 玩家只靠肉眼就知道现在是夜里第几段。
     // 快天亮时闪三下,提醒"这炉快烧完了,要续源石"。那是决策点,不是惩罚。
     const EMBER_PTS = emberPoints(7);
-    engine.addUpdater(() => {
+    engine.addUpdaterOnce('day-phase', () => {
       const g1 = g0(), p1 = g1.player;
       if (!p1) return;
       let phaseKey = 'day';
@@ -456,7 +464,7 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     // 篝火护栏(V0.99):圈 + 推怪合并成一个 updater。
     // 半径 = COMPANION.wardRadius() 给的目标(它读昼夜相位和坐骑加成),
     // 这里用 stepWard 平滑跟过去 —— 昼夜切换时护栏是"慢慢"变大变小,不是跳变。
-    engine.addUpdater(dt => {
+    engine.addUpdaterOnce('camp-ward', dt => {
       const g1 = g0(), p1 = g1.player;
       if (!p1) return;
       // 把局内真实拾取半径传进去 —— 护栏跟着它走,两者永远差那 8%
@@ -482,7 +490,6 @@ import { BESTIARY } from './xiuxian/bestiary.js';
         if (d < ward) { e.x = p1.x + dx / d * ward; e.y = p1.y + dy / d * ward; }
       }
     });
-    function g0() { return window.__g || engine; }
     setTimeout(() => Ritual.start(false), off && off.dao > 0 ? 2600 : 700);
     // 建筑真实掉落:敌人死亡时掷建材
     // 击杀兑现(V0.99 · XX-SPAWN-001):死一只补一点压力,并可能刷出同档位的怪。

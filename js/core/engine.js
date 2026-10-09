@@ -63,6 +63,27 @@ export class Engine {
     if (this.cam) this.cam.resize(this.w, this.h);
   }
   addUpdater(fn) { this.updaters.push(fn); }
+  /**
+   * 只注册一次 —— 同一个 key 重复调用会被忽略。
+   *
+   * 为什么需要(XX-BUG-A):`this.updaters` 只在构造函数里清空,**局与局之间从不清空**。
+   * 任何写在「开局装配」里的 addUpdater,每开一局就会多注册一个副本。
+   * 打到第 N 局就有 N 个副本每帧各跑一遍。
+   *
+   * 实际后果不是「慢一点」:SPIRIT.tick() 里第一个 tick 把 _alive 重置成
+   * 仍含该灵气,同帧后面 N-1 个 tick 于是又各记一次 —— 一颗灵气每帧记 N 遍,
+   * 局内灵气计数直接爆到八千万。
+   *
+   * 用法:engine.addUpdaterOnce('spirit-hud', dt => { ... })
+   * 写「开局装配」里的 updater 一律用它,别用 addUpdater。
+   */
+  addUpdaterOnce(key, fn) {
+    this._once = this._once || new Set();
+    if (this._once.has(key)) return false;
+    this._once.add(key);
+    this.updaters.push(fn);
+    return true;
+  }
   addAlways(fn) { (this.always = this.always || []).push(fn); }
   addDrawer(layer, fn) { this.drawers[layer].push(fn); }
   addReset(fn) { this.resets.push(fn); }
