@@ -22,3 +22,6 @@ __pycache__/
 tools/visual/board.png
 tools/visual/shots/
 tools/visual/baseline/
+
+# 旧资产备份,留在仓库外
+assets/_legacy/
