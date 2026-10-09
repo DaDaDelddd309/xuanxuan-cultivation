@@ -26,5 +26,10 @@ node tests/lint-version.mjs || fail=$((fail+1))
 # (含 lint-arts / lint-contrast / lint-scope / lint-portraits 等)从来没被 run-all 检查过,
 # 于是「run-all 全绿」并不代表基线完整(见 TICKETS XX-AUDIT-001)。
 npm run lint || fail=$((fail+1))
+# 死导出检测(XX-AUDIT-007):report-only,退出码恒为 0,不参与 fail 计数。
+# 它是「提醒清单」不是门禁 —— 候选里混着真死代码与动态访问,机器分不开,
+# 人工确认过的写进 deadexport-baseline.txt。挂在 run-all 里是为了
+# 「每次跑基线都能看见有没有新增死导出」,而不是为了拦路。
+node tests/lint-deadexport.mjs || true
 if [ $fail -eq 0 ]; then echo "✅ 全部通过"; else echo "❌ 有失败"; fi
 exit $fail
