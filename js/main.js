@@ -146,8 +146,23 @@ function endRun(victory) {
     for (const [id, , lv] of runArtSync(g0())) { Cult.syncArt(id, lv); }
     Cult.commit();
   } catch (e) { console.warn('[art-sync]', e); }
+  // 修为结算(XX-BAL-001):砍杀**必须**给修为。
+  // Cult.settle() 一直存在、一直被调好公式,但**全项目没有任何调用点** ——
+  // 局末只走 SPIRIT.settle(道行+源石)。所以一局砍杀打完,修为一点没涨,
+  // 修仙阁只能靠吐纳/荒野/回合制慢慢磨 → 化神期数学上不可达。
+  // 这不是曲线太平,是主线根本没接。
+  let cult = null;
+  try {
+    const s2 = Cult.get();
+    const ridx = Math.max(0, REALMS.findIndex(r => r.id === s2.realm));
+    cult = Cult.settle({
+      kills: s.kills, time: runTime,
+      realmLayer: s2.layer, realmIdx: ridx,
+    });
+  } catch (e) { console.warn('[cult-settle]', e); }
   // 灵气结算:砍杀的产出回流到修仙阁(道行 + 源石)
   const sp = SPIRIT.settle(g0(), s);
+  if (sp && cult) sp.exp = cult.exp;
   Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level,
     gold: s.gold, spirit: sp }, {
     victory,
@@ -281,6 +296,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !loc
 
 // ===== 修仙层入口(V0.78)=====
 import { Cult } from './xiuxian/index.js';
+import { REALMS } from './xiuxian/realms.js';
 import { Hall } from './xiuxian/ui.js';
 import { Bag, DAY } from './xiuxian/items.js';
 import { CAMP, offlineReport } from './xiuxian/camp.js';

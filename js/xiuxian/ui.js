@@ -41,7 +41,7 @@ const PORTRAIT = {
   ranger:'assets/portrait/ranger.jpg', white:'assets/portrait/white.jpg',
   companion:'assets/portrait/companion.jpg', momocha:'assets/portrait/momocha.jpg',
   merchant:'assets/portrait/merchant.jpg',
-  foe:'assets/portrait/foe.jpg', hero:'assets/portrait/knight.jpg', aunt:'assets/portrait/companion.jpg',
+  foe:'assets/portrait/villain-moying.jpg', hero:'assets/portrait/knight.jpg', aunt:'assets/portrait/companion.jpg',
 };
 const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['market','集市'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
@@ -421,7 +421,12 @@ export const Hall = {
         const si = document.getElementById('xx-seed');
         const v = si ? si.value : '';
         Seed.set(v);
-        Cult.commit(); this.render();
+        Cult.commit();
+        // XX-FIX-003:Cult.commit() 只写修仙状态的键,profile.seed 会停在旧值。
+        // 运行时读种子走的是独立键 xx_seed_v081,所以**不影响玩法**,
+        // 只是存档码里那个种子名显示成旧的。这里补一次 Profile 收集。
+        try { Profile.collect(mods); } catch (e) { console.warn('[seed-sync]', e); }
+        this.render();
         toast(`新的一世:${Seed.cur}`); break;
       }
       case 'copycode': {

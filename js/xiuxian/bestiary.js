@@ -158,7 +158,7 @@ export const NPCS = {
     threat:'无',
   },
   moying: {
-    name:'墨影', form:'宿 敌', img:'assets/portrait/foe.jpg',
+    name:'墨影', form:'宿 敌', img:'assets/portrait/villain-moying.jpg',
     desc:'断剑冢主。古战场上那三百柄剑都是他的。',
     bio:'他没有输过,所以他不知道自己想要什么。\n' +
         '每一个被他杀掉的名字,他都刻在碑上。他记得住,因为他不敢忘。',

@@ -102,7 +102,8 @@
 .xx-tag.gold{background:var(--xx-gold);color:var(--xx-ink)}
 
 /* 地图 */
-.xx-map{position:relative;width:100%;aspect-ratio:1/.48;margin:0 auto;max-width:400px;
+.xx-map{position:relative;width:100%;aspect-ratio:1/.72;margin:0 auto;max-width:400px;  /* XX-FIX-002:1/.48 时容器 380x182,首行节点 y=9% -> 16px < 半径 20px,顶部被裁 4~7px。
+     放大到 1/.72 后纵向舒展,顺带解决底部 33px 空白。 */
   padding-bottom:24px}
 /* 节点:圆形本体 + 标签绝对定在圈下方。
    V0.95 踩过:标签是 flex 子元素,被 40px 的圈挤在里面,「黑风岭」竖成一列。 */

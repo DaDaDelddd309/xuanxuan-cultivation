@@ -3,7 +3,7 @@
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v099i';
+const V = 'xuanxuan-v099k';
 const BUILD = '20261008-1710';
 
 const CORE = [
@@ -18,6 +18,7 @@ const CORE = [
   'js/core/engine.js', 'js/core/camera.js', 'js/core/input.js', 'js/core/save.js', 'js/core/audio.js',
   'js/game/player.js', 'js/game/map.js', 'js/game/particles.js', 'js/game/enemies.js',
   'js/game/weapons.js', 'js/game/director.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
+  'assets/portrait/villain-shexie.jpg', , 'assets/portrait/villain-nvxia.jpg', , 'assets/portrait/villain-yaohou.jpg', , 'assets/portrait/villain-youfang.jpg', , 'assets/portrait/villain-heifeng.jpg', , 'assets/portrait/villain-shougu.jpg',
   'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/bestiary.js', 'js/ui/screens.js', 'js/ui/joystick.js',
 ];
 const XX = [
@@ -38,7 +39,7 @@ const XX = [
   'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js', 'js/xiuxian/market.js', 'js/xiuxian/tavern.js', 'js/xiuxian/artstar.js', 'js/xiuxian/craft.js',
 ];
 const ART = [
-  'assets/portrait/hero.jpg', 'assets/portrait/foe.jpg', 'assets/portrait/aunt.jpg',
+  'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',
   'assets/bg/duel.jpg', 'assets/bg/cave.jpg', 'assets/bg/sect.jpg',
   'assets/bgm/nemesis.mp3', 'assets/bgm/overlord.mp3',
   'assets/mob/ghostfire.jpg','assets/mob/revenant.jpg','assets/mob/golem.jpg',

@@ -5,7 +5,7 @@ import { Bus } from '../core/engine.js';
 const A = {
   portrait: {
     hero: 'assets/portrait/hero.jpg',
-    foe:  'assets/portrait/foe.jpg',
+    foe:  'assets/portrait/villain-moying.jpg',
     aunt: 'assets/portrait/aunt.jpg',
   },
   bg: {

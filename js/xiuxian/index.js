@@ -34,10 +34,28 @@ export const Cult = {
   },
 
   // 局内结束 → 局外结算:修为、道行、丹药
-  settle({ kills, time, realmLayer }) {
+  settle({ kills, time, realmLayer, realmIdx = 0 }) {
     const s = this.s;
-    // 修为收益与击杀挂钩,并随境界递减(防止后期刷爆)
-    const gain = Math.round(kills * 2.5 * (1 + realmLayer*0.02));
+    // 修为收益与击杀挂钩。
+    //
+    // ⚠️ XX-BAL-001:原来这里写的是 `1 + realmLayer*0.02`,注释说"随境界递减(防止后期刷爆)"。
+    // 但 LAYER_COST 从炼气到化神涨了 1,443 倍,产出侧却被这行锁死在 300 多 ——
+    // 跨 48 层只涨 1.16 倍。化神期因此**数学上不可达**(9,000,000 ÷ 354 ≈ 25,428 局)。
+    // 两侧从来没对过账:消耗涨了一千倍,产出却被主动压平。
+    //
+    // 现在改为**从 LAYER_COST 反推倍率**,而不是拍一个系数。
+    //
+    // 为什么必须反推:消耗侧是硬编码表(炼气层1=50 → 化神层1=3,500,000,跨 70,000 倍),
+    // 产出侧如果自己定系数,那就是**两套互不相干的数** —— XX-BAL-001 的病根。
+    // 绑在一起之后,以后谁改 LAYER_COST,产出自动跟着走,不会再出现
+    // "改了一边忘了另一边"。
+    //
+    // 指数 0.63:略低于 1(1.0 = 严格同比例,后期会平得没有挑战感),
+    // 使后期每个大境界约 26~65 局,而不是几万局。
+    const baseCost = layerCost('qi', 1) || 50;
+    const myCost   = layerCost(s.realm, 1) || baseCost;
+    const realmMul = Math.pow(myCost / baseCost, 0.63);
+    const gain = Math.round(kills * 2.5 * realmMul);
     const r = addExp(s, gain);
     s.dao += Math.round(kills * 0.6);
     s.totalKills += kills;
