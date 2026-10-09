@@ -2366,3 +2366,34 @@ export function rollEnemy(nodeId, realmId){} // @planned ROADMAP#2
 - **P2 全部**（Playwright 版本落后 / `esc()` 重复三份 / 零散问题）：低优先。
   ⚠️ Playwright 在本机与 Z8 **均无法安装**（`Unsupported platform: android`）,
   浏览器相关结论暂不具备独立验证条件。
+
+---
+
+## 🟠 XX-AUDIT-019 `version.json` 没有任何 script 会重新生成 ⬜ 待办
+
+**独立复核**：`version.json`（4732 字节，含 112 个文件的 sha256）确实存在，
+但 `package.json` 的 14 个 scripts 里**没有一个会重新生成它**。
+`tests/make-manifest.mjs` 存在（3019 字节）却**没挂进 scripts**。
+
+**后果**：改了代码不重新生成 → `version.json` 里的探针指向一个
+**实际不存在的版本组合**。排查问题时它不是没帮上忙，是**反向误导**。
+
+**修法**：
+1. 把 `node tests/make-manifest.mjs` 挂进 `scripts`（如 `"manifest": "node tests/make-manifest.mjs"`）
+2. 让 `lint-version.mjs` 校验 `version.json` 与 `sw.js` 的 `const V` 一致
+   （审计报告称 Z8 侧已补此校验，**待合并后核对是否已存在**）
+
+## 🔴 XX-AUDIT-020 版本号协同约定缺失 ⬜ 待办（已出约定文档，待执行）
+
+**问题**：桌面侧与 Z8 并行改同一项目，2026-10-10 检查时
+**两边都提交了但都没升版本号** —— 两个不同版本的代码对外都声称是 `V0.99`。
+
+**已出**：`VERSION-CONVENTION.md`（真源、`p/q/r` 后缀语义、CHANGELOG 对应关系、合并后统一升版流程）。
+
+**待执行**（等 Z8 合并完成后）：
+- [ ] 统一升到 `xuanxuan-v099q`
+- [ ] `node tests/lint-version.mjs` 通过
+- [ ] `node tests/make-manifest.mjs` 重生成 `version.json`
+- [ ] `npm run check:full` = 0
+- [ ] CHANGELOG 补本轮条目
+- [ ] 推送
