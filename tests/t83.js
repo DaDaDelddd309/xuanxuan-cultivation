@@ -131,15 +131,21 @@ t('篝火上限为3', B.BUILD.s.fires.length===3);
 t('篝火计入晋升条件', B.BUILD.fireCount()===3);
 
 console.log('\n=== 固定NPC图鉴 ===');
-t('6个NPC', Object.keys(BI.NPCS).length===6);
+// V0.99(7856c5e「燎原」)把灵伴三形(宝宝/鬼火/怨灵)判为无意义
+// ——它们本就是同一个人的三种说法 —— 合并为 1 个 NPC,并删掉 route 字段。
+// 原断言数的是 6 个,现为 4 个;ghostfire/revenant 已不存在,引用即崩。
+const N=Object.keys(BI.NPCS);
+t('4个NPC', N.length===4);
+t('名单与预期一致', ['baby','merchant','momocha','moying'].every(k=>N.includes(k)));
+t('已删的三形不再出现', !('ghostfire' in BI.NPCS) && !('revenant' in BI.NPCS));
 t('宝宝=灵伴', BI.NPCS.baby.form==='灵 伴');
-t('鬼火=冷路线', BI.NPCS.ghostfire.route==='cold');
-t('怨灵=魅路线', BI.NPCS.revenant.route==='ghost');
-t('怨灵有威胁说明', BI.NPCS.revenant.threat.includes('闪屏'));
-t('鬼火无威胁', BI.NPCS.ghostfire.threat==='低'||BI.NPCS.ghostfire.threat==='无');
+t('宝宝无威胁(不打扰)', BI.NPCS.baby.threat.includes('不会主动打扰'));
 t('商人标注不打断', BI.NPCS.merchant.ability.includes('不打断'));
-t('么么茶是固定NPC', BI.NPCS.momocha.route==='fixed');
+t('么么茶是固定NPC', BI.NPCS.momocha.recruit.includes('无需招募'));
+t('墨影=宿敌', BI.NPCS.moying.form==='宿 敌');
+t('墨影威胁极高', BI.NPCS.moying.threat==='极高');
 t('都有人物背景', Object.values(BI.NPCS).every(n=>n.bio&&n.bio.length>20));
 t('都有能力说明', Object.values(BI.NPCS).every(n=>n.ability));
+t('都有立绘', Object.values(BI.NPCS).every(n=>n.img&&n.img.startsWith('assets/portrait/')));
 
 console.log(`\n${'='.repeat(46)}\n通过 ${pass} / 失败 ${fail}\n${'='.repeat(46)}`);
