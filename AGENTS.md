@@ -467,7 +467,10 @@ load() {
 1. **不要引入框架/构建工具** —— 会破坏 Canvas 渲染层
 2. **不要把修仙 UI 画进 canvas** —— 和原版渲染循环打架
 3. **不要修改 `js/game/` 的游戏逻辑** —— 只允许加钩子(`ENEMY_MOD` 这种)
-4. **不要打包外部音频/图片素材** —— 音频用 WebAudio 合成,图片用 AI 生成
+4. **不要引入第三方版权音频/图片素材** —— 音效用 WebAudio 合成,图片用 AI 生成
+   > 2026-10-10 更正:原文写「不要打包外部音频/图片素材」,绝对化了。
+   > 项目**自己 AI 生成**的回合制 BGM(`assets/bgm/*.mp3`,780K)是允许且在用的。
+   > 禁令的准确边界是「**第三方版权**」,不是「任何音频文件」。
 5. **不要在 `main.js` 里塞业务逻辑** —— 它只做装配和钩子
 6. **不要声称「已完成」而没实际验证** —— 每个数字都要有对应测试断言
 
@@ -475,7 +478,12 @@ load() {
 
 ## 七、当前版本状态
 
-**V0.95 · 视觉统一**
+**V0.99 · 燎原**（`sw.js` 的 `const V = 'xuanxuan-v099p'`）
+
+> **2026-10-10 更正**：本节原先停在 **V0.95**，落后四个主版本线
+> （V0.96 灵气/打扰预算 · V0.98 灵伴重做+主线骨架 · V0.99 燎原 · v099k~p 六个补丁）。
+> 下方「已完成」清单与行数、测试数均已按当前代码复核。
+> **版本真源是 `sw.js` 的 `const V`**，不是本文档。
 
 - 逻辑测试 **579 项**全绿(t80-t92)+ 7 个静态检查
 - 浏览器测试 **7 套**(含可达性审计)全流程通过,0 JS 错误
@@ -508,7 +516,14 @@ load() {
 见 [`DEPLOY.md`](DEPLOY.md)。要点:
 - 仓库 `DaDaDelddd309/xuanxuan-cultivation`
 - **部署前必跑** `bash tests/run-browser.sh`(只跑逻辑测试不够,见第零点五节)
-- 升版本号要改 4 处:`index.html` ×2、`manifest.webmanifest`、`sw.js`
-  (`lint-version.mjs` 会验,漏改直接红)
+- 升版本号要改 3 处:`index.html` ×2、`manifest.webmanifest`、`sw.js`
+  然后**重新生成探针**:`node tests/make-manifest.mjs --write`
+  （它从 `sw.js` 的 `const V` 读版本号写进 `version.json`）
+  最后跑 `node tests/lint-version.mjs` 验证,漏改直接红
+  > **2026-10-10 更正**：原文写「改 4 处」并只列了 `index.html`/`manifest`/`sw.js` 三项。
+  > 但 `lint-version.mjs` 现在还硬校验 **`version.json`** 与 `sw.js` 一致 ——
+  > 只改前三个而忘了重新生成探针，lint 会直接红，提示「探针指向的版本不存在」。
+  > `package.json` 的 `version` 是 npm 用的 semver（当前 `0.99.4`），与页面版本号
+  > **两套记法、允许不同**，lint 只查它是不是合法 semver。
 - 部署完要**等 GitHub Pages 构建完再验证**,通常 30-60 秒
 - commit message 现在会自动读 `index.html` 里的版本号
