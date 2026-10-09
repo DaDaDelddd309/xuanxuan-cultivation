@@ -1,0 +1,76 @@
+/root/.tmp/xxv96/local/xxdeploy/tools/visual/audit.py:240: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  cp = list(core.getdata())
+[shoot] 复用已有服务 http://127.0.0.1:8899/index.html
+
+======================================================================
+自动视觉体检(像素级)
+======================================================================
+OK 主菜单              tofu=0  clip=0  spill=0  tiny=0  contrast=0
+!! 组合图鉴             tofu=0  clip=0  spill=0  tiny=0  contrast=4
+      对比度  4.04<4.5 @span.codex-item-sub 「剑气 + 力量」
+      对比度  4.36<4.5 @span.codex-item-sub 「贯日 + 疾风靴」
+      对比度  2.07<4.5 @span.codex-item-name 「九天神雷」
+      对比度  1.0<4.5 @span.codex-item-sub 「五雷 + 贤者帽」
+!! 怪物图鉴             tofu=0  clip=0  spill=0  tiny=0  contrast=3
+      对比度  4.04<4.5 @span.codex-item-sub 「直线追击」
+      对比度  4.49<4.5 @span.codex-item-sub 「半减伤直线，击退抗性高」
+      对比度  1.0<4.5 @span.codex-item-name 「泥沼鬼」
+OK 选择角色             tofu=0  clip=0  spill=0  tiny=0  contrast=0
+!! 修仙阁·境界           tofu=0  clip=0  spill=0  tiny=0  contrast=1
+      对比度  4.43<4.5 @div.xx-label 「击杀」
+!! 修仙阁·大地图          tofu=0  clip=0  spill=0  tiny=0  contrast=28
+      对比度  2.75<4.5 @div.xx-fogq 「?」
+      对比度  2.92<4.5 @div.xx-node-lg 「◆」
+      对比度  2.74<4.5 @div.xx-fogq 「?」
+      对比度  2.97<4.5 @div.xx-node-lg 「◆」
+      对比度  2.73<4.5 @div.xx-fogq 「?」
+!! 修仙阁·营地           tofu=0  clip=0  spill=0  tiny=0  contrast=1
+      对比度  3.16<4.5 @div.xx-fire-s 「需要一枚源石」
+!! 修仙阁·神通           tofu=0  clip=0  spill=0  tiny=0  contrast=54
+      对比度  3.94<4.5 @div.xx-art-lv 「扇形贯穿剑气」
+      对比度  3.52<4.5 @div.xx-art-up 「升星 · 1300金 + 1书」
+      对比度  3.02<4.5 @div.xx-art-n 「御风」
+      对比度  3.2<4.5 @div.xx-art-b 「—」
+      对比度  1.13<4.5 @div.xx-art-lv 「御风追踪,刃」
+!! 修仙阁·行囊           tofu=0  clip=0  spill=0  tiny=0  contrast=2
+      对比度  4.31<4.5 @button.xx-tab.on 「行囊」
+      对比度  3.43<4.5 @div.xx-empty-h 「去 哪 儿」
+!! 修仙阁·集市           tofu=0  clip=0  spill=0  tiny=0  contrast=17
+      对比度  4.1<4.5 @span.xx-gold 「0 金」
+      对比度  3.61<4.5 @div.xx-mk-d 「落云镇酒馆 · 有来历的人」
+      对比度  2.88<4.5 @button.xx-btn 「还差 650」
+      对比度  3.6<4.5 @div.xx-mk-d 「功法残页」
+      对比度  2.91<4.5 @button.xx-btn 「还差 120」
+!! 修仙阁·人物           tofu=0  clip=0  spill=0  tiny=0  contrast=5
+      对比度  4.33<4.5 @div#xx-realm-badge.xx-realm 「炼气期1层」
+      对比度  4.33<4.5 @button.xx-tab.on 「人物」
+      对比度  1.02<4.5 @div.t 「无根散修」
+      对比度  3.98<4.5 @p 「本是青石村一名樵夫,十六岁那年在山涧捡到半卷无名残书。残书无名,却让他一夜之间开」
+      对比度  4.02<4.5 @p.xx-gold 「从只想活下去,到想让某些人活不下去。」
+!! 修仙阁·称号           tofu=0  clip=0  spill=0  tiny=0  contrast=24
+      对比度  1.01<4.5 @div.xx-seal 「？」
+      对比度  3.38<4.5 @div 「赤子之心」
+      对比度  2.78<4.5 @div.xx-dim 「挑战 ≥30 次且放过 ≥20 人」
+      对比度  1.0<4.5 @div.xx-seal 「？」
+      对比度  3.43<4.5 @div 「修炼狂」
+!! 修仙阁·家族           tofu=0  clip=0  spill=0  tiny=0  contrast=1
+      对比度  3.18<4.5 @div.xx-empty-h 「立 族 之 后」
+!! 修仙阁·领地           tofu=0  clip=0  spill=0  tiny=0  contrast=6
+      对比度  3.08<4.5 @div.bd-slot.empty 「＋」
+      对比度  2.98<4.5 @div.bd-slot.empty 「＋」
+      对比度  1.68<4.5 @div.bd-slot.lock 「🔒」
+      对比度  1.73<4.5 @div.bd-slot.lock 「🔒」
+      对比度  1.71<4.5 @div.bd-slot.lock 「🔒」
+!! 修仙阁·图鉴           tofu=0  clip=0  spill=0  tiny=0  contrast=12
+      对比度  3.93<4.5 @span 「茶 摊」
+      对比度  3.23<4.5 @div.xx-dxx-b2 「前期必然遭遇 · 可委任种植灵田(产量可观) · 可派去打听消息」
+      对比度  3.42<4.5 @span 「过 路」
+      对比度  3.27<4.5 @div.xx-dxx-b2 「侧边闪卡交易 · 24 秒自动离开 · 不打断、不卡怪 · 可无视」
+      对比度  3.12<4.5 @span 「宿 敌」
+!! 修仙阁·支线           tofu=0  clip=0  spill=0  tiny=0  contrast=1
+      对比度  3.41<4.5 @div.xx-empty-h 「去 哪 儿」
+OK 修仙阁·存档           tofu=0  clip=0  spill=0  tiny=0  contrast=0
+----------------------------------------------------------------------
+合计  tofu=0  clip=0  spill=0  tiny=0  contrast=159
+有问题,见上。
+明细 -> /tmp/audit-f4.json

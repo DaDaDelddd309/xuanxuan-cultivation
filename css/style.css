@@ -443,8 +443,12 @@ label.tg input:checked {
 .card:active { transform: translateY(1px); }
 
 /* 选人卡 */
-.char-card.locked { filter: grayscale(.9) brightness(.8) opacity(.75); }
-.char-card.locked:hover { border-color: var(--ink-3); transform: none; filter: grayscale(.9) brightness(.8) opacity(.75); }
+/* ⚠️ 原来这里还有 brightness(.8) opacity(.75)。那不是"弱化",是把文字和底色
+   一起压暗 —— 实测同一段描述文字:已解锁 13.9:1,未解锁掉到 3.2:1(WCAG AA 要 4.5)。
+   锁定状态该靠 🔒 和「金币不足」文案说明,不需要牺牲可读性。
+   grayscale 只去饱和、不动亮度关系,对比度不变。 */
+.char-card.locked { filter: grayscale(.85); }
+.char-card.locked:hover { border-color: var(--ink-3); transform: none; filter: grayscale(.85); }
 .char-name { font-size: 17px; font-weight: 700; letter-spacing: 3px; color: var(--ink); text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
 .char-desc { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
 .char-trait { font-size: 12px; font-weight: 700; color: var(--cinnabar-text); margin-top: 3px; line-height: 1.45; }
@@ -602,7 +606,7 @@ button { font-family: inherit; }
 }
 .codex-tab {
   font: inherit; font-size: 14px; font-weight: 700; letter-spacing: 2px;
-  padding: 7px 16px; cursor: pointer;
+  padding: 7px 16px; cursor: pointer; min-height: 44px; box-sizing: border-box;
   color: var(--ink-3);
   background: linear-gradient(var(--paper-hi), var(--paper-dk));
   border: 2px solid var(--ink-4);
@@ -619,7 +623,7 @@ button { font-family: inherit; }
   text-shadow: 0 1px 0 rgba(92, 26, 20, .55);
   box-shadow: inset 0 0 0 1px rgba(250, 246, 234, .4), 1px 2px 0 rgba(43, 43, 43, .28);
 }
-.codex-tab .codex-tab-n { font-size: 11px; opacity: .8; margin-left: 4px; letter-spacing: 0; }
+.codex-tab .codex-tab-n { font-size: 11px; opacity: .9; margin-left: 4px; letter-spacing: 0; }
 
 /* 演示舞台:圆角墨框画布(宣纸底由画布自绘) */
 #codex-stage {

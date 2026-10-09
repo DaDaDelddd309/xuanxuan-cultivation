@@ -679,8 +679,7 @@ export const Hall = {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><div class="xx-label">${p.name}${own ? ` ×${own}` : ''}</div>
           <div class="xx-val">${p.price} 道行</div></div>
-          <button class="xx-btn" style="width:auto;margin:0;padding:8px 16px;font-size:13px"
-            data-act="buy" data-v="${id}">购</button>
+          <button class="xx-btn tiny" data-act="buy" data-v="${id}">购</button>
         </div>
         <div class="xx-dim" style="margin-top:6px">${p.desc}</div>
       </div>`;
@@ -1111,7 +1110,7 @@ export const Hall = {
         <div class="xx-dim" style="margin-bottom:9px">
           耗 500 资产养成。一人抵三人,四项全产(源石/丹/修为/道行)。不可婚配 —— 他的道已定。</div>
         <div class="xx-grid3">
-          ${FAMILY.RAISED.map(k=>`<button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+          ${FAMILY.RAISED.map(k=>`<button class="xx-btn sm"
             data-act="raise" data-v="${k.key}">${k.name}</button>`).join('')}
         </div>
         ${(()=>{const _g=FAMILY.raiseGap();return _g.full?'<div class="xx-hint">族人已满 · 议事堂可扩容</div>':(_g.ok?'<div class="xx-hintok">资财已足,可招</div>':`<div class="xx-hint">还需 <b>${_g.lack}</b> 资产(需 500)</div>`);})()}
@@ -1394,11 +1393,11 @@ export const Hall = {
         <div class="xx-dim" style="margin-bottom:9px">
           ${RICE.d}生吞 +${RICE.eat.exp}修为/${RICE.eat.dao}道行 · 喂族人顶半日 · 卖 ${RICE.price}/斤</div>
         <div class="xx-grid3">
-          <button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+          <button class="xx-btn sm"
             data-act="harvestall">收起全部</button>
-          <button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+          <button class="xx-btn sm"
             data-act="eat" data-v="1">生吞一斤</button>
-          <button class="xx-btn" style="margin:0;padding:10px;font-size:12px;letter-spacing:1px"
+          <button class="xx-btn sm"
             data-act="sell" data-v="10">卖10斤</button>
         </div>
       </div>

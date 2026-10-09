@@ -1,0 +1,135 @@
+/root/.tmp/xxv96/local/xxdeploy/tools/visual/audit.py:240: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  cp = list(core.getdata())
+[shoot] 复用已有服务 http://127.0.0.1:8899/index.html
+
+======================================================================
+自动视觉体检(像素级)
+======================================================================
+OK 主菜单              tofu=0  clip=0  spill=0  tiny=0  contrast=0
+!! 组合图鉴             tofu=0  clip=0  spill=0  tiny=2  contrast=4
+      触控小  116x38 @button.codex-tab.on 「进化绝学12」
+      触控小  111x38 @button.codex-tab 「元素联动6」
+      对比度  3.93<4.5 @span.codex-tab-n 「12」
+      对比度  4.04<4.5 @span.codex-item-sub 「剑气 + 力量」
+      对比度  4.36<4.5 @span.codex-item-sub 「贯日 + 疾风靴」
+      对比度  1.0<4.5 @span.codex-item-sub 「五雷 + 贤者帽」
+!! 怪物图鉴             tofu=0  clip=0  spill=0  tiny=2  contrast=5
+      触控小  84x38 @button.codex-tab.on 「常规10」
+      触控小  127x38 @button.codex-tab 「特殊/Boss4」
+      对比度  3.93<4.5 @span.codex-tab-n 「10」
+      对比度  4.04<4.5 @span.codex-item-sub 「直线追击」
+      对比度  4.49<4.5 @span.codex-item-sub 「半减伤直线，击退抗性高」
+      对比度  1.0<4.5 @span.codex-item-name 「泥沼鬼」
+      对比度  1.0<4.5 @span.codex-item-sub 「区域威胁：生成泥沼预警圈，1秒后爆发」
+!! 选择角色             tofu=0  clip=0  spill=0  tiny=0  contrast=13
+      对比度  2.1<4.5 @div.char-attrs 「生命 120 · 移速 144 · 护甲 +1 · 减伤 18%」
+      对比度  3.28<4.5 @div.char-desc 「御风之术,冷却 -15% · 初始武功:御风」
+      对比度  4.03<4.5 @div.char-trait 「灵脉：技能范围 +18%，经验获取 +12%」
+      对比度  1.03<4.5 @div.char-attrs 「生命 80 · 移速 137 · 冷却 -15% · 范围 +18% · 经验 」
+      对比度  4.33<4.5 @div.char-cost 「🔒 300 金币 · 金币不足」
+!! 修仙阁·境界           tofu=0  clip=0  spill=0  tiny=5  contrast=19
+      触控小  32x32 @button.xx-back 「‹」
+      触控小  50x37 @button.xx-btn 「购」
+      触控小  50x37 @button.xx-btn 「购」
+      触控小  50x37 @button.xx-btn 「购」
+      触控小  50x37 @button.xx-btn 「购」
+      对比度  3.95<4.5 @button.xx-tab 「大地图」
+      对比度  3.57<4.5 @button.xx-tab 「营地」
+      对比度  3.6<4.5 @button.xx-tab 「神通」
+      对比度  3.48<4.5 @button.xx-tab 「行囊」
+      对比度  4.11<4.5 @button.xx-tab 「集市」
+!! 修仙阁·大地图          tofu=0  clip=0  spill=0  tiny=1  contrast=35
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.57<4.5 @button.xx-tab 「境界」
+      对比度  3.57<4.5 @button.xx-tab 「营地」
+      对比度  3.6<4.5 @button.xx-tab 「神通」
+      对比度  3.46<4.5 @button.xx-tab 「行囊」
+      对比度  4.08<4.5 @button.xx-tab 「集市」
+!! 修仙阁·营地           tofu=0  clip=0  spill=0  tiny=1  contrast=16
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.57<4.5 @button.xx-tab 「境界」
+      对比度  3.95<4.5 @button.xx-tab 「大地图」
+      对比度  3.65<4.5 @button.xx-tab 「神通」
+      对比度  3.43<4.5 @button.xx-tab 「行囊」
+      对比度  4.08<4.5 @button.xx-tab 「集市」
+!! 修仙阁·神通           tofu=0  clip=0  spill=0  tiny=1  contrast=62
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.59<4.5 @button.xx-tab 「境界」
+      对比度  3.97<4.5 @button.xx-tab 「大地图」
+      对比度  3.57<4.5 @button.xx-tab 「营地」
+      对比度  3.5<4.5 @button.xx-tab 「行囊」
+      对比度  4.1<4.5 @button.xx-tab 「集市」
+!! 修仙阁·行囊           tofu=0  clip=0  spill=0  tiny=1  contrast=10
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.57<4.5 @button.xx-tab 「境界」
+      对比度  4.06<4.5 @button.xx-tab 「大地图」
+      对比度  3.69<4.5 @button.xx-tab 「营地」
+      对比度  3.62<4.5 @button.xx-tab 「神通」
+      对比度  4.31<4.5 @button.xx-tab.on 「行囊」
+!! 修仙阁·集市           tofu=0  clip=0  spill=0  tiny=10  contrast=34
+      触控小  32x32 @button.xx-back 「‹」
+      触控小  139x31 @button.xx-btn 「还差 60」
+      触控小  134x31 @button.xx-btn 「还差 200」
+      触控小  134x31 @button.xx-btn 「还差 400」
+      触控小  130x31 @button.xx-btn 「还差 3200」
+      对比度  3.98<4.5 @button.xx-tab 「境界」
+      对比度  4.15<4.5 @button.xx-tab 「大地图」
+      对比度  3.65<4.5 @button.xx-tab 「营地」
+      对比度  3.63<4.5 @button.xx-tab 「神通」
+      对比度  3.43<4.5 @button.xx-tab 「行囊」
+!! 修仙阁·人物           tofu=0  clip=0  spill=0  tiny=1  contrast=29
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  4.33<4.5 @div#xx-realm-badge.xx-realm 「炼气期1层」
+      对比度  3.46<4.5 @button.xx-tab 「境界」
+      对比度  4.0<4.5 @button.xx-tab 「大地图」
+      对比度  3.62<4.5 @button.xx-tab 「营地」
+      对比度  3.62<4.5 @button.xx-tab 「神通」
+!! 修仙阁·称号           tofu=0  clip=0  spill=0  tiny=1  contrast=30
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.43<4.5 @button.xx-tab 「行囊」
+      对比度  4.08<4.5 @button.xx-tab 「集市」
+      对比度  3.84<4.5 @button.xx-tab 「人物」
+      对比度  3.73<4.5 @button.xx-tab 「家族」
+      对比度  3.87<4.5 @button.xx-tab 「领地」
+!! 修仙阁·家族           tofu=0  clip=0  spill=0  tiny=1  contrast=9
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.46<4.5 @button.xx-tab 「行囊」
+      对比度  4.06<4.5 @button.xx-tab 「集市」
+      对比度  3.84<4.5 @button.xx-tab 「人物」
+      对比度  4.04<4.5 @button.xx-tab 「称号」
+      对比度  3.82<4.5 @button.xx-tab 「领地」
+!! 修仙阁·领地           tofu=0  clip=0  spill=0  tiny=4  contrast=22
+      触控小  32x32 @button.xx-back 「‹」
+      触控小  116x39 @button.xx-btn 「收起全部」
+      触控小  116x39 @button.xx-btn 「生吞一斤」
+      触控小  116x39 @button.xx-btn 「卖10斤」
+      对比度  3.46<4.5 @button.xx-tab 「行囊」
+      对比度  4.06<4.5 @button.xx-tab 「集市」
+      对比度  3.89<4.5 @button.xx-tab 「人物」
+      对比度  4.04<4.5 @button.xx-tab 「称号」
+      对比度  3.71<4.5 @button.xx-tab 「家族」
+!! 修仙阁·图鉴           tofu=0  clip=0  spill=0  tiny=1  contrast=22
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.43<4.5 @button.xx-tab 「行囊」
+      对比度  4.06<4.5 @button.xx-tab 「集市」
+      对比度  3.84<4.5 @button.xx-tab 「人物」
+      对比度  4.1<4.5 @button.xx-tab 「称号」
+      对比度  3.71<4.5 @button.xx-tab 「家族」
+!! 修仙阁·支线           tofu=0  clip=0  spill=0  tiny=1  contrast=9
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.95<4.5 @button.xx-tab 「人物」
+      对比度  4.02<4.5 @button.xx-tab 「称号」
+      对比度  3.74<4.5 @button.xx-tab 「家族」
+      对比度  3.82<4.5 @button.xx-tab 「领地」
+      对比度  3.95<4.5 @button.xx-tab 「图鉴」
+!! 修仙阁·存档           tofu=0  clip=0  spill=0  tiny=1  contrast=11
+      触控小  32x32 @button.xx-back 「‹」
+      对比度  3.89<4.5 @button.xx-tab 「人物」
+      对比度  4.06<4.5 @button.xx-tab 「称号」
+      对比度  3.73<4.5 @button.xx-tab 「家族」
+      对比度  3.85<4.5 @button.xx-tab 「领地」
+      对比度  3.98<4.5 @button.xx-tab 「图鉴」
+----------------------------------------------------------------------
+合计  tofu=0  clip=0  spill=0  tiny=33  contrast=330
+有问题,见上。
+明细 -> /tmp/audit.json

@@ -140,7 +140,7 @@ export const Screens = {
           `<div class="char-name">${c.name}</div>` +
           `<div class="char-desc">${c.desc}</div>` +
           (c.trait ? `<div class="char-trait">${c.trait}</div>` : '') +
-          `<div class="char-attrs" style="font-size:12px;color:#8b9bb4;margin-top:2px;">${attrs.join(' · ')}</div>`;
+          `<div class="char-attrs" style="font-size:12px;margin-top:2px;">${attrs.join(' · ')}</div>`;
         cost.innerHTML = owned ? '✔ 可用'
           : `🔒 ${c.cost} 金币${d.gold >= c.cost ? ' · 点击解锁' : ' · 金币不足'}`;
         info.appendChild(cost);
@@ -331,7 +331,7 @@ export const Screens = {
       v.textContent = c.v + (c.rec ? ' ★' : '');
       const l = document.createElement('div');
       l.className = 'ostat-l';
-      l.style.cssText = 'font-size:12px;color:#8b9bb4;';
+      l.style.cssText = 'font-size:12px;';
       l.textContent = c.l + (c.rec ? '(新纪录)' : '');
       cell.append(v, l);
       ov.appendChild(cell);

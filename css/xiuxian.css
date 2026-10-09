@@ -42,7 +42,7 @@
 .xx-realm{margin-left:auto;font-size:13px;color:var(--xx-gold);letter-spacing:1px;
   padding:3px 10px;border:1px solid var(--xx-line-gold);border-radius:2px;white-space:nowrap}
 .xx-back{background:none;border:1px solid rgba(232,220,196,.3);color:var(--xx-paper);
-  width:32px;height:32px;border-radius:2px;font-size:17px;cursor:pointer;flex-shrink:0;
+  width:44px;height:44px;border-radius:2px;font-size:17px;cursor:pointer;flex-shrink:0;
   display:flex;align-items:center;justify-content:center}
 .xx-back:active{background:rgba(232,220,196,.12)}
 
@@ -50,7 +50,7 @@
 .xx-tabs{display:flex;gap:2px;padding:0 12px;flex-shrink:0;
   border-bottom:1px solid rgba(201,162,39,.15);overflow-x:auto;scrollbar-width:none}
 .xx-tabs::-webkit-scrollbar{display:none}
-.xx-tab{background:none;border:none;color:rgba(232,220,196,.55);padding:11px 14px;
+.xx-tab{background:none;border:none;color:var(--xx-paper-dim);padding:11px 14px;
   font-size:14px;cursor:pointer;white-space:nowrap;letter-spacing:2px;
   border-bottom:2px solid transparent;transition:.2s;font-family:inherit}
 .xx-tab.on{color:var(--xx-gold);border-bottom-color:var(--xx-cinnabar)}
@@ -69,10 +69,10 @@
   position:relative;overflow:hidden}
 .xx-card::after{content:'';position:absolute;top:0;bottom:0;left:0;width:3px;
   background:linear-gradient(180deg,var(--xx-cinnabar) 0%,rgba(181,52,42,.25) 55%,transparent 100%)}
-.xx-label{font-size:11px;color:rgba(232,220,196,.5);letter-spacing:2px;margin-bottom:6px}
+.xx-label{font-size:11px;color:rgba(232,220,196,.86);letter-spacing:2px;margin-bottom:6px}
 .xx-val{font-size:16px;color:var(--xx-paper)}
 .xx-big{font-size:26px;color:var(--xx-gold);font-family:"Songti SC",serif;letter-spacing:1px}
-.xx-dim{color:rgba(232,220,196,.45);font-size:12px;line-height:1.7}
+.xx-dim{color:rgba(232,220,196,.82);font-size:12px;line-height:1.7}
 .xx-cinnabar{color:var(--xx-cinnabar)}
 .xx-gold{color:var(--xx-gold)}
 
@@ -184,10 +184,11 @@
   border:1px solid var(--xx-line-1);border-radius:var(--xx-r);background:rgba(232,220,196,.04)}
 .xx-mem .a{flex:1}
 .xx-mem .n{font-size:14px;color:var(--xx-paper);letter-spacing:1px}
-.xx-mem .t{font-size:10.5px;color:rgba(232,220,196,.5);margin-top:2px}
+.xx-mem .t{font-size:10.5px;color:var(--xx-paper-dim);margin-top:2px}
 .xx-mem .act{display:flex;gap:5px;flex-shrink:0}
 .xx-mbtn{background:rgba(201,162,39,.12);border:1px solid var(--xx-line-gold);color:var(--xx-gold);
-  border-radius:2px;padding:5px 9px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  border-radius:2px;padding:5px 9px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap;
+  min-height:44px;box-sizing:border-box}
 .xx-mbtn:active{background:rgba(201,162,39,.3)}
 
 /* 昼夜条 */
@@ -231,9 +232,10 @@
 .xm-p{font-size:11px;color:var(--xx-gold);margin-top:4px;letter-spacing:.5px}
 .xm-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
   margin-top:10px;padding-top:9px;border-top:1px solid rgba(201,162,39,.2)}
-.xm-foot span{font-size:11px;color:rgba(232,220,196,.55)}
-.xm-foot button{background:none;border:1px solid rgba(232,220,196,.26);color:rgba(232,220,196,.8);
-  border-radius:2px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit}
+.xm-foot span{font-size:11px;color:var(--xx-paper-dim)}
+.xm-foot button{background:none;border:1px solid rgba(232,220,196,.26);color:var(--xx-paper-dim);
+  border-radius:2px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;
+  min-height:44px;box-sizing:border-box}
 .xm-foot button:active{background:rgba(232,220,196,.13)}
 .xm-toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);font-size:12.5px;
   letter-spacing:2px;padding:6px 14px;background:rgba(8,6,5,.96);border:1px solid var(--xx-line-gold);
@@ -441,7 +443,7 @@
 .xx-node.fog{border-style:dotted;opacity:.55;background:rgba(0,0,0,.6)}
 .xx-node.fog::after{content:'';position:absolute;inset:-4px;border-radius:50%;
   background:radial-gradient(circle,rgba(80,80,100,.35),transparent 70%);pointer-events:none}
-.xx-fogq{font-size:20px;color:rgba(232,220,196,.4);font-family:serif}
+.xx-fogq{font-size:20px;color:rgba(232,220,196,.8);font-family:serif}
 .xx-node-st{position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;
   background:var(--xx-cinnabar);color:#fff;font-size:11px;display:flex;align-items:center;
   justify-content:center;z-index:6;animation:xxPulse 1.6s ease-in-out infinite}
@@ -519,8 +521,13 @@
   font-family:"Songti SC",serif}
 
 /* 小按钮(卡片内的行内操作):不撑满,只占内容宽度 */
+.xx-btn.tiny{display:block;width:auto;margin:0;padding:8px 16px;font-size:13px;
+  min-height:44px;min-width:44px;box-sizing:border-box}
+.xx-btn.sm{display:block;width:auto;margin:0;padding:10px;font-size:12px;
+  letter-spacing:1px;min-height:44px;box-sizing:border-box}
 .xx-btn.mini{display:inline-block;width:auto;padding:4px 10px;margin:0;font-size:11px;
-  letter-spacing:1px;border-radius:2px;flex:0 0 auto;white-space:nowrap;min-width:52px}
+  letter-spacing:1px;border-radius:2px;flex:0 0 auto;white-space:nowrap;
+  min-width:52px;min-height:44px;box-sizing:border-box}
 
 /* ---- 初见横幅(V0.94)----
    原来「初见某只妖」用整张叙事卡弹出来,走一圈图能弹 5 次以上,
@@ -709,7 +716,7 @@
 .xx-mk-d{font-size:11px;color:rgba(232,220,196,.55);line-height:1.5;flex:1}
 .xx-mk-b{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px}
 .xx-mk-b .xx-gold{font-size:13px}
-.xx-mk-b .xx-btn{padding:6px 12px;font-size:12px;margin:0}
+.xx-mk-b .xx-btn{padding:6px 12px;font-size:12px;margin:0;min-height:44px;box-sizing:border-box}
 .xx-mk-b .xx-btn:disabled{opacity:.4}
 .xx-mk-sell{display:flex;align-items:center;justify-content:space-between;gap:8px;
   padding:6px 0;font-size:12px;color:rgba(232,220,196,.7);
@@ -731,7 +738,8 @@
 .xx-cf-row.ok{opacity:1;border-color:rgba(201,162,39,.3)}
 .xx-cf-t{font-size:12.5px;color:var(--xx-paper);letter-spacing:.5px}
 .xx-cf-t .xx-gold{margin-left:5px}
-.xx-cf-d{font-size:10.5px;color:rgba(232,220,196,.45);margin-top:2px;line-height:1.5}
+.xx-cf-d{font-size:10.5px;color:rgba(232,220,196,.7);margin-top:2px;line-height:1.5}
 .xx-cf-b{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
-.xx-cf-b .xx-btn{padding:5px 11px;font-size:11px;margin:0;width:auto}
+.xx-cf-b .xx-btn{padding:5px 11px;font-size:11px;margin:0;width:auto;
+  min-height:44px;box-sizing:border-box}
 .xx-cf-b .xx-btn:disabled{opacity:.55}

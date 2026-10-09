@@ -13,3 +13,12 @@ fixq.py
 # 生图请求草稿
 assets/portrait/req-*.json
 .github/workflows/ci.yml
+
+# python 缓存
+__pycache__/
+*.pyc
+
+# 视觉工具产物
+tools/visual/board.png
+tools/visual/shots/
+tools/visual/baseline/
