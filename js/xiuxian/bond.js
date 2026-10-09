@@ -13,6 +13,7 @@
 import { COMPANION } from './companion.js';
 import * as Broadcast from './companion-broadcast.js';
 import { CAMP } from './camp.js';
+import { MUTATION } from './mutation.js';   // V0.99 变异播报(XX-MUTATION-005)
 
 const $ = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -22,6 +23,7 @@ let L = {};
 export const Bond = {
   init() {
     if (L.root) return;
+    this._hookMutation();
     const r = $('div', 'xx-bond');
     r.innerHTML = `
       <div class="bd-bub" id="bd-bub"></div>
@@ -39,6 +41,53 @@ export const Bond = {
       bub:r.querySelector('#bd-bub'), flash:r.querySelector('#bd-flash'),
       ward:r.querySelector('#bd-ward'), hud:r.querySelector('#bd-ghost-hud'),
     };
+  },
+
+  /**
+   * 订阅灵伴变异事件并转给广播条(XX-MUTATION-005)。
+   *
+   * 为什么放这儿而不是 ui.js:
+   *   `bond.js` 已经是广播条的 owner(`import * as Broadcast`),
+   *   而 `ui.js` 正在被 Z8 侧做 XX-AUDIT-005 拆分 —— 改它必然撞车。
+   *   走「模型发事件 → 视图订阅」,**ui.js 一行都不用动**。
+   *
+   * 订阅的是 `MUTATION` 而不是 `COMPANION`:这两个事件本来就是变异事件,
+   * 挂在 `mutation.js` 上归属更准,而且 companion.js 有体积守卫
+   * (要求它远小于 V0.98 重做前的 342 行,用来守「菜单系统没长回来」)。
+   *
+   * 只播一次性的事:阶段跃迁与真身定稿。普通投喂**不说话** ——
+   * 每喂一次就念一句会把广播条变成噪音,而这条是游戏广播不是状态栏。
+   */
+  _hookMutation() {
+    if (this._mutHooked) return;
+    this._mutHooked = true;
+    const nm = () => (COMPANION.s && COMPANION.s.name) || '宝宝';
+
+    MUTATION.on('mutate', ev => {
+      if (!ev || !ev.stageUp) return;
+      const st = MUTATION.STAGES[ev.to];
+      const fam = MUTATION.FAMILIES[ev.family];
+      if (!st || !fam) return;
+      this._bc(nm(), `${fam.sigil}${fam.name} · ${st.name}`, { kind:'ok' });
+    });
+
+    MUTATION.on('final', r => {
+      if (!r || !r.family) return;
+      const fam = MUTATION.FAMILIES[r.family];
+      if (!fam) return;
+      this._bc(nm(), r.reach
+        ? `你把石头投了进去。她没有变 —— 是你变了。${fam.sigil}${fam.name}·真身`
+        : `你收回了手。${fam.sigil}${fam.name}·真身`, { kind:'dark' });
+    });
+  },
+
+  /** 只走广播条,不弹气泡 —— 变异播报不该再占气泡预算(§XX-COMPANION-003) */
+  _bc(who, text, opt) {
+    Broadcast.say(who, text, {
+      color: opt.kind === 'ok' ? 'var(--xx-jade, #6f8f6a)'
+          : opt.kind === 'dark' ? 'var(--xx-cinnabar, #8c3a2e)'
+          : 'var(--cc-name, #c9a227)',
+    });
   },
 
   /** 局内事件台词的出口 —— 由 companion-actor 的 runEventLines 调用 */

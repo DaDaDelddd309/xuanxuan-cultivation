@@ -185,6 +185,36 @@ export const MUTATION = {
   EAR_TABLE, EYE_TABLE, SKIN_TABLE, RATIO_BY_STAGE, PITY_AFTER, TOTAL_FEEDS,
   defaultMut, stageOf, rollFamily,
 
+  // ————— 事件钩子(XX-MUTATION-005)—————
+  // 放在这里而不是 `COMPANION`,有两个理由:
+  //  1. **归属正确** —— `mutate` / `final` 本来就是变异事件,不是泛化事件。
+  //  2. `companion.js` 有一条体积守卫(`test-companion.mjs` 要求它远小于
+  //     V0.98 重做前的 342 行),那是为了守住「菜单系统没长回来」。
+  //     把事件钩子塞进去会顶破它 —— 而放宽阈值就是「改实现改测试」,指标错了。
+  //     让 companion.js 保持瘦,是那条守卫存在的意义。
+  //
+  // 模型层**只发事件不喊话**:companion-broadcast 是视图模块,
+  // 由 bond.js 订阅后转给它。于是 **ui.js 一行都不用改**(与 Z8 并行开发零冲突)。
+  _subs: {},
+
+  /** 订阅。返回退订函数,免得测试里卸不干净 */
+  on(ev, fn) {
+    (this._subs[ev] || (this._subs[ev] = [])).push(fn);
+    return () => { const a = this._subs[ev]; if (a) a.splice(a.indexOf(fn), 1); };
+  },
+
+  emit(ev, data) {
+    const a = this._subs[ev];
+    if (!a) return 0;
+    let n = 0;
+    // 复制一份再遍历:回调里退订自己不会打乱正在进行的循环
+    for (const fn of a.slice()) { try { fn(data); n++; } catch {} }
+    return n;
+  },
+
+  /** 测试与重置用:摘掉全部订阅(应用接线在正常运行期不这么调) */
+  offAll() { this._subs = {}; },
+
   /** 距下一阶段还差几次投喂;已在真身则返回 0 */
   toNext(mut) {
     if (mut.stage >= MAX_STAGE) return 0;
@@ -224,7 +254,9 @@ export const MUTATION = {
     mut.lastTier = t;
     mut.parts[part]++;
     mut.stage = stageOf(mut.feeds);
-    return { stageUp: mut.stage > from, from, to: mut.stage, family: fam, part, tier: t };
+    const ev = { stageUp: mut.stage > from, from, to: mut.stage, family: fam, part, tier: t };
+    this.emit('mutate', ev);          // 播报交给订阅方(XX-MUTATION-005)
+    return ev;
   },
 
   /**
@@ -271,7 +303,9 @@ export const MUTATION = {
       mut.skippedMorph = true;
       mut.stage = MAX_STAGE;
     }
-    return { family: mut.family, reach: mut.reach, skippedMorph: mut.skippedMorph };
+    const out = { family: mut.family, reach: mut.reach, skippedMorph: mut.skippedMorph };
+    this.emit('final', out);
+    return out;
   },
 
   /**

@@ -30,6 +30,13 @@ const all = [];
 (function walk(d) {
   for (const e of readdirSync(d, { withFileTypes: true })) {
     if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+    // ⚠️ `docs/` 里只有**设计文档与提案代码**,不参与构建、不进 sw.js 预缓存、
+    //    也没有任何 js/ 模块 import 它。把它当产品代码扫描是错的:
+    //    提案里引用的 `assets/portrait/legend/*.jpg` 是**规划中、尚未产出**的美术,
+    //    扫进来就报「引用了不存在的资源」,而它们本来就不该存在。
+    //    (这条是被 `docs/proposals/world-map-20261010/code/equipment.js`
+    //    实测逼出来的 —— 加进仓库后 test-assets 直接 FAIL 245/258。)
+    if (e.name === 'docs') continue;
     const p = join(d, e.name);
     if (e.isDirectory()) walk(p);
     else if (/\.(js|css|html|json|webmanifest)$/.test(e.name)) all.push(p);
