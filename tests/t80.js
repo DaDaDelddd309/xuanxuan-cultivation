@@ -74,12 +74,36 @@ t('小溢出→低阶书', R.scrollForExp(300).id==='scroll_1');
 
 console.log('\n=== 昼夜 ===');
 t('12 行动/日', R.DAY.ACTIONS_PER_DAY===12);
-R.DAY.reset(); R.DAY.s.actions=3;
-t('3行动=清晨(非夜)', R.DAY.phase().key==='dawn'&&!R.DAY.isNight());
-R.DAY.s.actions=6;
-t('正午=昼', R.DAY.phase().key==='day'&&!R.DAY.isNight());
-R.DAY.s.actions=10;
-t('夜里', R.DAY.isNight());
-t('夜间收益更高', R.DAY.bonus()>1);
+// V0.99(XX-FIX-003)起 DAY 是 CLOCK 的视图:相位由 CLOCK.hour() 推导。
+// 旧写法 `DAY.s.actions = 3` 已失效 —— 实现读的是 CLOCK.s.actions,写 DAY.s 根本不生效,
+// 所以这两条断言曾经永远为假。这里改用真实推进入口 DAY.tick()。
+R.DAY.reset();
+const KEYS=['dawn','day','dusk','night'];
+const seen=new Set();
+let consistent=true;          // isNight / bonus 是否始终跟随相位
+for(let i=0;i<12;i++){
+  R.DAY.tick();
+  const p=R.DAY.phase();
+  seen.add(p.key);
+  if((p.key==='night')!==R.DAY.isNight()) consistent=false;
+  if(!(p.key==='night' ? R.DAY.bonus()>1 : R.DAY.bonus()===1)) consistent=false;
+}
+t('相位键都在四相位内', [...seen].every(k=>KEYS.includes(k)), `实际 ${[...seen].join(',')}`);
+t('isNight 与相位一致', consistent);
+t('夜间收益>1、其余为 1', consistent);
+
+// —— 回归守卫 ——
+// V0.99 之前 dayProgress() 把 (actions%12)/12 和 ms 相加,而 action() 已经把
+// ACTION_MS 加进 ms 了,一次行动被算两遍。当时 test-clock.mjs 全程用 advanceReal()
+// 驱动(actions 恒为 0),**从没走过 action() 这条路径**,所以这个 bug 躲过了全部测试。
+// 后果:12 行动/日 实际 6 次就走完一天,且 hour 只落在 …16,20…,
+// 「暮」(17:00~19:00) 永远采样不到。这两条断言就是钉死它的。
+R.DAY.reset();
+const viaAction=new Set();
+for(let i=0;i<12;i++){ R.DAY.tick(); viaAction.add(R.DAY.phase().key); }
+t('走 action() 一整天四相位齐全(含「暮」)', KEYS.every(k=>viaAction.has(k)), `实际 ${[...viaAction].join(',')}`);
+R.DAY.reset();
+for(let i=0;i<6;i++) R.DAY.tick();
+t('6 次行动还没走完一天(正午,非归零)', R.DAY.phase().key==='day'&&!R.DAY.isNight(), `实际 ${R.DAY.phase().key} ${R.DAY.phase().hour}时`);
 
 console.log(`\n${'='.repeat(42)}\n通过 ${pass} / 失败 ${fail}\n${'='.repeat(42)}`);

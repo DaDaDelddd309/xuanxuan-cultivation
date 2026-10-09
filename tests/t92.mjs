@@ -93,16 +93,65 @@ console.log('\n=== 断链 4:坐骑内容不会成为孤儿 ===');
 // 每只坐骑的文案不能是空的
 t('都有 lore', M.MOUNT_LIST.every(m=>m.lore&&m.lore.length>8));
 t('都有 give(它为什么跟你)', M.MOUNT_LIST.every(m=>m.give&&m.give.length>8));
-// 每只坐骑引用的来源地名必须能在图上找到
+
+// —— 2026-10-10 重写:从「当前种子碰巧对得上」改成「任何种子都对得上」——
+//
+// 教训:世界从 11 个硬编码节点改成按种子生成(worldgen.js)之后,
+// 「来源地名必须在节点名里」这条断言的成立与否**取决于当前种子**。
+// 旧写法只在当前这一世检查,于是它要么绿要么红,和内容对不对没关系 ——
+// 是运气,不是不变量。实测黑风岭/落云镇/古战场遗迹/青岚秘境有大半概率缺席,
+// 坐骑文案指向玩家这一世根本不存在的地方。
+//
+// 现在改成:换 N 个种子重新生成世界,每次都断言一遍。
+// 这才是「坐骑文案不是孤儿」的真正含义。
 const W_=await import('../js/xiuxian/world.js');
-const nodeNames=W_.WORLD.nodes.map(n=>n.name).filter(Boolean);
+const { ANCHORS } = await import('../js/xiuxian/worldgen.js');
+const { getMaster } = await import('../js/xiuxian/seed.js');
+const ORIGIN_SEED = getMaster();
+
 // 坐骑来源允许是「地图节点名」或「独立场所(墓/秘境/妖)」
-const EXTRA=['仙人墓','灯尸','青岚秘境'];
-t('来源地名都对应真实节点或独立场所',
-  M.MOUNT_LIST.every(m=>nodeNames.includes(m.from)||EXTRA.includes(m.from)));
-if(!M.MOUNT_LIST.every(m=>nodeNames.includes(m.from)||EXTRA.includes(m.from))){
-  console.log('   对不上的:',M.MOUNT_LIST.filter(m=>!nodeNames.includes(m.from)&&!EXTRA.includes(m.from)).map(m=>m.name+'/'+m.from));
-  console.log('   地图节点名:',nodeNames.join(','));
+// —— 仙人墓在 tomb.js、灯尸是妖,都不在地图上,是**设计如此**的局外场所。
+// 青岚秘境已从本表移除:它现在是锚点节点名,应由上面的多 seed 断言管住。
+const EXTRA=['仙人墓','灯尸'];
+
+const MOUNT_SOURCES = M.MOUNT_LIST.map(m=>m.from)
+  .filter(f=>!EXTRA.includes(f))
+  .filter((v,i,a)=>a.indexOf(v)===i);   // 去重
+
+const SEEDS = ['青石村','a','b','c','轩轩','12345','seed-0','seed-120','seed-999','测试种子'];
+let srcBad=[], dupBad=[], selfDup=[];
+for (const sd of SEEDS) {
+  const w = W_.regenerate(sd);
+  const names = w.nodes.map(n=>n.name).filter(Boolean);
+  for (const f of MOUNT_SOURCES)
+    if (!names.includes(f)) srcBad.push(`${sd}:${f}`);
+  // 同类型节点不许重名 —— 两个「血藤谷」会让 lore 的地名失去指认
+  const c = {};
+  w.nodes.forEach(n=>{ if(n.name) (c[n.type+':'+n.name] ||= []).push(n.id); });
+  for (const [k,v] of Object.entries(c)) if (v.length>1) selfDup.push(`${sd}:${k}`);
+  // 同一张图内同类型节点不得重名(不同类型可以同名,如两个村都叫青石村不会发生,但允许)
+  const byType = {};
+  w.nodes.filter(n=>n.name).forEach(n=>(byType[n.type] ||= []).push(n.name));
+  for (const [ty,ns] of Object.entries(byType))
+    if (new Set(ns).size !== ns.length) dupBad.push(`${sd}:${ty}`);
 }
+t(`坐骑来源地名在 ${SEEDS.length} 个种子下都存在`, srcBad.length===0,
+  srcBad.length ? `缺: ${[...new Set(srcBad)].join(' ')}` : '');
+t('同类型节点不重名', dupBad.length===0,
+  dupBad.length ? `重名: ${[...new Set(dupBad)].slice(0,5).join(' ')}` : '');
+t('锚点名各出现一次(无同名兄弟)', selfDup.length===0,
+  selfDup.length ? `多出: ${[...new Set(selfDup)].slice(0,5).join(' ')}` : '');
+
+// 兜底布局也必须满足锚点 —— 否则「保底」反而破不变量
+{
+  const w = W_.regenerate('seed-120');   // 实测这个种子会走 minimalFallback
+  const names = w.nodes.map(n=>n.name).filter(Boolean);
+  t('兜底布局同样带齐锚点',
+    [ANCHORS.home,ANCHORS.village,ANCHORS.elite,ANCHORS.boss,ANCHORS.secret].every(a=>names.includes(a)),
+    `实际: ${names.join(',')}`);
+}
+
+// 收工:把世界还原成进入测试时的种子,别给同进程后续断言留脏状态
+W_.regenerate(ORIGIN_SEED);
 
 console.log(`\n${'='.repeat(46)}\n通过 ${pass} / 失败 ${fail}\n${'='.repeat(46)}`);

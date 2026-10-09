@@ -131,14 +131,20 @@ t('篝火上限为3', B.BUILD.s.fires.length===3);
 t('篝火计入晋升条件', B.BUILD.fireCount()===3);
 
 console.log('\n=== 固定NPC图鉴 ===');
-t('6个NPC', Object.keys(BI.NPCS).length===6);
+// V0.98/V0.99 灵伴重做后 NPC 从 6 位收敛到 4 位:
+// 鬼火(kiss/冷路线)与怨灵(ghost/魅路线)原本是三条灵伴路线的人格化,
+// 路线本身已随 companion.js 重做删除,所以这两位 NPC 也随之撤下。
+// 留下的是不依赖路线、始终在场的固定角色。
+const KS=Object.keys(BI.NPCS);
+t('4个NPC', KS.length===4, `实际 ${KS.length}: ${KS.join(',')}`);
 t('宝宝=灵伴', BI.NPCS.baby.form==='灵 伴');
-t('鬼火=冷路线', BI.NPCS.ghostfire.route==='cold');
-t('怨灵=魅路线', BI.NPCS.revenant.route==='ghost');
-t('怨灵有威胁说明', BI.NPCS.revenant.threat.includes('闪屏'));
-t('鬼火无威胁', BI.NPCS.ghostfire.threat==='低'||BI.NPCS.ghostfire.threat==='无');
+t('宝宝威胁=无', BI.NPCS.baby.threat.startsWith('无'), `实际 ${BI.NPCS.baby.threat}`);
+t('商人=过路', BI.NPCS.merchant.form==='过 路');
 t('商人标注不打断', BI.NPCS.merchant.ability.includes('不打断'));
-t('么么茶是固定NPC', BI.NPCS.momocha.route==='fixed');
+t('么么茶=茶摊', BI.NPCS.momocha.form==='茶 摊');
+t('魔影=宿敌', BI.NPCS.moying.form==='宿 敌');
+t('宿敌威胁极高', BI.NPCS.moying.threat.includes('极高'), `实际 ${BI.NPCS.moying.threat}`);
+t('都已无路线字段(重做后应为空)', KS.every(k=>!('route' in BI.NPCS[k])));
 t('都有人物背景', Object.values(BI.NPCS).every(n=>n.bio&&n.bio.length>20));
 t('都有能力说明', Object.values(BI.NPCS).every(n=>n.ability));
 
