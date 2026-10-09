@@ -1008,6 +1008,22 @@ export const Hall = {
   },
 
   // ---------- 神通 / 悟道 ----------
+  // 神通怎么到手(XX-CONTENT-001)
+  //
+  // 这条工单我**否掉过一次** —— 当时神通系统是死锁的(悟道要两门满级,
+  // 但局内升级池根本没有神通,永远凑不出第二门),写"如何获得"等于
+  // 骗玩家反复去试。XX-ARCH-006 打通之后才有资格写。
+  //
+  // 现在两条真实路径(都是代码里实际存在的,不是编的):
+  //   1. 局内砍杀,升级三选一时会随机出现「参悟 X」
+  //   2. 修仙阁悟道:两门满级神通 + 够道行 → 融合出这门
+  artHow(a) {
+    if (a.fused) return '由两门满级神通融合而成';
+    const F = { sword: '剑系', wind: '风系', thunder: '雷法', fire: '炎法',
+                water: '水墨', shield: '守御', orb: '器灵', move: '身法' }[a.family] || '';
+    return `局内升级时随机参悟 · ${F}。或与另一门满级神通悟道融合`;
+  },
+
   vArts(s) {
     const owned = Object.keys(s.arts).filter(k => s.arts[k] > 0);
     const full = owned.filter(k => s.arts[k] >= 5);
@@ -1040,6 +1056,7 @@ export const Hall = {
         <div class="xx-art-n">${esc(a.name)}</div>
         <div class="xx-art-b">${lv || '—'}</div>
         <div class="xx-art-lv">${sel ? '已选' : a.d.slice(0, 6)}</div>
+        ${lv ? '' : `<div class="xx-art-cond">${esc(this.artHow(a))}</div>`}
         ${canStar ? `<div class="xx-art-up" data-act="art-star" data-v="${k}">升星 · ${c.gold}金 + ${c.books}书</div>` : ''}
         ${!lv ? '<div class="xx-art-up lock">尚未习得</div>' : ''}
         ${lv > 0 && !c ? '<div class="xx-art-up maxed">已满星</div>' : ''}

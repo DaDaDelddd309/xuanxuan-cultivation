@@ -773,3 +773,9 @@
 .xx-node.onpath{border-color:var(--xx-gold)!important;
   box-shadow:0 0 0 2px rgba(201,162,39,.28),0 2px 8px rgba(0,0,0,.5)}
 .xx-node.onpath .xx-glyph{color:var(--xx-gold)}
+
+/* 神通灰格的获取条件(XX-CONTENT-001)
+   owner 原话:「神通页 26 门灰 13 门且不说怎么获得」。
+   成长游戏的核心快感之一就是知道下一个能得到什么。 */
+.xx-art-cond{font-size:9.5px;line-height:1.5;color:rgba(232,220,196,.55);
+  margin-top:4px;letter-spacing:0}
