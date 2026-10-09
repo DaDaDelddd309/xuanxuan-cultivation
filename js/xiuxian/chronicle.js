@@ -58,13 +58,18 @@ export const CHRONICLE = {
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); }catch{} },
 
   /**
-   * 推进一天。
-   * V0.99(XX-FIX-003):不再自己数 —— 年表和昼夜原本各数一套 12 天,
-   * 两边永远对不上。现在只回答「时钟有没有跨过一天」,
+   * 推进**一次行动**。
+   *
+   * 【2026-10-10 改名】原名 `day()`。但它推进的是「一次行动」而不是「一天」——
+   * V0.99(XX-FIX-003)起它不再自己数日子,内部只调 `CLOCK.action()`,
+   * 而 CLOCK 的 1 游戏日 = 12 次行动。于是「1 年」需要调用 144 次,不是 12 次。
+   * 一个叫 `day()` 的函数一次只走 1/12 天,叫它 day 是骗人 —— 照着名字估工作量会差 12 倍。
+   * 现改名 `action()`,与 `CLOCK.action()` 语义一致。
+   *
    * 由 CLOCK 做唯一真源,这里只负责在跨年时产出事件。
    * @returns {null|{year:number, ev:string}} 跨年时返回该年事件
    */
-  day() {
+  action() {
     const beforeYear = CLOCK.year();
     CLOCK.action();
     this.s.ticks++;

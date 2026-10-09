@@ -5,7 +5,8 @@
 import { Cult } from './index.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
-import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES } from './world.js';
+import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES, regenerate, WORLD_INFO } from './world.js';
+import { runConfigFor, setActive, clearActive } from './runcfg.js';   // 2026-10-10 接线:抵达节点即定本局参数
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
@@ -199,7 +200,7 @@ export const Hall = {
         // 之前直接 `${g}` 插值 → 吐纳 [object Object] 点修为(每次点必现)。
         const r = addExp(s, 40);
         // ⚠️ XX-FIX-017:道行**每次吐纳都给**,原来它被写在了下面的 `if (yr)` 里。
-        // 而 CHRONICLE.day() 只在「跨年那一 tick」返回对象(见 chronicle.js 契约注释),
+        // 而 CHRONICLE.action() 只在「跨年那一 tick」返回对象(见 chronicle.js 契约注释),
         // 于是 +200 道行一年才发一次 —— 跨一次年要点 3650 下,实测道行永远是 0。
         // 给资源和报事件是两件事,不该共用一个分支。
         Cult.get().dao += 200;
@@ -207,7 +208,7 @@ export const Hall = {
         const _ms = Cult.get();
         _ms.medStreak = (_ms.medStreak || 0) + 1;
         if (_ms.medStreak >= 30) { Cult.titles.track('streak', 1); _ms.medStreak = 0; }
-        const yr = CHRONICLE.day();
+        const yr = CHRONICLE.action();
         if (yr) {
           toast(`吐纳 · 修为 +40 · 道行 +200 · 第${yr.year}年:${yr.ev}`);
         } else {
@@ -421,13 +422,23 @@ export const Hall = {
         const si = document.getElementById('xx-seed');
         const v = si ? si.value : '';
         Seed.set(v);
+        // 2026-10-10 接线(此前完全缺失):
+        //   世界改成按种子生成(worldgen.js)之后,换种子**必须**重建世界,
+        //   否则玩家点「换一世」,种子名变了、奇遇变了、地图却纹丝不动 ——
+        //   那不是随机,是装饰。world.js 的注释一直写着「ui.js 的换一世会调它」,
+        //   而 ui.js 从来没调过。
+        //   顺序要紧:Seed.set() 先落定真源(它同时刷新 seed.js 的内存态),
+        //   regenerate() 再按新种子重跑生成。
+        const w = regenerate(Seed.cur);
+        // 换世 = 整张地图换了,本局参数随之失效,回到默认(field)而不是留上局的。
+        clearActive();
         Cult.commit();
         // XX-FIX-003:Cult.commit() 只写修仙状态的键,profile.seed 会停在旧值。
         // 运行时读种子走的是独立键 xx_seed_v081,所以**不影响玩法**,
         // 只是存档码里那个种子名显示成旧的。这里补一次 Profile 收集。
         try { Profile.collect(mods); } catch (e) { console.warn('[seed-sync]', e); }
         this.render();
-        toast(`新的一世:${Seed.cur}`); break;
+        toast(`新的一世:${Seed.cur} · ${w.nodes.length} 个节点`); break;
       }
       case 'copycode': {
         const ta = document.getElementById('xx-code');
@@ -471,6 +482,11 @@ export const Hall = {
   //   elite   → 进回合制(Duel.start);ENEMY_POOL.elite 有 yao/elder/devil
   //   secret  → 进回合制,且必掉丹药(n.pill)
   //   boss    → 进回合制,ENEMY_POOL.boss 只有 devil;宿敌在这一档
+  //
+  // 2026-10-10 追加:把 runcfg.js 的**局内倾向**也摆出来。
+  //   理由:那层参数是「你从哪个节点出发 → 这一局会遇到什么」的唯一载体,
+  //   但它只对代码有意义、对玩家不可见时,选点依然只是选个颜色。
+  //   数字全部来自 runcfg 本身,没有第二份硬编码,不会和实现对不上。
   nodeTip(n, s) {
     // 用 world.js 里现成的 NODE_TYPES(它本来是死代码,自带 desc/turnBased/dropsPill),
     // 不再在这里手写第二份 —— 两份描述迟早会对不上(XX-DROP-003)。
@@ -483,6 +499,16 @@ export const Hall = {
     const marks = [];
     if (STORY.activeList().some(a => a.next && a.next.node === n.id)) marks.push('有事');
     if (LEGEND_LIST.some(l => l.where === n.type && !STORY.met(l.key))) marks.push('异兽');
+    // —— 局内倾向(2026-10-10)——
+    try {
+      let mineN = 0;
+      try { mineN = (FAMILY.s && FAMILY.s.mines) ? FAMILY.s.mines.length : 0; } catch (e) {}
+      const cfg = runConfigFor(n.id, mineN);
+      // 回合制是概率不是必然(险地 35%),别和「必定回合」混为一谈
+      if (cfg.turnBased >= 1) marks.push('开局入回合');
+      else if (cfg.turnBased > 0) marks.push(`回合 ${Math.round(cfg.turnBased * 100)}%`);
+      if (cfg.mineBonus > 1) marks.push(`爆率 ×${cfg.mineBonus.toFixed(2)}`);
+    } catch (e) { console.warn('[runcfg-tip]', e); }
     return marks.length ? t + ' · ' + marks.join('·') : t;
   },
 
@@ -490,6 +516,15 @@ export const Hall = {
     const s = Cult.get();
     const n = nodeById(id);
     if (!n) return;
+    // —— 2026-10-10 接线(此前完全缺失)——
+    //   runcfg.js 是「修仙阁 ↔ 砍杀」之间唯一的接口(V0.98 建的),
+    //   建好之后却没有任何调用点 —— 于是「你从哪个节点出发」依然不决定
+    //   「这一局会遇到什么」,前后两个游戏还是各做各的。
+    //   「抵达节点」正是「从这一节点出发」的那一刻,在这里定本局参数。
+    //   矿脉数 = 出产加成:领地占得越多,这一局爆率越高(上限 1.5×)。
+    let mineN = 0;
+    try { mineN = (FAMILY.s && FAMILY.s.mines) ? FAMILY.s.mines.length : 0; } catch (e) { console.warn('[runcfg]', e); }
+    setActive(runConfigFor(id, mineN));
     // —— 叙事推进:这条线该不会该露头 ——
     const beats = STORY.arrive(id);
     for (const b of beats) {
@@ -1627,6 +1662,17 @@ export const Hall = {
   // ---------- 存档(种子 / 存档码)----------
   vSys() {
     const code = Profile.export();
+    // 生成元信息(2026-10-10):把「这一世是第几次尝试生成的」摆出来。
+    //   之前玩家看不到 —— 但世界是程序生成的,重试次数与是否走兜底
+    //   确实会改变地图面貌(兜底那张图明显更稀疏)。不透明等于不可信。
+    let gen = '';
+    try {
+      const fb = WORLD_INFO.fallback;
+      gen = `<div class="xx-dim" style="margin-top:6px">
+        本世 ${WORLD_INFO.nodeCount} 个节点 · 第 ${WORLD_INFO.attempts} 次布局命中`
+        + `${fb ? ' · <span style="color:var(--xx-gold)">已走兜底布局</span>' : ''}
+      </div>`;
+    } catch (e) { console.warn('[world-info]', e); }
     return `
       <div class="xx-card">
         <div class="xx-label">世 界 种 子</div>
@@ -1635,6 +1681,7 @@ export const Hall = {
           同一种子 = 同一个世界:奇遇、掉落、商人、怨灵、营地来客,全部一致。
           换种子 = 换一世。存档只存进度,不存世界,所以很省。
         </div>
+        ${gen}
         <div class="xx-numrow" style="margin-top:12px">
           <input id="xx-seed" value="${esc(Seed.cur)}" maxlength="12"
             style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(201,162,39,.4);
