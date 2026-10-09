@@ -14,6 +14,7 @@
   python3 tools/art/measure_style.py --gate     # 判定是否在区间内(给 lint 用)
 """
 import colorsys
+import os
 import pathlib
 import statistics as st
 import sys
@@ -21,11 +22,26 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DIR = ROOT / "assets/portrait"
 
-# ── 实测区间(来自现有 10 张立绘,2026-10-09)──
+# ── 实测区间 ─────────────────────────────────────────────
+# V1 · 水墨淡彩（来自现有 16 张水墨立绘,2026-10-09）
 #   平均亮度 185-229 · 饱和像素占比 <0.2% · 均饱和 0.07-0.14
 # 放宽到 240 是因为守谷妖修实测 236 —— 偏亮但饱和度合规,
 # 属"可接受偏差",写进区间并在输出里标出来,而不是偷偷放过。
-LIM = dict(meanL=(185.0, 240.0), satPct=(0.0, 1.0), meanS=(0.0, 0.20))
+LIM_V1 = dict(meanL=(185.0, 240.0), satPct=(0.0, 1.0), meanS=(0.0, 0.20))
+
+# V2 · 现代手游/二次元可爱风（docs/ART-PORTRAIT-SPEC-V2.md,2026-10-10）
+#   owner 决定推翻水墨基调,转向可爱风。
+#   **V1 的饱和度上限 0.20 是按"近乎无彩"实测的,会直接把新画风的图全部卡死** ——
+#   V2 规格明写饱和度 12%~28%,均饱和落在 0.12~0.28 属正常。
+#   饱和度上限放宽到 0.34:留出余量给腮红/唇色/蜜桃粉,但仍挡住艳俗荧光色。
+#   亮度区间相应下调下限:可爱风用深棕软描边(#4a3a33)、有外发光,
+#   平均亮度会比纯水墨低一点,下限放到 165。
+LIM_V2 = dict(meanL=(165.0, 240.0), satPct=(0.0, 100.0), meanS=(0.0, 0.34))
+
+# 当前生效的画风。改画风时这里也要改 —— 或用环境变量覆盖:
+#   MEASURE_STYLE=v1 python3 tools/art/measure_style.py --gate
+STYLE = os.environ.get("MEASURE_STYLE", "v2").lower()
+LIM = LIM_V1 if STYLE == "v1" else LIM_V2
 
 
 def measure(path: pathlib.Path):

@@ -263,11 +263,12 @@
   radial-gradient(circle at 50% 30%,#2a2018 0%,#140f0c 55%,#0a0706 100%);
   display:flex;align-items:center;justify-content:center;overflow:hidden}
 .xx-ritual.hidden{display:none}
-.rt-sky{position:absolute;inset:0;pointer-events:none;opacity:.6;
+.rt-sky{position:absolute;inset:0;pointer-events:none;opacity:.6;animation:rtSkyBreath 9s ease-in-out infinite;
   background:radial-gradient(circle at 20% 30%,rgba(232,220,196,.06),transparent 50%),
              radial-gradient(circle at 80% 70%,rgba(181,52,42,.05),transparent 50%)}
 .rt-body{position:relative;width:100%;max-width:420px;padding:20px;
-  display:flex;flex-direction:column;align-items:center;gap:6px;max-height:100%}
+  display:flex;flex-direction:column;align-items:center;gap:6px;max-height:100%;
+  animation:rtBodyIn .62s cubic-bezier(.22,.9,.3,1) both}
 
 /* 卡通小灵 */
 .rt-char{position:relative;width:150px;height:190px;flex-shrink:0;margin-bottom:6px;
@@ -298,7 +299,50 @@
   background:rgba(226,120,110,.42);z-index:5;filter:blur(1px)}
 .rt-blush.l{left:13px}.rt-blush.r{right:13px}
 .rt-mouth{position:absolute;left:50%;top:66px;transform:translateX(-50%);
-  width:12px;height:8px;border-bottom:2.5px solid var(--xx-crit);border-radius:0 0 12px 12px;z-index:5}
+  width:12px;height:8px;border-bottom:2.5px solid var(--xx-crit);border-radius:0 0 12px 12px;z-index:5;
+  transition:height .12s ease,border-radius .12s ease}
+/* ══ XX-RITUAL-001 · 导演层动画 ══════════════════════════
+   原先只有 rtBlink/rtFloat/rtArm 三个动画,且 blink 类从未被 JS 触发 ——
+   角色全程眼睛睁着一动不动,看起来就是张静态贴图。
+   下面这一组由 ritual.js 的 direct()/blinkLoop()/talkLoop() 调度。 */
+
+/* 口型:说话时微张,不是一条死线 */
+.rt-mouth.talk{height:15px;border-radius:0 0 14px 14px;
+  border-bottom-width:2.5px;border-top:2px solid var(--xx-crit);border-top-color:var(--xx-cinnabar-faint)}
+
+/* 视线跟随:聚焦输入框时眼睛上移,像在看玩家打字 */
+.rt-char.rt-look .rt-eye{transform:translateY(-3px)}
+.rt-char.rt-look .rt-eye i{transform:translate(-50%,-1px)}
+
+/* 确认瞬间的开心反应:轻轻一跳 */
+.rt-char.rt-happy{animation:rtFloat 3.4s ease-in-out infinite, rtHop .82s cubic-bezier(.34,1.56,.64,1) 1}
+@keyframes rtHop{
+  0%{transform:translateY(0) scale(1)}
+  28%{transform:translateY(-20px) scale(1.06,.95)}
+  55%{transform:translateY(0) scale(.96,1.05)}
+  78%{transform:translateY(-5px) scale(1.01,.99)}
+  100%{transform:translateY(0) scale(1)}
+}
+
+/* 入场:消除「硬邦邦出现」的突兀感 */
+/* 入场动画并入 .rt-body 原定义(见上方第 269 行),此处只留 keyframes */
+@keyframes rtBodyIn{
+  from{opacity:0;transform:translateY(26px) scale(.965)}
+  to{opacity:1;transform:none}
+}
+/* 面板比立绘晚一点到,形成层次(animation 并入 .rt-box 原定义) */
+@keyframes rtBoxIn{
+  from{opacity:0;transform:translateY(16px)}
+  to{opacity:1;transform:none}
+}
+/* 文字逐行浮起 —— 消除「生硬」 */
+.rt-line{animation:rtLineIn .5s cubic-bezier(.22,.9,.3,1) both}
+@keyframes rtLineIn{
+  from{opacity:0;transform:translateY(9px);filter:blur(2px)}
+  to{opacity:1;transform:none;filter:none}
+}
+/* 背景缓慢呼吸,让画面不再是一张静止的图(animation 并入 .rt-sky 原定义) */
+@keyframes rtSkyBreath{0%,100%{opacity:.5}50%{opacity:.72}}
 .rt-body-c{position:absolute;left:50%;top:96px;transform:translateX(-50%);
   width:92px;height:84px;border-radius:44px 44px 16px 16px;z-index:2;
   background:linear-gradient(180deg,var(--xx-paper),var(--xx-paper-dim));
@@ -313,6 +357,7 @@
 
 /* 对白 */
 .rt-box{width:100%;background:rgba(12,9,8,.93);border:1px solid var(--xx-line-gold);
+  animation:rtBoxIn .58s cubic-bezier(.22,.9,.3,1) .16s both;
   border-radius:var(--xx-r-lg);padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.6)}
 .rt-who{font-size:12px;color:var(--xx-gold);letter-spacing:4px;margin-bottom:9px;
   display:flex;align-items:center;gap:8px}
