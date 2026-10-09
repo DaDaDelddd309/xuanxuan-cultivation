@@ -796,3 +796,60 @@ button { font-family: inherit; }
 /* 图鉴未解锁项(XX-ARCH-004):剪影 + 降透明,一眼看出还差哪些 */
 .codex-item.un{opacity:.5;filter:grayscale(1)}
 .codex-item.un .codex-item-name{letter-spacing:2px}
+
+/* ══ XX-COMPANION-003 · 局内广播条 ══════════════════════════
+   owner 要求:**透明底,不挡视野**。
+   上一版我给了 rgba(18,14,11,.72) 的实底 —— 那在弹幕密集时会糊掉一片,
+   等于又回到了「妨碍视野」的老问题。这次改成:
+     · 底色近乎全透明,只有一层极淡墨晕(--cc-veil .26)压背景噪声
+     · **只有刚出场那句走渐变**(墨晕由浓到无 + 字上浮淡入)
+     · 说完**不消失**,转成第二行淡化停留,等下一轮把它推上去
+   借位在 HUD 顶部、血条与计时器之间的空档,不额外占垂直空间。 */
+.cc-bc {
+  flex: 1 1 auto; min-width: 0; max-width: 44%;
+  display: flex; flex-direction: column; justify-content: flex-start;
+  pointer-events: none;                 /* 绝不挡操作 */
+  padding-top: 2px;
+  transition: opacity .35s ease;
+}
+.cc-bc-hidden { opacity: 0; }
+
+.cc-bc-line {
+  position: relative;
+  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-size: 11.5px; line-height: 1.55;
+  letter-spacing: .3px;
+  padding: 0 8px 0 7px;
+  color: var(--cc-paper);
+  /* 透明底:左侧一点墨晕,右侧完全化开,让弹幕透过来 */
+  background: linear-gradient(90deg,
+    var(--cc-veil) 0%, var(--cc-veil) 42%, var(--cc-veil-edge) 100%);
+  border-left: 2px solid var(--cc-gold);
+  text-shadow: 0 1px 2px rgba(0,0,0,.55);   /* 不用底色,靠描边压背景 */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity .38s ease, transform .38s cubic-bezier(.22,.9,.3,1);
+}
+/* 刚出场那句:淡入上浮 —— 这是唯一有「渐变」的瞬间 */
+.cc-bc-in { opacity: 1; transform: none; }
+
+/* 说完不消失:降级为第二行,淡化停留,等下一轮推上去 */
+.cc-bc-line-prev {
+  opacity: .46 !important; transform: none;
+  font-size: 10.5px; line-height: 1.4;
+  color: var(--cc-paper-dim);
+  border-left-color: var(--cc-cinnabar-faint);
+}
+
+/* 名字:加粗带色,一眼看出谁在说 */
+.cc-bc-name { font-weight: 700; letter-spacing: 1.2px; margin-right: 5px; }
+/* 动作/事件词:压小压暗,与正文拉开层次 */
+.cc-bc-verb {
+  font-style: normal; font-size: 9.5px; letter-spacing: 2px;
+  opacity: .7; margin-right: 5px;
+}
+.cc-bc-text { letter-spacing: .2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-bc-line { transition: opacity .2s linear; transform: none !important; }
+}

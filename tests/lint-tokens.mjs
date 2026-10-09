@@ -71,9 +71,18 @@ if (require$fs.existsSync(BASELINE_PATH)) {
   const seen=new Set();
   for (const f of readdirSync(R).filter(x=>x.endsWith('.css'))) {
     const src=readFileSync(R+'/'+f,'utf8').replace(/:root\s*\{[^}]*\}/gs,'');
-    const lines=src.split('\n');
+    // ⚠️ 剥注释要在**整篇层面**做,不能逐行做。
+    //   逐行剥 `//.*$` 只能处理单行注释;多行块注释的**中间行**
+    //   既没有 `/*` 也没有 `*/`,会整行漏过 —— 于是注释里提到的颜色
+    //   被当成真实硬编码色。实测:广播条注释里引用了旧底色
+    //   `rgba(18,14,11,.72)`,lint 报了「新增硬编码颜色」,而它只存在于注释。
+    //   做法:先把所有块注释替换成等量空行(保持行号不变),再逐行剥 `//`。
+    const stripped=src.replace(/\/\*[\s\S]*?\*\//g,m=>m.replace(/[^\n]/g,' '));
+    const lines=stripped.split('\n');
     lines.forEach((ln,i)=>{
-      for (const m of ln.matchAll(/(?<![\w-])(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))/g)) {
+      // 行注释(含续行注释的第三种写法:/* … 每行顶格缩进)
+      const code=ln.replace(/\/\/.*$/,'');
+      for (const m of code.matchAll(/(?<![\w-])(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))/g)) {
         const v=m[0];
         if (/^rgba?\(0,\s*0,\s*0/.test(v)) continue;           // 纯黑遮罩
         // 同文件同颜色只判一次,避免重复刷屏

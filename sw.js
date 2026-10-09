@@ -44,6 +44,8 @@ const XX = [
   // V0.99 补齐:双结局文案唯一真源(XX-AUDIT-018)。
   // spine.js 与 tomb.js 都静态 import 它,离线拉不到就是整页白屏。
   'js/xiuxian/outcomes.js',
+  // V0.99 补齐:局内广播条(XX-COMPANION-003)。bond.js 静态 import 它。
+  'js/xiuxian/companion-broadcast.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',
