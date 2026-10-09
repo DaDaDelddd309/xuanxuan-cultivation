@@ -3,6 +3,8 @@
 // 契约:只读 Cult.s 并调用其已有函数,不改状态结构。
 
 import { Cult } from './index.js';
+// 仙人墓页已拆出(XX-AUDIT-005)。下面 4 个是转发壳,实现见 ui/tomb.js。
+import { vTomb as vTombImpl, tombRoom as tombRoomImpl, askTombWords as askTombWordsImpl, tombEnding as tombEndingImpl } from './ui/tomb.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
 import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES, regenerate, WORLD_INFO } from './world.js';
@@ -49,23 +51,13 @@ const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
 
-const $ = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
-const pct = (a, b) => b > 0 ? Math.min(100, Math.max(0, a / b * 100)) : 0;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+import { $, pct, esc, toast } from './ui/dom.js';   // 共享 DOM 辅助,唯一一份(XX-AUDIT-005)
 function tierNeedText(nx){
   if(!nx) return '已达顶级。';
   const n=nx.need;
   return `晋升「${nx.name}」需:建筑 ${n.builds} · 人口 ${n.pop} · 篝火 ${n.fires}`;
 }
 
-function toast(msg) {
-  let t = document.getElementById('xx-toast');
-  if (!t) { t = $('div', 'xx-toast'); t.id = 'xx-toast'; document.body.appendChild(t); }
-  t.textContent = msg;
-  requestAnimationFrame(() => t.classList.add('on'));
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove('on'), 1900);
-}
 
 export const Hall = {
   // 页签读写器:render() 读的是模块级 `tab`,但代码里有两处写的是 `this.tab='map'`
@@ -935,122 +927,15 @@ export const Hall = {
 
   // ---------- 仙人墓 · 地下层 ----------
   // 独立视图:墓里没有大地图,只有相邻的几间屋子
-  vTomb() {
-    const cur = TOMB.room();
-    if (!cur) return `<div class="xx-card"><div class="xx-label">仙 人 墓</div>
-      <div class="xx-dim">你不在墓里。</div>
-      <button class="xx-btn main" style="margin-top:10px" data-act="tomb-enter">下 墓</button></div>`;
-
-    // 平面图:已走过的显示名字,没走过的只给个位置
-    const g = 5;
-    const pos = r => ({ x: 4 + (r.x / 3) * 92, y: 10 + (r.y / 2) * 74 });
-    let edges = '', nodes = '';
-    const drawn = new Set();
-    for (const r of TOMB_ROOMS) for (const to of r.edge) {
-      const pair = [r.id, to].sort().join('-');
-      if (drawn.has(pair)) continue;
-      drawn.add(pair);
-      const a = pos(r), b = pos(TOMB_ROOMS.find(x=>x.id===to));
-      const len = Math.hypot(b.x-a.x, b.y-a.y), ang = Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
-      edges += `<div class="xx-edge" style="left:${a.x}%;top:${a.y}%;width:${len}%;
-        transform:rotate(${ang}deg)"></div>`;
-    }
-    for (const r of TOMB_ROOMS) {
-      const p = pos(r);
-      const seen = TOMB.seen(r.id);
-      const here = cur.id === r.id;
-      const canGo = cur.edge.includes(r.id);
-      const cls = ['xx-node','tomb'];
-      if (here) cls.push('cur');
-      else if (!seen) cls.push('fog');
-      if (!here && !canGo) cls.push('locked');
-      const mark = here ? '◆' : seen ? '●' : '?';
-      const label = seen ? esc(r.name) : '未 至';
-      nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
-        ${canGo&&!here?`data-act="tomb-go" data-v="${r.id}"`:''}>
-        <div class="xx-fogq" style="${seen&&!here?'display:none':''}">${mark}</div>
-        <div class="xx-node-lb">${label}</div></div>`;
-    }
-
-    const pr = TOMB.progress();
-    // 石将前 → 补完那半句话
-    const guard = cur.guard && !TOMB.s.done
-      ? `<button class="xx-btn main" style="width:100%;margin-top:12px" data-act="tomb-words">补 完 那 半 句 话</button>`
-      : '';
-    const canEnd = cur.end && !TOMB.s.done
-      ? `<div class="xx-dim" style="margin-top:10px;text-align:center">这里就是尽头了。</div>` : '';
-
-    return `<div class="xx-card">
-        <div class="xx-label">仙 人 墓</div>
-        <div class="xx-dim">已至 ${pr.seen} / ${pr.total} 处 · 越往里,字越少</div>
-      </div>
-      <div class="xx-map" style="height:190px">${edges}${nodes}</div>
-      <div class="xx-card" style="border-color:rgba(181,52,42,.4)">
-        <div class="xx-label">${esc(cur.name)}</div>
-        <div class="xx-story-t" style="white-space:pre-wrap;line-height:2">${esc(cur.text)}</div>
-        ${cur.beat?`<div class="xx-story-b" style="margin-top:9px">${esc(cur.beat)}</div>`:''}
-        ${guard}
-        ${canEnd}
-        <div style="display:flex;gap:8px;margin-top:12px">
-          ${cur.edge.map(t=>`<button class="xx-btn" style="flex:1"
-            data-act="tomb-go" data-v="${t}">往 ${esc(TOMB_ROOMS.find(x=>x.id===t).name.replace(/\s/g,''))}</button>`).join('')}
-        </div>
-        <button class="xx-btn" style="width:100%;margin-top:8px" data-act="tomb-leave">出 墓</button>
-      </div>`;
-  },
-
+  // ---------- 仙人墓 · 地下层 ----------
+  // 独立视图:墓里没有大地图,只有相邻的几间屋子。实现见 ui/tomb.js。
+  vTomb() { return vTombImpl(this); },
   // 进入某间房:结算内容并展示
-  tombRoom(id) {
-    TOMB.move(id);
-    const s = TOMB.settle(id);
-    this.render();
-    if (!s) return;
-    // 侧室/主墓的收获提示
-    if (s.gift && s.gift.text.length) toast('得了 ' + s.gift.text.join(' · '));
-    // 叙事线最后一环的提示
-    if (s.arcBeat) {
-      toast('石将侧过身,让出半步。');
-    }
-  },
-
+  tombRoom(id) { return tombRoomImpl(this, id); },
   // 补完半句话 —— 只能在石将跟前做
-  askTombWords() {
-    if (!TOMB.canFinish()) { toast('你还没走到石将跟前'); return; }
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.dataset.nag = 'must';     // 必须决策
-    el.innerHTML = `<div class="xx-sc-n">半 句 话</div>
-      <div class="xx-sc-t">石将背上,「此生不悔」四个字还缺一半。<br>你手上有两个补法。</div>
-      ${TOMB_WORDS.map(w=>`<div class="xx-sc-go" style="cursor:pointer;margin-top:13px;
-        font-size:13px;line-height:1.7" data-w="${w.path}">
-        <b style="color:var(--xx-gold)">${esc(w.text)}</b><br>
-        <span class="xx-dim">${esc(w.note)}</span></div>`).join('')}
-      <div class="xx-sc-x">再想想</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{
-      const path = +b.dataset.w;
-      const r = TOMB.finish(path);
-      el.remove();
-      if (!r.ok) { toast(r.msg||'还不行'); this.render(); return; }
-      QUEST.settleShijiang(path);
-      this.tombEnding(r);
-    });
-    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
-  },
-
+  askTombWords() { return askTombWordsImpl(this); },
   // 墓的结局演出
-  tombEnding(r) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">此 生 不 悔 · ${esc(r.words)}</div>
-      <div class="xx-sc-t" style="white-space:pre-wrap">${esc(r.note)}</div>
-      <div class="xx-sc-t" style="white-space:pre-wrap;margin-top:10px;color:var(--xx-paper)">${esc(r.after)}</div>
-      ${r.reward&&r.reward.text.length?`<div class="xx-sc-r" style="color:var(--xx-gold)">${esc(r.reward.text.join(' · '))}</div>`:''}
-      <div class="xx-sc-x">走出墓去</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick=()=>{ el.remove(); this.render(); };
-    setTimeout(()=>{ el.remove(); this.render(); }, 11000);
-  },
+  tombEnding(r) { return tombEndingImpl(this, r); },
 
   // ---------- 神通 / 悟道 ----------
   // 神通怎么到手(XX-CONTENT-001)

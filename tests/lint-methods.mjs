@@ -54,36 +54,40 @@ for (const f of files) {
 // 于是拆分完成后这个 lint 对**整个新架构**完全失明,还照常打印 ✅。
 // 探针实测过:`hall.thisDoesNotExistAnywhere()` 放在 ui/ 下不报红。
 //
-// 范围要收紧:只认 `js/xiuxian/ui/` 下**导出**函数的首形参。
-// 试过放宽成"所有文件所有函数的首形参",结果 d.foo()/e.foo()/src.foo()
-// 全被当成方法调用,假阳性淹没信号 —— 那种 lint 等于没有 lint。
-const SELF = new Set(['this']);
-{
-  const UISUB=D+'/ui/';
-  // ⚠️ 踩过:原先用一条 `export\s+(?:function\s+(\w+)|const\s+\w+\s*=...)\(([^)]*)`。
-  // `[^)]*` 连开头的 `(` 一起吃掉了(它只排除 `)`),首参抓成 `(hall`,
-  // 于是 SELF 集合里根本没有 hall —— 拆分后这个 lint 全程失明还照样绿。
-  // 拆成两条独立正则,各自紧跟一个显式的 `\(`。
-  const P1=/export\s+function\s+\w+\s*\(([^)]*)/g;
-  const P2=/export\s+const\s+\w+\s*=\s*(?:async\s*)?\(([^)]*)/g;
-  for (const f of files) {
-    if (!f.startsWith(UISUB)) continue;
-    const src=readFileSync(f,'utf8');
-    for (const re of [P1, P2]) {
-      for (const m of src.matchAll(re)) {
-        const first=(m[1]||'').split(',')[0].trim();
-        if (/^[A-Za-z_$][\w$]*$/.test(first)) SELF.add(first);
-      }
+// 范围要收紧,踩了两次才收对:
+//  ① 放宽成「所有文件所有函数的首形参」→ d.foo()/e.foo()/src.foo() 全被当成
+//     方法调用,假阳性淹没信号。那种 lint 等于没有 lint。
+//  ② 只收 ui/ 下的导出函数、但收进**全局**集合 → 新建的 ui/dom.js 里
+//     `export const $ = (t, c, h) => ...` 会把 `t` 加进全局 SELF,
+//     于是别的文件里任何 `t.something()` 都可能被误判。
+//     SELF 必须是**按文件**的:形参只在声明它的那份文件里有意义。
+//     defined 保持全局(Object.assign 合并后确实是同一个对象上的方法)。
+const THIS_RE=/(?<![.\w$])(this)\.(\w+)\s*\(/g;
+const P1=/export\s+function\s+\w+\s*\(([^)]*)/g;
+const P2=/export\s+const\s+\w+\s*=\s*(?:async\s*)?\(([^)]*)/g;
+
+/** 这个文件里,哪些标识符可以当作「自己」 */
+function selfNames(file) {
+  const set=new Set(['this']);
+  // 非 ui/ 目录:只认 this.(曾经写成 re:null 直接跳过,结果 ui.js 自己也不查了,
+  // 扫描数变成 0 处调用还照样打印 ✅ —— 又一次"不检查的检查")
+  if (!file.startsWith(D+'/ui/')) return {set, re:THIS_RE};
+  const src=readFileSync(file,'utf8');
+  for (const re of [P1, P2]) {
+    for (const m of src.matchAll(re)) {
+      const first=(m[1]||'').split(',')[0].trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(first)) set.add(first);
     }
   }
+  const alt=[...set].map(x=>x.replace(/\$/g,'\\$')).join('|');
+  return {set, re:new RegExp('(?<![.\\w$])(' + alt + ')\\.(\\w+)\\s*\\(', 'g')};
 }
-const selfAlt=[...SELF].map(x=>x.replace(/\$/g,'\\$')).join('|');
-const CALL_RE=new RegExp('(?<![.\\w$])(' + selfAlt + ')\\.(\\w+)\\s*\\(','g');
 
 let bad=0, checked=0;
 for (const f of files) {
   const src=readFileSync(f,'utf8');
-  const called=new Set([...src.matchAll(CALL_RE)].map(m=>m[2]));
+  const {re}=selfNames(f);
+  const called=new Set([...src.matchAll(re)].map(m=>m[2]));
   for (const c of called) {
     checked++;
     if (!defined.has(c)) {
