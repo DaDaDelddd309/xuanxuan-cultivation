@@ -71,9 +71,13 @@ node tests/lint-deadexport.mjs || true
 #   make-manifest.mjs —— 要 --write 才写盘的工具
 #   lib-swlist.mjs —— sw.js 预缓存清单的**共享解析**(lint-precache 与 test-assets 共用,
 #                     2026-10-10 把那两份拷贝收敛成一份)
+#   lib-uimod.mjs  —— 修仙阁 UI 层的**共享源码解析**(XX-AUDIT-005 拆 ui.js 配套)。
+#                     被 test-spine-wiring / test-uimod / 后续多个结构测试 import,
+#                     本身不是测试。放在这里是因为它读的是 tests/ 同级的源码,
+#                     而它的自测是 test-uimod.mjs(那个才进 CI)。
 # .py 属于浏览器套件,不在本脚本职责内(见 run-browser.sh)。
 echo ""
-excluded='harness.mjs|make-manifest.mjs|lib-swlist.mjs'
+excluded='harness.mjs|make-manifest.mjs|lib-swlist.mjs|lib-uimod.mjs'
 orphan=0
 for f in tests/*.mjs tests/*.js; do
   [ -f "$f" ] || continue
