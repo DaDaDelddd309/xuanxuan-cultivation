@@ -2271,3 +2271,98 @@ export function rollEnemy(nodeId, realmId){} // @planned ROADMAP#2
 3. A3b 的 6 个**一次删一条**，每条后跑 `npm run check`
 4. **禁止批量删** —— 上次就是这么炸的
 
+
+---
+
+# XX-AUDIT-010 外部全面审计（2026-10-10）落地批次
+
+> 来源：外部审计交付 4 份（主报告 / 实测证据台账 / 独立对抗性复核 / 开源生态对照）。
+> 原始文件归档在 `~/xxv-audit-reports/`（**不进仓库**），本节只留「结论 → 工单」映射。
+> 每条结论都由本机**独立复核**过,未采信转述。
+
+## ✅ XX-AUDIT-010-a P0-1 `test:rng` 引用 6 个不存在的测试 ✅ 已完成
+
+**独立复核**：`npm run test:rng` → `MODULE_NOT_FOUND`,退出码 1,`check:full` 永远红。
+`git log --all --diff-filter=D` 查无删除记录 —— 6 个文件**从未存在过**。
+
+**定性比原报告更重**：不是「文件丢了」,是 `package.json` 引用了一组从未编写的测试。
+后果：`AGENTS.md` 承诺的「同种子 = 同世界,存档码可复现」**零验证**
+（仓库另有 171 处 `Math.random()`,唯一能验确定性的就是 `Seed`）。
+
+**已做**：新写 `tests/test-rng.mjs`（16 项断言,实测 16/16 通过）,`test:rng` 改为指向它。
+
+## ✅ XX-AUDIT-010-b P0-1 根因 · `lint-scripts` 门禁 ✅ 已完成
+
+补测试只是治标。真根因是**没有任何检查校验 `package.json` 的 script 指向的文件是否存在**。
+新增 `tests/lint-scripts.mjs`：校验所有 script 的 `node`/`bash`/`python` 文件引用 + 孤儿测试检测。
+已接入 `npm run lint`（19 → **20 项**）。
+
+## ✅ XX-AUDIT-010-c P0-2 `sw.js` 预缓存 5 个稀疏空洞 ✅ 已完成
+
+**独立复核**：独立计数 `/,\s*,/` 得 5 处,定位第 21 行反派立绘串。
+已清理（纯语法噪声,键名本身都在,零行为变化）。
+
+## ✅ XX-AUDIT-010-d P0-4 `npm run lint` 当前是红的 ✅ 已消除
+
+**独立复核**：`npm run lint` 现退出码 0。报告成文时为红,已被本批次修复。
+
+---
+
+## 🔴 XX-AUDIT-011 P0-3 1159 KB 预缓存资源永不渲染 ⬜ 待办
+
+**独立复核成立**：6 张 `villain-*.jpg` 在 `js/`+`css/`+`index.html` 零引用（逐张实测 0 处）。
+
+**根因闭环**（本条最值得记）：`tests/lint-portraits.mjs` 的 `CAST` 数组硬编码 14 个角色
+**包含这 6 个反派**,闸门只查「文件是否存在」；
+而 `js/xiuxian/ui.js:630` 注释自己写着「反派只能用 4 张轮换」。
+**该 lint 检查的恰恰是它声称要防的那件事的反面。**
+
+**死资源清单**（全在 `sw.js` 预缓存,每台设备都下载）：
+
+| 文件 | 大小 | 为什么死 |
+|---|---|---|
+| `assets/bg/sect.jpg` | 195 KB | `SCENE_BY_TYPE` 值域不含 `'sect'`,永不可达 |
+| `assets/portrait/hero.jpg` | 171 KB | 仅被死代码 `assets.js:7` 引用 |
+| `assets/portrait/aunt.jpg` | 124 KB | 仅被死代码 `assets.js:9` 引用 |
+| 6 张 `villain-*.jpg` | 681 KB | 零引用 |
+
+合计 **1159 KB**,占 assets(5.1 MB)的 **23%**。
+
+**⚠️ 不能直接删**：实测删掉一张会让 `lint-portraits` 转红（`CAST` 硬要求它们存在）。
+**清理必须同步改 lint,否则只是把红的 lint 换成另一种红。**
+
+**建议顺序**：① 先补可达性 lint（把 `lint-precache` 的「磁盘有、清单没有」
+推广到「磁盘有、代码不用」）→ ② 六张反派二选一：**接线进 `FOE_ART`（推荐**,
+同时解决「反派轮换同一张脸」的真实体验问题）**或删除并同步改 `CAST`**。
+
+## 🟠 XX-AUDIT-012 P1-1 敌人数上限三个互相矛盾的常量 ⬜ 待办
+
+**独立复核**：`js/game/enemies.js:59-60` 并存
+`MAX_ENEMY_PROJECTILES = 128` 与 `MAX_ENEMY_ZONES = 24`,两者无语义关联、无 lint 校验。
+
+## 🟠 XX-AUDIT-013 P1-3 Pillow `getdata()` 弃用（2027-10-15 移除）⬜ 待办
+
+**独立复核**：2 处调用点 —— `tools/art/measure_style.py:35`、`tools/visual/audit.py:240`。
+改用 `get_flattened_data()`。
+
+## 🟠 XX-AUDIT-014 P1-2 没有 CI,浏览器测试不在任何自动执行路径上 ⬜ 待办
+
+**独立复核**：`tests/run-browser.sh:25` 的 glob 是
+`tests/t8*.py tests/t9*.py tests/audit-reach.py tests/full*.py`,
+**不含 `audit-loop.py`** —— 而它正是验证 V0.96 核心闭环（砍杀与修仙阁是同一个游戏）的那条。
+⚠️ 报告称「`.github/` 在 `.gitignore` 里」,**建 CI 前需先查证该行是否还在**。
+
+## 🟡 XX-AUDIT-015 P1-4 文档与代码脱节,同一仓库三个数字互相矛盾 ⬜ 待办
+
+`TECHDEBT.md` P1-1 写「存档键散在 **5 个**模块」,实测 **25 个键 / 22 个模块**（低估 4.4 倍）。
+本批 XX-AUDIT-010/011 已部分订正,剩余需统一口径。
+
+---
+
+### 本批次未采纳 / 待查证
+
+- **P0-3 的立绘 WebP 化**（省 42~58%）：报告已实测压缩率,项目也有 `assets/illust/pages_webp/` 先例。
+  但属**带宽优化非正确性**,排在 P0-3 死资源清理之后。
+- **P2 全部**（Playwright 版本落后 / `esc()` 重复三份 / 零散问题）：低优先。
+  ⚠️ Playwright 在本机与 Z8 **均无法安装**（`Unsupported platform: android`）,
+  浏览器相关结论暂不具备独立验证条件。
