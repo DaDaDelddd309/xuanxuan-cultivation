@@ -21,6 +21,7 @@
 //   · 任何阶段判定都必须可解释(玩家能看出为什么推进)
 
 import { SAVE_KEYS } from './save-keys.js';
+import { OUTCOMES } from './outcomes.js';
 const K = SAVE_KEYS.spine;
 
 // ————————————————— 阶段定义 —————————————————
@@ -224,7 +225,21 @@ export const SPINE = {
 
   /** 双结局结算 —— 不改奖励大小,只定义你是谁 */
   chooseEnding(which) {
-    this.s.ending = which === 'unlone' ? '奈何无人共' : '此生无悔';
+    // 结局文案从 outcomes.js 取(唯一真源),不再硬编码。
+    //   原来这里写死 `which === 'unlone' ? '奈何无人共' : '此生无悔'`,
+    //   与 tomb.js 的 WORDS 各存一份 —— 改一处漏一处,玩家就会看到
+    //   「墓里刻的是 A、结算弹的是 B」。
+    //
+    //   ⚠️ 为什么不直接从 tomb.js 的 WORDS 读(试过,有问题):
+    //   tomb.js 依赖 story / index / items,再往下是 assets.js,
+    //   而 assets.js 顶层有 `document.addEventListener(...)`。
+    //   tests/test-spine.mjs 只 mock 了 localStorage,一 import 就炸:
+    //     ReferenceError: document is not defined
+    //       at js/xiuxian/assets.js:68
+    //   结局文案是纯数据,不该拖着半条 UI 依赖链走。故抽成独立无依赖模块,
+    //   由 tomb.js 与 spine.js 共同引用。
+    const w = OUTCOMES[which === 'unlone' ? 'unlone' : 'noless'];
+    this.s.ending = w;
     this.s.choices.ending = this.s.ending;
     this.commit();
     this.sync();

@@ -41,6 +41,9 @@ const XX = [
   // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
   // 离线拉不到就是整页白屏。
   'js/xiuxian/save-keys.js',
+  // V0.99 补齐:双结局文案唯一真源(XX-AUDIT-018)。
+  // spine.js 与 tomb.js 都静态 import 它,离线拉不到就是整页白屏。
+  'js/xiuxian/outcomes.js',
 ];
 const ART = [
   'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',

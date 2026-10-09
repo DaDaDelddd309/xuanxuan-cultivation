@@ -118,25 +118,26 @@ V0.88 那次就漏改了 `index.html` 的菜单副标题，导致标题和页面
 
 ## P1 · 迟早咬人
 
-### P1-1 存档键分散在 5 个模块
+### 🟡 P1-1 存档键分散（XX-AUDIT-006 批 1/批 2 已完成，批 3/4 待办）
 
-**现状**:
-| 键 | 模块 |
-|---|---|
-| `xx_profile_v081` | `profile.js` |
-| `xx_quest_v087` | `quest.js` |
-| `xx_tomb_v089` | `tomb.js` |
-| 营地 / 领地 / 家族等各自的键 | `camp.js` `build.js` `family.js` |
+> **2026-10-10 实测**:原文写「分散在 5 个模块」,**严重低估**。
+> 实测 `grep -rln "localStorage.setItem" js/` = **22 个文件 / 25 处**,键共 26 个。
+> 那个「5 个」是 V0.87 统一存档**之前**的数字,一直没更新。
 
-`profile.js` 里有统一存档 + 存档码导出,但**各模块仍各自写自己的 localStorage 键**。
+**已完成(分 4 批,逐批提交)**:
 
-**影响面**:跨版本迁移要逐个模块处理,漏一个就丢数据。
-V0.87 统一存档时是"兼容写回旧模块键"绕过去的,不是真统一。
+| 批次 | 内容 | 状态 |
+|---|---|---|
+| 批 1 | 新建 `js/xiuxian/save-keys.js` 集中 27 个键,15 个模块改引用。**键值逐字节比对一致**,行为零变化 | ✅ |
+| 批 2 | 停掉 `pxs_save` 双写。**实测复现存档损坏**:玩家金币 8888→30、局数 12→1 | ✅ |
+| 批 3 | 把 `localStorage.setItem` 收进统一封装 | ⬜ |
+| 批 4 | 统一 `load/save` 接口,模块只声明 key | ⬜ |
 
-**修法**:所有模块的 `load/save` 收敛到 `profile.js` 提供的读写接口,模块只声明自己的 key。
-迁移逻辑集中在一处,便于加版本号跳跃。
+**验收(批 1/2)**:`node tests/save-conflict-regression.mjs` 13/13。
+**验收(批 4)**:`grep -rn "localStorage.setItem" js/xiuxian/` 只剩集中封装一处。
 
-**验收**:`grep -rn "localStorage.setItem" js/xiuxian/` 只剩 `profile.js` 一处。
+⚠️ **批 2 是四批里唯一会丢字段的** —— 回写 `pxs_save` 会覆盖 `core/save.js` 的活档。
+已加回归测试,且做过**反向验证**(把那行加回去,测试立刻变红)。
 
 ---
 
@@ -161,7 +162,7 @@ V0.93 撞上「同名选择器两份定义」,V0.95 挖出更深的问题:
 - 没有暗色/亮色主题切换,配色写死在水墨暗调
 - 字体只有 `"Songti SC",serif` 一条,没做字体栈降级(部分安卓机没有宋体)
 
-### P1-2 「未使用导出」约 30 个,分不清真假死代码
+### ✅ P1-2 死导出检测器已建（XX-AUDIT-007）
 
 **现状**:审计扫出 30 个导出在其他模块和测试里都没被引用,例如
 `arts.js:SUPER_ARTS` `world.js:rollEnemy` `battle.js:enterTurnBased` `realms.js:realmDisplay`。
@@ -184,7 +185,7 @@ V0.93 撞上「同名选择器两份定义」,V0.95 挖出更深的问题:
 
 ---
 
-### P1-3 「半句话」在 `story.js` / `quest.js` / `tomb.js` / `spine.js` 四处都有结局文案
+### ✅ P1-3 双结局文案收口到 `outcomes.js`（XX-AUDIT-018 已完成）
 
 **现状**:同一对结局(「奈何无人共」/「此生无悔」)的描述、奖励、结案效果
 在四个文件各存一份。V0.89 接的时候是**三处对齐**的,不是单一数据源。
@@ -195,10 +196,25 @@ V0.93 撞上「同名选择器两份定义」,V0.95 挖出更深的问题:
 > 它在 V0.98 接入主线时被加进来,没同步回这份清单。
 > 验收命令也要跟着改:`grep -c "奈何无人共" js/xiuxian/*.js` 应只在数据源文件命中。
 
-**修法**:`story.js` 的 `ARC_REWARD` 和 `tomb.js` 的 `WORDS` 合并成一个 `OUTCOMES` 常量,
-三处都从它读。墓版文案更详细,叙事线用简版。
+**2026-10-10 实测订正**：原文说「四处重复、合并成一个 OUTCOMES」,**与实测不符**。
+逐处看过语境后发现只有 `spine.js` 是真重复,其余三处是各自叙事语境,**不是重复**:
 
-**验收**:`grep -c "奈何无人共" js/xiuxian/*.js` 只在数据源文件命中。
+| 文件 | 内容 | 定性 |
+|---|---|---|
+| `tomb.js` `WORDS` | 墓碑刻痕,含 `note`/`after` 完整叙事 | **真源**(结局名已改为读它) |
+| `spine.js:227` | 结算赋值,硬编码两个结局名 | ✅ **真 bug,已修** |
+| `story.js` | 叙事揭底 `epilogue`/`epilogue2` | 语境独有,**不合并** |
+| `quest.js` | 支线选项 `a1`/`a2` + 回复 `r1`/`r2` | 语境独有,**不合并** |
+
+**已做**：新建 `js/xiuxian/outcomes.js` 作结局名唯一真源,`spine.js` 与 `tomb.js` 均改为读它。
+
+> ⚠️ **踩过的坑**：最初让 `spine.js` 直接 `import { WORDS } from './tomb.js'`,
+> 结果 `npm test` 红了 —— 依赖链 tomb → story/index/items → assets.js,
+> 而 assets.js 顶层执行 `document.addEventListener(...)`,
+> `tests/test-spine.mjs` 只 mock 了 localStorage,直接
+> `ReferenceError: document is not defined`。**纯数据不该拖着半条 UI 依赖链走。**
+
+**验收**:`grep -n "奈何无人共" js/xiuxian/spine.js` 只在注释里命中（记录原实现），代码中无硬编码。
 
 ---
 
