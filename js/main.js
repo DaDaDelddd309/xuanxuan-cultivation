@@ -491,17 +491,26 @@ import { BESTIARY } from './xiuxian/bestiary.js';
         const n = SPIRIT.TALLY.ling;
         if (el.textContent !== String(n)) {
           el.textContent = n;
+          // ⚠️ 实测 8 秒内灵气数变了 274 次(34 次/秒)。原来每变一次就重放 pop 动画,
+          // 于是整个 HUD 一直在抖 —— owner 实机报「头顶冒烟加加加」。
+          // 数字该变就变(那是信息),但动画**必须限流**,不然动画本身变成噪音。
           const box = document.getElementById('hud-xx');
-          if (box && n > 0) { box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop'); }
+          const now = performance.now();
+          if (box && n > 0 && now - (this._lastPop || 0) > 600) {
+            this._lastPop = now;
+            box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+          }
         }
         // 局内灵气是个抽象数字,玩家不知道它能干什么。
-        // 局末 SPIRIT.settle 的公式是 dao = (ling*0.5 + kills*1.2) * boost,
-        // 这里只把 ling 的那半实时折出来显示 —— 砍杀和修仙阁就接上了。
-        // 击杀那半不在这里算(会跳变),局末结算面板会给出准确值。
+        // ⚠️ 这里必须用 SPIRIT.settle 的**完整**公式 dao=(ling*0.5+kills*1.2)*boost。
+        // 我第一版只折 ling 的那半,结果击杀多、灵气少的时候(正常对局就是 8 杀 1 灵气),
+        // HUD 常年显示「≈ 道行 +0」—— 显示比实际少了一个数量级,比不显示还糟。
         const de = document.getElementById('hud-xx-dao');
         if (de) {
-          const approx = Math.round(n * 0.5 * (CAMP.burning() ? 1.25 : 1));
-          de.textContent = n > 0 ? `≈ 道行 +${approx}` : '';
+          const k = (g0().stats && g0().stats.kills) || 0;
+          const boost = CAMP.burning() ? 1.25 : 1;
+          const approx = Math.round((n * 0.5 + k * 1.2) * boost);
+          de.textContent = approx > 0 ? `≈ 道行 +${approx}` : '';
         }
         const f = document.getElementById('hud-xx-fire');
         if (f) f.hidden = !CAMP.burning();

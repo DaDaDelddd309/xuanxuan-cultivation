@@ -5,7 +5,9 @@ import { Bus } from '../core/engine.js?v=17';
 import { Director } from './director.js';   // V0.99:捡宝石 = 加生成压力 + 当场兑现同档怪
 
 // 源石掉率(XX-CACHE-001)。想调手感只改这里。
-const STONE_DROP = { elite: 0.30, mob: 0.004 };  // Boss 必掉,不走概率
+// 源石掉率(XX-BAL-003):同一条原则 —— 绝对值低,且随难度递增。
+// mob 0.004(万分之四)原本就在万级,保留;elite 0.30(30%)偏高,降到 0.05。
+const STONE_DROP = { elite: 0.05, mob: 0.004 };  // Boss 必掉,不走概率
 
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 

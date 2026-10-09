@@ -14,6 +14,7 @@ import { PAL } from '../core/palette.js';
 import { Cult } from './index.js';
 import { Bag } from './items.js';
 import { CAMP } from './camp.js';
+import { gateDrop } from './loot.js';
 
 let _on = false;
 
@@ -40,15 +41,33 @@ export const SPIRIT = {
     //
     // 正解:借用原版认得的 kind:'gem'。它会走完整的磁吸 + 拾取 + 音效流程,
     // 我们在 Bus 的 pickup 反馈点记一笔。不改原版一行。
+    // 批量累计(XX-DROP-002,owner:「一下子就有几十个怪刷出来,差不多一秒死好多怪的,
+    // 如果都按照单独一个怪死亡掉落,这个卡死」)
+    //
+    // 原来**每只怪死都掷一次骰 + 一次查表**。一波 50 只同类型怪同时死,
+    // 就跑 50 次随机 —— 而这 50 次的**期望**和「一次 +50×概率」完全等价,但后者 O(1)。
+    //
+    // 现在按类型累计:acc += n × rate,攒够 1 才出货。
+    //   普通 0.8%/只 → 平均 125 只出一颗(跨局累计,所以不是每局必有)
+    //   精英 8%     → 12 只一颗
+    //   秘窟 45%    → 2 只一颗
+    // 稀有度随难度递增(正/精/浓/焦),上限封顶与保底都在 loot.js 里。
+    const bucket = { normal: 0, elite: 0, boss: 0 };
+    let timer = 0;
     Bus.on('enemy-death', e => {
-      const p = e.boss ? 0.9 : e.elite ? 0.26 : 0.085;  // 约每 12 只怪掉 1 颗
-      if (Math.random() >= p) return;
-      const v = e.boss ? 3 : e.elite ? 2 : 1;
-      engine.addPickup({
-        kind: 'gem', x: e.x + (Math.random() * 20 - 10), y: e.y,
-        sprite: 'gem_g', r: 10, t: Math.random() * 7,
-        xp: 0, __spirit: v,          // xp:0 → 不会给经验,只当载体
-      });
+      const tier = e.boss ? 'boss' : e.elite ? 'elite' : 'normal';
+      bucket[tier]++;
+      // 每 8 只结算一次:够密(不丢手感)又够省(一秒几十只只跑几次)
+      if (bucket[tier] < 8) return;
+      const n = bucket[tier]; bucket[tier] = 0;
+      const { drops: got } = gateDrop('spirit', tier, n);
+      for (let i = 0; i < got.length; i++) {
+        engine.addPickup({
+          kind: 'gem', x: e.x + (Math.random() * 40 - 20), y: e.y + (Math.random() * 40 - 20),
+          sprite: 'gem_g', r: 10, t: Math.random() * 7,
+          xp: 0, __spirit: tier === 'boss' ? 3 : tier === 'elite' ? 2 : 1,
+        });
+      }
     });
 
     engine.__spiritHook = true;
@@ -59,29 +78,33 @@ export const SPIRIT = {
   // 原版在 d<18 时会把 spirit 当 gem 收走(xp:0 所以不给经验,但会 g.remove)。
   // 我们在它之后检查「本帧消失的 spirit」并记账 —— 用 WeakSet 避免重复。
   tick(g) {
+    // ⚠️ XX-BUG-D(实测:每杀 1 只产 22 灵气,设计目标是 1.6~4.9,超 4.5~14 倍)
+    //
+    // 原来的判定是 `if (this._alive.has(k)) TALLY.ling += k.__spirit`,
+    // 而 this._alive 在每帧末尾又被重置成「当前还活着的灵气」——
+    // 于是**一颗灵气在场上待 N 帧就被记 N 次**。
+    // 原意是「本帧消失的(磁吸走的那一颗)记一次」,写成了「在场就记」。
+    //
+    // 正确写法必须是**状态转移**:上一帧在、这一帧不在。
+    // 用 Map 存 上一帧的 {灵气对象: 数值},本帧逐个比对差集。
     const list = g && g.pickups;
-    if (!list || !list.length) { this._alive = new Set(); return; }
     const p = g.player;
-    if (!p) return;
-    const now = new Set();
-    for (let i = list.length - 1; i >= 0; i--) {
-      const k = list[i];
-      if (!k.__spirit) continue;
-      now.add(k);
-      // 上一帧还在、这帧没了 → 被原版磁吸收走了
-      if (this._alive && this._alive.has(k)) {
-        TALLY.ling += k.__spirit;
-        this._got = (this._got || 0) + 1;
-        // 飘字合并:原来每颗灵气都弹一次「灵 +N」,屏幕上会一直冒。
-        // 改成每 6 颗汇总飘一次 —— 数字没丢,只是不再刷屏。
-        this._burst = (this._burst || 0) + k.__spirit;
-        if (this._burst >= 6) {
-          g.spawnText(p.x, p.y - 32, '灵 +' + this._burst, { color: PAL.gold, size: 13, life: .8 });
-          this._burst = 0;
-        }
+    const now = new Map();
+    if (list) for (const k of list) if (k.__spirit) now.set(k, k.__spirit);
+    const prev = this._prev || new Map();
+    this._prev = now;
+
+    if (!p) return;                       // 玩家没了就只更新快照,不记账
+    for (const [k, v] of prev) {
+      if (now.has(k)) continue;          // 还在场上 —— 还没被吃掉,不算
+      TALLY.ling += v;                   // 这一帧消失了 = 被磁吸收走,记一次
+      this._got = (this._got || 0) + 1;
+      this._burst = (this._burst || 0) + v;
+      if (this._burst >= 6) {            // 飘字合并:每 6 点汇总飘一次
+        g.spawnText(p.x, p.y - 32, '灵 +' + this._burst, { color: PAL.gold, size: 13, life: .8 });
+        this._burst = 0;
       }
     }
-    this._alive = now;
   },
 
   // —— 局末结算:灵气 → 道行 + 源石 ——
@@ -110,5 +133,5 @@ export const SPIRIT = {
     return { ling, dao, stones, boost, kills };
   },
 
-  reset() { TALLY.ling = 0; this._alive = null; this._got = 0; this._burst = 0; },
+  reset() { TALLY.ling = 0; this._prev = new Map(); this._got = 0; this._burst = 0; },
 };

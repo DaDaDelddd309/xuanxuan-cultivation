@@ -61,7 +61,10 @@ console.log('\n[2] 精英概率掉落(不是必掉)');
   const rate = s.length / 400;
   ok('精英会掉', s.length > 0, `${s.length}/400`);
   ok('但不是必掉(是概率)', s.length < 400, `${rate.toFixed(3)}`);
-  ok('掉率在 0.15~0.45 之间', rate > 0.15 && rate < 0.45, `${rate.toFixed(3)}`);
+  // ⚠️ 原来写死 0.15~0.45 —— 那是「精英必掉大半」的旧假设。
+  // owner 实机反馈掉率过高,已把 STONE_DROP.elite 降到 0.05。
+  // 这里跟着改,并把**递增关系**也断言上(普通 < 精英 < Boss 是硬要求)。
+  ok('精英掉率在 0.03~0.12 之间', rate > 0.03 && rate < 0.12, `${rate.toFixed(3)}`);
   ok('精英掉的是低一档源石', s.every(x => x.id === 'stone_2'), [...new Set(s.map(x=>x.id))].join(','));
 }
 

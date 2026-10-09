@@ -3,7 +3,7 @@
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v099m';
+const V = 'xuanxuan-v099o';
 const BUILD = '20261008-1710';
 
 const CORE = [
@@ -26,7 +26,7 @@ const XX = [
   'js/xiuxian/world.js', 'js/xiuxian/lore.js', 'js/xiuxian/relations.js', 'js/xiuxian/assets.js',
   'js/xiuxian/ui.js', 'js/xiuxian/duel.js', 'js/xiuxian/items.js', 'js/xiuxian/camp.js',
   'js/xiuxian/merchant.js', 'js/xiuxian/companion.js', 'js/xiuxian/bond.js',
-  'js/xiuxian/ritual.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
+  'js/xiuxian/ritual.js', 'js/xiuxian/loot.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
   'js/xiuxian/tomb.js', 'js/xiuxian/nag.js', 'js/xiuxian/spirit.js', 'js/xiuxian/mount.js',
   // V0.98 补齐:这批文件在 V0.86~V0.90 重写清单时被漏掉,
   // 但它们都在 main.js / ui.js 的**静态 import 图**上 ——

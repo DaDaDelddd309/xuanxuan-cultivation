@@ -32,9 +32,9 @@ const LAYER_COST = {
 // 突破丹。found=解锁地图位置,没有就意味着得先在地图上跑一趟。
 export const PILLS = {
   pill_zhuji:    { id: 'pill_zhuji',    name: '筑基丹', realms: 'qi',       price: 2000,
-                   desc: '服之可破炼气九转之壁,直入筑基。', rare: 0.18 },
+                   desc: '服之可破炼气九转之壁,直入筑基。', rare: 0.04 },
   pill_jindan:   { id: 'pill_jindan',   name: '结丹丹', realms: 'zhuji',    price: 45000,
-                   desc: '三转之基,成丹之钥。', rare: 0.06 },
+                   desc: '三转之基,成丹之钥。', rare: 0.02 },
   pill_yuanying: { id: 'pill_yuanying', name: '元婴丹', realms: 'zhuji',    price: 180000,
                    desc: '碎丹成婴,神游太虚。', rare: 0.03 },
   pill_huashen:  { id: 'pill_huashen',  name: '化神丹', realms: 'jindan',   price: 1200000,
