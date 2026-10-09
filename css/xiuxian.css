@@ -640,7 +640,10 @@
 /* V0.95 从线上 V0.90 恢复:做令牌替换时误删的布局规则 */
 .xx-box{position:absolute;left:3%;right:3%;bottom:2.5%;background:rgba(12,9,8,.95);
   border:1px solid rgba(201,162,39,.4);border-radius:3px;padding:13px 16px;min-height:104px;
-  backdrop-filter:blur(3px);box-shadow:0 -4px 24px rgba(0,0,0,.5)}
+  backdrop-filter:blur(3px);box-shadow:0 -4px 24px rgba(0,0,0,.5);
+  /* XX-COMBAT-001:这里原本没写 color,继承到外层的暗色,对话文字几乎看不见。
+     截图才发现的 —— 数字体检抓不到,得看渲染图。 */
+  color:var(--xx-paper);font-size:14px;line-height:1.8}
 
 /* ---- 布局恢复(V0.95) ---- */
 .xx-btn{display:block;width:100%;padding:13px;margin-bottom:9px;background:rgba(232,220,196,.06);

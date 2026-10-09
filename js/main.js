@@ -79,6 +79,9 @@ Bus.on('boss-spawn', ({ name }) => {
   SFX.play('boss');
   if (Save.data.settings.shake) engine.shake(8, 0.6);
   engine.spawnText(engine.player.x, engine.player.y - 60, name + ' 出现!', { color: PAL.crit, size: 24, life: 2 });
+  // XX-COMBAT-001:Boss 出场即切入回合制。
+  // 以前这里只有音效+震屏+飘字 —— 局内砍杀全程是实时弹幕,回合制只在修仙阁走大地图时才有。
+  setTimeout(() => toTurnBased(name), 700);
 });
 
 // ---------- 升级三选一(含 1 次免费刷新) ----------
@@ -171,6 +174,109 @@ function endRun(victory) {
     onEndless: () => { setEndless(engine); inRun = true; HUD.show(true); Screens.hide(); engine.resume(); },
     onMenu: () => { engine.reset(); showMenu(); },
   });
+}
+
+
+// ══════════════ 局内 → 回合制(XX-COMBAT-001)══════════════
+//
+// owner 要求:「回合制记得弄好强制进入或者碰撞进入或者特定剧情进入,
+// 过场动画也要有,立绘别忘了」。
+//
+// 立绘和对话 Duel 里已经有了(卷轴 + say() + turnFlash/intro),
+// 这里接的是**入口与出口**:水墨过场 → 暂停局内 → Duel.start → 打完还回去。
+//
+// 触发方式现役:**Boss 出场即进**(强制进入)。碰撞/剧情触发留接口,
+// 因为那两处要改 spawner 的行为,风险比这个大。
+let inTurnBased = false;
+
+/** 播放水墨过场。dir: 'in'(盖满) | 'out'(退开) */
+function wash(dir, caption) {
+  const el = document.getElementById('tb-wash');
+  if (!el) return 0;
+  const cap = document.getElementById('tb-cap');
+  if (cap && caption) cap.textContent = caption;
+  el.classList.remove('in', 'out');
+  void el.offsetWidth;              // 强制回流,否则连续调用不会重放动画
+  el.classList.add('on', dir);
+  // CSS 时长:in .46s / out .40s,留一点余量
+  return dir === 'in' ? 520 : 460;
+}
+
+/** 局内 Boss → 回合制 */
+function toTurnBased(bossName) {
+  if (inTurnBased || !inRun) return;
+  inTurnBased = true;
+  const g = engine, p = g.player;
+  const boss = g.boss;
+  if (!p || !boss) { inTurnBased = false; return; }
+
+  const wait = wash('in', bossName);
+  engine.pause();
+  SFX.stop && SFX.stop();
+
+  setTimeout(() => {
+    if (!Duel) { inTurnBased = false; engine.resume(); return; }
+    try {
+      Duel.start({
+        node: { type: 'boss' },
+        hero: {
+          name: '轩轩', img: PORTRAIT.hero,
+          realmIdx: Math.max(0, REALMS.findIndex(r => r.id === Cult.get().realm)),
+        },
+        foe: {
+          key: 'moying', name: boss.name, title: '妖  ·  本  局',
+          img: PORTRAIT.foe,
+          realmIdx: Math.max(0, REALMS.findIndex(r => r.id === Cult.get().realm)) + 1,
+          stronger: true, isNemesis: false,
+        },
+        onWin: (r) => {
+          // 赢:把这条 Boss 从场上清掉,然后交还局内
+          const i = g.enemies.indexOf(boss);
+          if (i >= 0) g.enemies.splice(i, 1);
+          if (g.boss === boss) g.boss = null;
+          Cult.titles.track('challenge', 1);
+          if (Cult.nemesis && Cult.nemesis.s.alive) Cult.titles.track('nemesis_win', 0);
+          s2give(r);
+        },
+        onLose: () => { /* 交给 endRun 走死亡结算 */ },
+      });
+      // ⚠️ 墨盖满之后必须**退开**,否则 #tb-wash(z-index 300)会一直压着
+      // .xx-duel(z-index 80) —— 回合制开了但立绘和战场全被墨挡着。
+      // 先留 700ms 让玩家看清 Boss 名,再退。
+      setTimeout(() => { const el = document.getElementById('tb-wash');
+        if (el) { el.classList.remove('in'); wash('out'); } }, 700);
+    } catch (e) {
+      console.warn('[turn-based]', e);
+      inTurnBased = false;
+      engine.resume();
+      return;
+    }
+    // 回合制进行中:局内保持暂停
+  }, wait);
+}
+
+/** 回合制打完 → 交还局内 */
+function fromTurnBased(win) {
+  setTimeout(() => {
+    wash('out');
+    inTurnBased = false;
+    engine.resume();
+    if (!win) {
+      // 输了:走正式死亡结算,别让玩家卡在暂停的局里(XX-BUG-B 那类)
+      const p = engine.player;
+      if (p) { p.iframes = 0; p.takeDamage(999999); }
+    }
+  }, 60);
+}
+
+function s2give(r) {
+  const st = Cult.get();
+  st.dao += r.dao || 0;
+  st.totalKills += 1;
+  if (r.pill) st.pills[r.pill] = (st.pills[r.pill] || 0) + 1;
+  addExp(st, r.exp || 60);
+  Cult.commit();
+  fromTurnBased(true);
 }
 
 // ---------- 场景 ----------
@@ -296,7 +402,14 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !loc
 
 // ===== 修仙层入口(V0.78)=====
 import { Cult } from './xiuxian/index.js';
-import { REALMS } from './xiuxian/realms.js';
+import { REALMS, addExp } from './xiuxian/realms.js';
+// 回合制过场要立绘(XX-COMBAT-001)。ui.js 里那份 PORTRAIT 同一个文件里也有,
+// 这里只取用到的几个,避免整个 ui 被拉进主循环。
+const PORTRAIT = {
+  hero: 'assets/portrait/knight.jpg',
+  foe:  'assets/portrait/villain-moying.jpg',
+};
+import { Duel } from './xiuxian/duel.js';
 import { Hall } from './xiuxian/ui.js';
 import { Bag, DAY } from './xiuxian/items.js';
 import { CAMP, offlineReport } from './xiuxian/camp.js';

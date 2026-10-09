@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/xiuxian.css">
 <link rel="stylesheet" href="css/illust.css">
+<link rel="stylesheet" href="css/wash.css">
 </head>
 <body>
 <div id="app">
@@ -56,6 +57,12 @@
   <button id="btn-dash" class="hidden" aria-label="冲刺（空格）" title="冲刺（Space）">⚡</button>
 
   <div id="vignette" class="hidden"></div>
+
+  <!-- 局内 → 回合制 的水墨过场(XX-COMBAT-001) -->
+  <div id="tb-wash" aria-hidden="true">
+    <div class="tb-ink"></div><div class="tb-ink"></div><div class="tb-ink"></div>
+    <div class="tb-cap" id="tb-cap"></div>
+  </div>
 
   <!-- 全部屏幕(DOM 由 js/ui/screens.js 生成/填充) -->
   <div id="screens">
