@@ -22,6 +22,7 @@
 import { DAY } from './items.js';
 import { CAMP } from './camp.js';
 import { MOUNT } from './mount.js';
+import { MUTATION } from './mutation.js';           // 变异体系(XX-MUTATION-002)
 import { computeWard } from '../game/director.js';   // 护栏算法唯一真源
 
 const K = 'xx_companion_v081';   // 沿用旧键,老存档不失效
@@ -62,6 +63,14 @@ export const COMPANION = {
         if (d.name) this.s.name = d.name;
         if (d.ghost) this.s.ghost = { ...this.s.ghost, ...d.ghost };
         if (Array.isArray(d.log)) this.s.log = d.log.slice(-40);
+        // 变异状态(XX-MUTATION-002)。
+        // ⚠️ 必须**无条件**重建:老存档没有 mut 字段,若只在 d.mut 存在时赋值,
+        // 内存里上一局的 mut 会原样留下来 —— 读老档等于把别人的变异进度带过来。
+        // (tests/mutation-regression.mjs 的「老存档缺 mut 不炸」抓出来的。)
+        const base = MUTATION.defaultMut();
+        this.s.mut = d.mut
+          ? { ...base, ...d.mut, parts: { ...base.parts, ...(d.mut.parts || {}) } }
+          : base;
       }
     } catch {}
     return this.s;
@@ -84,6 +93,30 @@ export const COMPANION = {
   born() { return !!this.s.name; },
 
   get(name) { return this.s.name || name || '宝宝'; },
+
+  // ————— 变异体系(XX-MUTATION-002 存档接入 / 003 投喂入口)—————
+  /** 投喂一次。tier = 源石阶 1~6,part = 改造部位 */
+  feed(tier, part, rng) {
+    const r = MUTATION.feed(this.s.mut, tier, part, rng);
+    this.save();
+    return r;
+  },
+
+  /** 距下一阶段还差几次;已在真身返回 0 */
+  toNextStage() { return MUTATION.toNext(this.s.mut); },
+
+  /** 真身抉择是否可以触发 */
+  canChooseFinal() { return MUTATION.canChooseFinal(this.s.mut); },
+
+  /** 真身抉择:reach=true 伸手(路线修正) / false 收回(维持随机) */
+  chooseFinal(reach) {
+    const r = MUTATION.resolveFinal(this.s.mut, reach);
+    this.save();
+    return r;
+  },
+
+  /** 当前形态的全部可量化参数,立绘/生图直接吃它 */
+  form() { return MUTATION.derive(this.s.mut); },
 
   // ————— 局内:开局重置 —————
   beginRun() {
@@ -298,5 +331,8 @@ function defaultState() {
     },
     // —— 年表:时间痕迹,不是养成 ——
     log: [],
+    // —— 变异体系(XX-MUTATION-002)。随存档走,不另开键,
+    //    这样老存档天然缺省,load() 补默认值即可,不做键迁移。
+    mut: MUTATION.defaultMut(),
   };
 }

@@ -3,6 +3,7 @@
 // 设计:独立子地图,5 个房间,玩家自己走。不打断,不弹窗。
 // 契约:纯数据 + 纯状态。渲染在 ui.js。
 import { SAVE_KEYS } from './save-keys.js';
+import { OUTCOMES } from './outcomes.js';
 import { STORY } from './story.js';
 import { Cult } from './index.js';
 import { Bag, SCROLLS } from './items.js';
@@ -42,11 +43,13 @@ export const ROOMS = [
 export const ROOM_BY_ID = Object.fromEntries(ROOMS.map(r=>[r.id,r]));
 
 // 补完那句话 —— 两个结局
+// ⚠️ text 从 outcomes.js 取,不再各写一份(XX-AUDIT-018)。
+//   note / after 是墓碑语境的独有叙事,与主线结算不同,**刻意不合并**。
 export const WORDS = [
-  { path:1, text:'奈何无人共',
+  { path:1, text:OUTCOMES.unlone,
     note:'你把空席上那份沉默接了过来。\n他攒了千年的那句话,终于有人听完了。',
     after:'石将跪下去,墓门自己开了。\n风从主墓里出来的时候,带着一千年的香灰味。' },
-  { path:2, text:'此生无悔',
+  { path:2, text:OUTCOMES.noless,
     note:'你把那三个字补完整了。\n他其实早就不悔了 —— 他悔的是没人听见。',
     after:'石将站起来,第一次自己转过身,面朝大门。\n它下班了。门没开 —— 不用开了。' },
 ];

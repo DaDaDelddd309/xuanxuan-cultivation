@@ -64,7 +64,23 @@ export const SFX = {
     this.master = c.createGain(); this.master.gain.value = 0.2; this.master.connect(c.destination);
     this.sfxBus = c.createGain(); this.sfxBus.gain.value = 1; this.sfxBus.connect(this.master);
     // BGM 独立总线:0.25 × 主音量 0.2 ≈ 有效音量 0.05,非常轻
-    this.musicBus = c.createGain(); this.musicBus.gain.value = 0.25; this.musicBus.connect(this.master);
+    this.musicBus = c.createGain(); this.musicBus.gain.value = 0.25;
+    // BGM 低通滤波器(XX-AUDIT-022)——修「持续蜂鸣声」。
+    //   起因:玩家反复报"BGM 像蜂鸣器"。根因不是音量,是**波形**:
+    //     ① BGM 低音用 square 方波(`_music` 里 type:'square')。
+    //        方波富含 3f/5f 奇次谐波,是蜂鸣器(beeper)的教科书波形。
+    //        音效区用 square 是对的 —— shoot/click 都是 0.035~0.08s 的短促高频,
+    //        听感是"哒"不是"嗡"。**但 BGM 低音是持续铺底**
+    //        (M_BASS = A2/C3/F2/G2,每步 0.2s 循环,永远在响)。
+    //     ② musicBus 上**没有任何滤波器** —— 对比 `_noise()` 有 BiquadFilter 塑形。
+    //   两点叠加 = 一个持续的单音蜂鸣。
+    //   修法:① 低音改 triangle(谐波少、圆润);② musicBus 挂 lowpass 兜底。
+    this.musicFilter = c.createBiquadFilter();
+    this.musicFilter.type = 'lowpass';
+    this.musicFilter.frequency.value = 1200;   // 盖住 3f/5f,保住基频
+    this.musicFilter.Q.value = 0.7;
+    this.musicBus.connect(this.musicFilter);
+    this.musicFilter.connect(this.master);
     // 复用白噪声 buffer(0.5s)
     const len = Math.max(1, (c.sampleRate * 0.5) | 0);
     this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
@@ -163,7 +179,9 @@ export const SFX = {
       const i = this._step % 8;
       const when = Math.max(0, this._nextT - c.currentTime);
       const bass = M_BASS[i];
-      if (bass) this._tone({ type: 'square', f0: bass, dur: 0.2, gain: 0.5, when, dest: this.musicBus });
+      // 低音改 triangle(XX-AUDIT-022):方波的 3f/5f 奇次谐波正是蜂鸣感的来源,
+      // 而这里是**持续铺底**,不像音效那样短促。triangle 谐波少、圆润。
+      if (bass) this._tone({ type: 'triangle', f0: bass, dur: 0.2, gain: 0.5, when, dest: this.musicBus });
       this._tone({ type: 'triangle', f0: M_ARP[i], dur: 0.16, gain: 0.55, when, dest: this.musicBus });
       this._step++;
       this._nextT += M_STEP;

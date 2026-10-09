@@ -49,18 +49,49 @@ console.log(bad?`\n未使用令牌的硬编码: ${bad} 处`:'✅ 边框/底色�
 //   · 纯黑遮罩 rgba(0,0,0,…) —— V0.94 起是刻意的浮层遮罩
 const BASELINE_PATH=__ROOT__+'/tests/.hardcoded-baseline.json';
 if (require$fs.existsSync(BASELINE_PATH)) {
-  const base=new Set(JSON.parse(readFileSync(BASELINE_PATH,'utf8')));
+  const raw=JSON.parse(readFileSync(BASELINE_PATH,'utf8'));
+  // 基线条目形如 `文件:行号:颜色`。
+  // ⚠️ **行号不能参与匹配**(XX-AUDIT-008 修订):
+  //   原实现把行号写进 key,导致在 CSS 中间插入任何内容都会让后续行号整体位移,
+  //   于是几百条既有颜色全被误报成「新增」。
+  //   实测踩坑:给 .rt-mouth 加一句 transition,CSS 插入 12 行,
+  //   run-all 立刻冒出 150 条红 —— 而实际只新增了 0 个颜色。
+  //   行号只是给人看的定位信息,判定「是否新增」应看**这个文件里这个颜色出现过没有**。
+  const base=new Set();
+  const baseFull=new Set(raw);
+  for (const k of raw) {
+    // ⚠️ 不能用 lastIndexOf(':'):颜色本身含冒号,
+    //   如 `xiuxian.css:103:rgba(232,220,196,.5)` —— 最后那个冒号在 rgba 里面。
+    // 正确切法:从左数第二个冒号,前面是 `文件:行号`。
+    const first=k.indexOf(':');
+    const second=first<0?-1:k.indexOf(':',first+1);
+    if (second>0) base.add(k.slice(0,first)+':'+k.slice(second+1));   // `文件:颜色`
+  }
   let added=0;
+  const seen=new Set();
   for (const f of readdirSync(R).filter(x=>x.endsWith('.css'))) {
     const src=readFileSync(R+'/'+f,'utf8').replace(/:root\s*\{[^}]*\}/gs,'');
-    const lines=src.split('\n');
+    // ⚠️ 剥注释要在**整篇层面**做,不能逐行做。
+    //   逐行剥 `//.*$` 只能处理单行注释;多行块注释的**中间行**
+    //   既没有 `/*` 也没有 `*/`,会整行漏过 —— 于是注释里提到的颜色
+    //   被当成真实硬编码色。实测:广播条注释里引用了旧底色
+    //   `rgba(18,14,11,.72)`,lint 报了「新增硬编码颜色」,而它只存在于注释。
+    //   做法:先把所有块注释替换成等量空行(保持行号不变),再逐行剥 `//`。
+    const stripped=src.replace(/\/\*[\s\S]*?\*\//g,m=>m.replace(/[^\n]/g,' '));
+    const lines=stripped.split('\n');
     lines.forEach((ln,i)=>{
-      for (const m of ln.matchAll(/(?<![\w-])(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))/g)) {
+      // 行注释(含续行注释的第三种写法:/* … 每行顶格缩进)
+      const code=ln.replace(/\/\/.*$/,'');
+      for (const m of code.matchAll(/(?<![\w-])(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))/g)) {
         const v=m[0];
         if (/^rgba?\(0,\s*0,\s*0/.test(v)) continue;           // 纯黑遮罩
-        const key=`${f}:${i+1}:${v}`;
+        // 同文件同颜色只判一次,避免重复刷屏
+        if (seen.has(f+':'+v)) continue;
+        const key=`${f}:${v}`;
         if (!base.has(key)) {
-          console.log(`  ❌ 新增硬编码颜色 ${key} → 应走 var(--xx-*)`);
+          // 行号仅用于提示定位,不参与判定
+          seen.add(f+':'+v);
+          console.log(`  ❌ 新增硬编码颜色 ${f}:${i+1}: ${v} → 应走 var(--xx-*)`);
           added++;
         }
       }

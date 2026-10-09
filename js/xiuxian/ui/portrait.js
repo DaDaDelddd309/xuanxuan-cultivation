@@ -15,4 +15,22 @@ export const PORTRAIT = {
   companion: 'assets/portrait/companion.jpg', momocha: 'assets/portrait/momocha.jpg',
   merchant: 'assets/portrait/merchant.jpg',
   foe: 'assets/portrait/villain-moying.jpg', hero: 'assets/portrait/knight.jpg', aunt: 'assets/portrait/companion.jpg',
+  // ── 六位反派专属立绘(XX-AUDIT-011)───────────────────────────
+  // 这 6 张**早就画好了**,却因为下面这行注释的判断而从未被引用:
+  //   「立绘:仓库里独立立绘只有 8 张……所以反派只能用 foe/momocha/
+  //     merchant/companion 这几张轮换。想让反派各有专属脸,得补美术
+  //     —— 代码解决不了。」
+  // **那个判断在写下的当时是对的,后来就不对了。**
+  // 实测:6 张 villain-*.jpg 共 681 KB,全在 sw.js 预缓存里,
+  // 即**每台设备都在下载**,而 asset-reach 检索确认它们零引用。
+  // 敌人数据(`foes` 数组第 6 位)早就带了专属 key:
+  //   moying / heifeng / shougu / youfang
+  // 也就是说:数据早就准备好了,只差一张映射表。
+  // 接上之后:反派不再轮换同一张脸 —— 这是**观感修复**,不只是带宽。
+  heifeng: 'assets/portrait/villain-heifeng.jpg',
+  shougu: 'assets/portrait/villain-shougu.jpg',
+  youfang: 'assets/portrait/villain-youfang.jpg',
+  shemie: 'assets/portrait/villain-shexie.jpg',
+  nvxia: 'assets/portrait/villain-nvxia.jpg',
+  yaohou: 'assets/portrait/villain-yaohou.jpg',
 };

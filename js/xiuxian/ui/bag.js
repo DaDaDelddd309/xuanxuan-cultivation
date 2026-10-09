@@ -24,6 +24,71 @@ import { TOMB } from '../tomb.js';
 import { WORLD as LORE } from '../lore.js';
 import { PORTRAIT } from './portrait.js';
 import { esc, toast } from './dom.js';
+import { COMPANION } from '../companion.js';
+import { MUTATION } from '../mutation.js';   // V0.99 灵伴变异(XX-MUTATION-003/004)
+
+// ---------- 灵伴变异 · 投喂(XX-MUTATION-003/004)----------
+// 合并补入:ui.js 拆分(XX-AUDIT-005)时这三个方法随 vBag 一起搬,
+// 但首次拆分发生在 mutation 接线之前,所以漏掉了 —— 由 mutation-regression
+// 的「行囊渲染真的调了进度卡」断言抓出来。
+// 注意:它们属于行囊页(投喂入口就在行囊里),所以落 bag.js 而不是 ui.js。
+export function _feedBtnText(hall) {
+  return COMPANION.canChooseFinal() ? '投 进 漩 涡' : '饲';
+}
+
+export function _vMutCard(hall) {
+  const m = COMPANION.s.mut;
+  const nm = esc(COMPANION.get());
+  if (!COMPANION.born()) {
+    return `<div class="xx-card"><div class="xx-label">灵 伴</div>
+      <div class="xx-dim" style="margin-top:5px">还没遇上她。走完开局仪式才会出现。</div></div>`;
+  }
+  const st = MUTATION.STAGES[m.stage];
+  const p = MUTATION.progress(m);
+  const left = COMPANION.toNextStage();
+  const fam = m.family ? MUTATION.FAMILIES[m.family] : null;
+  let line;
+  if (COMPANION.canChooseFinal()) {
+    line = `漩涡停了,${nm}跪坐在墨里,看不清脸。` +
+           `<br>再投一颗下去,你就再也收不回来了。`;
+  } else if (left > 0) {
+    line = `离「${MUTATION.STAGES[m.stage + 1].name}」还差 ${left} 次投喂。`;
+  } else {
+    line = '封印已经全开。';
+  }
+  return `<div class="xx-card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div class="xx-label" style="color:var(--xx-gold)">灵 伴 · ${nm}</div>
+      <div class="xx-dim">${fam ? fam.sigil + ' ' : ''}${st.name}</div>
+    </div>
+    <div class="xx-val" style="font-size:13px;margin-top:6px">${p.feeds} / ${p.total}</div>
+    <div class="xx-dim" style="margin-top:5px">${line}</div>
+    ${COMPANION.canChooseFinal() ? `<button class="xx-btn" style="width:auto;margin:9px 0 0;padding:7px 13px;font-size:12px"
+      data-act="feedstop">收 手</button>` : ''}
+  </div>`;
+}
+
+/** 部位选择器 —— 玩家唯一的手动权:决定这次先变哪儿 */
+export function _vPartPicker(hall) {
+  const m = COMPANION.s.mut;
+  const sid = hall._feedStone;
+  const stone = STONES[sid];
+  if (!stone) return '';
+  return `<div class="xx-card">
+    <div class="xx-label">以 ${esc(stone.name)} 饲 ${esc(COMPANION.get())}</div>
+    <div class="xx-dim" style="margin-top:4px">选一处。喂得多、喂得专,这处才明显。</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+      ${MUTATION.PARTS.map(p => `<button class="xx-btn" style="width:auto;margin:0;padding:6px 11px;font-size:12px;
+        ${hall._feedPart === p.key ? 'border-color:var(--xx-gold);color:var(--xx-gold)' : ''}"
+        data-act="feedpart" data-v="${p.key}">${p.name}<span class="xx-dim" style="margin-left:5px">${m.parts[p.key] || 0}</span></button>`).join('')}
+    </div>
+    <div class="xx-dim" style="margin-top:8px;font-size:11px">
+      ${(MUTATION.PARTS.find(p => p.key === hall._feedPart) || {}).desc || '先选一处,再按下方的键。'}
+    </div>
+    ${hall._feedPart ? `<button class="xx-btn main" style="margin-top:9px"
+      data-act="feeddo" data-v="${sid}" data-v2="${hall._feedPart}">${hall._feedBtnText()}</button>` : ''}
+  </div>`;
+}
 
 // ---------- 行囊 ----------
 export function vBag(hall) {
@@ -33,6 +98,9 @@ export function vBag(hall) {
       <div class="xx-label">道 行</div><div class="xx-big">${Cult.get().dao}</div>
       <div class="xx-dim" style="margin-top:5px">可用道行兑换源石与传承书 —— 比商人便宜,但不打折。</div>
     </div>`;
+    h += hall._vMutCard();
+    if (hall._feedStone && !keys.includes(hall._feedStone)) hall._feedStone = null;
+    if (hall._feedStone) h += hall._vPartPicker();
     if (!keys.length) return h + hall.empty('空 空 如 也',
       '源石用来生篝火,传承书用来补突破溢出。丹药得去秘境才有。',
       [['荒野 · 打散妖','掉落源石,品质随机'],

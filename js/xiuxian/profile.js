@@ -82,7 +82,12 @@ const EMPTY = {
   v: 1, seed: DEFAULT_SEED,
   cult: null, nemesis: null, titles: null,
   bag: null, camp: null, day: null, merch: null, companion: null,
-  base: null, savedAt: 0,
+  // ⚠️ 这里原来有 `base: null`。已移除(XX-AUDIT-006 批 2)。
+  //   它是 pxs_save 的迁移快照,**从不被任何逻辑消费**,却会被
+  //   `{ ...d }` 展开带进新键存档,变成一个永不读取的死字段。
+  //   migrate() 仍会把旧 base 读进局部变量 d.base(为兼容旧档),
+  //   但不再回写 pxs_save(那会覆盖 core/save.js 的活档)。
+  savedAt: 0,
 };
 
 export const Profile = {
@@ -128,7 +133,18 @@ export const Profile = {
     w(LEGACY.day, d.day);
     w(LEGACY.merch, d.merch);
     w(LEGACY.companion, d.companion);
-    w(LEGACY.base, d.base);
+    // ⚠️ 不再回写 LEGACY.base('pxs_save')(XX-AUDIT-006 批 2)。
+    //   这一行是**真实的存档损坏源**,已用模拟脚本复现:
+    //     玩家从 V0.77 旧档升级 → migrate() 把 pxs_save 读进 d.base
+    //     → 玩家继续玩,core/save.js 的 Save.commit() 写入新数据(gold=8888,totalRuns=12)
+    //     → 本行把**迁移时的陈旧快照**原样写回去,覆盖掉 Save 的活跃存档
+    //     → 金币回滚成 30、局数回滚成 1
+    //   根因:d.base 只在 migrate() 里读进来,**此后从未被消费**——
+    //         collect() 收的是 mods.Bag.s / mods.CAMP.s,不含 base。
+    //         它是一个只进不出的往返,读进来只为了原样写回去。
+    //   为什么只有 base 有这个风险:其余 8 个 LEGACY 键(V0.77~V0.81)
+    //         迁移后不再被 core/save.js 之类模块活跃写,回写是幂等的;
+    //         而 pxs_save 是 core/save.js 的**活键**,双写必然打架。
     // 真正的新键(数据主体)
     try { localStorage.setItem(KEY, JSON.stringify({ ...d, savedAt: Date.now() })); } catch {}
   },

@@ -11,6 +11,7 @@
 //   局内她不是"不说话"了,是有动作:
 //   捡东西 / 会受伤 / 会躲 / 会缺席 → 见 companion-actor.js
 import { COMPANION } from './companion.js';
+import * as Broadcast from './companion-broadcast.js';
 import { CAMP } from './camp.js';
 
 const $ = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
@@ -49,6 +50,21 @@ export const Bond = {
     if (this._bubBudget <= 0) return;
     this._bubBudget--;
     this.init();
+
+    // ── XX-COMPANION-003:同时走顶部广播条 ──────────────────
+    // 玩家反馈:原来的弹窗在砍杀中途「突兀、妨碍视野」——
+    // 正盯着弹幕呢,视野被挡一下。广播条借 HUD 顶部的空档,
+    // 不弹窗、不遮画面、不禁操作,说完停留等下一轮推上去。
+    //
+    // **预算不叠加**:上面 `this._bubBudget` 已经限了每局 6 条,
+    // 这里不再另加一份限制 —— 否则「省着说」变成了「不敢说」。
+    const nm = (COMPANION.s && COMPANION.s.name) || '宝宝';
+    Broadcast.say(nm, text, {
+      color: kind === 'ok' ? 'var(--xx-jade, #6f8f6a)'
+          : kind === 'dark' ? 'var(--xx-cinnabar, #8c3a2e)'
+          : 'var(--cc-name, #c9a227)',
+    });
+
     const b = L.bub;
     b.className = 'bd-bub on' + (kind === 'ok' ? ' ok' : kind === 'dark' ? ' dark' : '');
     b.textContent = text;

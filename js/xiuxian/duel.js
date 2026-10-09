@@ -7,6 +7,7 @@ import { makeEnemy, playerAct, enemyAct, availableArts, canUseArt, isDead, playe
 import { REALMS } from './realms.js';
 import { artName, artFull, superSet, isSuper } from './arts.js';
 import { BGM } from './relations.js';
+import { STORY, ARCS } from './story.js';   // V0.99 结局回声(XX-NET-002)
 
 const BG = { duel:'assets/bg/duel.jpg', cave:'assets/bg/cave.jpg', sect:'assets/bg/sect.jpg' };
 const SCENE_BY_TYPE = { elite:'duel', boss:'duel', secret:'cave', field:'duel' };
@@ -34,6 +35,65 @@ const FOE_HIT = {
   heifeng:  `「路,断了。」`,
   shougu:   `「谷里的规矩,由我定。」`,
   youfang:  `「接得住再说。」`,
+};
+
+// ————————————————————————————————————————————————————————————
+// 工单 XX-NET-002:台词按**已结的结局**分支
+//
+// 之前 Duel 台词只按「敌人是谁」分(FOE_LINES / HERO_LINES / FOE_HIT),
+// 完全不看玩家结过什么案。所以即使 §XX-NET-001 把结案变成了流言、
+// 变成了网状,真到单挑时墨影依然只会说「你不该来」——
+// 他不会提起碑上多了什么。这是「文案写到了,机制没接上」的典型。
+//
+// 这里让台词读 STORY.s.done:玩家结过什么,对手就说得出什么。
+//
+// ⚠️ 优先级高于敌人默认台词,但**低于**宿敌与越级那两句
+//    (那两句是 duel 的调性骨架,不能被结局覆盖)。
+// ⚠️ 台词仍然短句、仍然不给对方解释立场的余地 —— 与上面那段设计注释同守。
+// ————————————————————————————————————————————————————————————
+
+/** 哪些线结了会惊动墨影 */
+const ECHO_WATCHERS = ['tomb', 'jiangu'];
+
+/** 从 STORY.s.done 里,取对手"听说了"的第一条已结线索 */
+function echoOf(S) {
+  const done = S && S.story && S.story.done;
+  if (!done) return null;
+  const e = ECHO_WATCHERS.find(k => done[k]);
+  if (!e) return null;
+  const d = done[e];
+  const arcName = (S.arcNames && S.arcNames[e]) || '那座墓';
+  return { arc: e, arcName, path: d.path, epilogue: d.epilogue || '' };
+}
+
+const FOE_LINES_ECHO = {
+  moying: p => p.path === 1
+    ? `「空席。我刻了三百年的名字,最后自己坐上去了。」`
+    : `「石将跪了。你替它把话说完了 —— 就没我什么事了。」`,
+  heifeng: p => p.path === 1
+    ? `「清路的不止我一个。但那条路,现在有人替我走了。」`
+    : `「听说墓里那半句话被补全了。补的是你不悔的那版。」`,
+  shougu: p => p.path === 1
+    ? `「共过的人,一起死。你倒真敢往下走。」`
+    : `「两百年前没人拦得住我。你现在倒像是拦住了谁。」`,
+  youfang: p => p.path === 1
+    ? `「狠人不多。你刚从墓里出来,又算一个。」`
+    : `「听说有个轩氏把墓烧了。巧了,我也是。」`,
+};
+
+const HERO_LINES_ECHO = {
+  moying: p => p.path === 1
+    ? `「……墨影。你的碑上,这次没有我的名字。」`
+    : `「石将能下班了。你呢?」`,
+  heifeng: p => p.path === 1
+    ? `「你清了那条路。现在轮到我走。」`
+    : `「你补的是你不悔那句。我认。」`,
+  shougu: p => p.path === 1
+    ? `「一起死,这话我说过。既然你回来了,那就不算完。」`
+    : `「两百年的规矩,你没破。这就够了。」`,
+  youfang: p => p.path === 1
+    ? `「墓里那位替我说了半句话。剩下半句我自己说。」`
+    : `「狠人现在有三个了。」`,
 };
 
 export const Duel = {
@@ -64,8 +124,14 @@ export const Duel = {
     e.dmg = Math.round(10 + cfg.foe.realmIdx * 6 + (cfg.foe.stronger ? 4 : 0));
     if (cfg.foe.isNemesis) e.dmg = Math.round(e.dmg * Cult.nemesis.powerBoost());
 
+    // story / arcNames:XX-NET-002 台词按已结结局分支用。
+    // ⚠️ 必须在**开打前**抓一份快照塞进 S —— 决斗过程中结案状态不会变,
+    // 但如果这里偷懒写 `get story(){ return STORY.s }`,一旦对手把某条线结了,
+    // 同一场决斗里前后两句台词会来自不同世界线。快照更符合"开打那一刻的你"。
     this.S = {
       cfg, e,
+      story: STORY.s,
+      arcNames: Object.fromEntries(Object.keys(ARCS).map(k => [k, ARCS[k].name])),
       hero: {
         name: '轩轩', title: `${REALMS[pIdx].name}${ps.layer}层`,
         img: cfg.hero.img,
@@ -208,6 +274,9 @@ export const Duel = {
     if (S.cfg.foe.isNemesis)
       return `断剑冢里又添一块碑。这一块,写的是你的名字。`;
     const key = S.cfg.foe.key || '';
+    // XX-NET-002:结局分支。放在宿敌之后、敌人默认之前。
+    const p = S.story && S.story.done ? echoOf(S) : null;
+    if (p && FOE_LINES_ECHO[key]) return FOE_LINES_ECHO[key](p);
     if (FOE_LINES[key]) return FOE_LINES[key];
     if (S.cfg.foe.stronger)
       return `${S.e.realm}的气息压过来,像一座山。你知道自己打不过——但你也退不了。`;
@@ -216,6 +285,9 @@ export const Duel = {
   heroLine(S) {
     if (S.cfg.foe.isNemesis) return `墨影。我们又见面了。`;
     if (S.cfg.foe.stronger) return `……差了一整个大境。但路是我自己选的。`;
+    // XX-NET-002:结局分支。放在越级之后 —— 那句是调性骨架,不能被覆盖。
+    const p = S.story && S.story.done ? echoOf(S) : null;
+    if (p && HERO_LINES_ECHO[S.cfg.foe.key]) return HERO_LINES_ECHO[S.cfg.foe.key](p);
     if (HERO_LINES[S.cfg.foe.key]) return HERO_LINES[S.cfg.foe.key];
     return `既然你要拦,那就别怪我不留情。`;
   },

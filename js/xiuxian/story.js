@@ -214,6 +214,23 @@ export const STORY = {
     const reward = (rw && grant) ? grant(rw) : { text: rw ? [] : [] };
     this.s.done[key] = { at:this.s.t, epilogue:txt, path };
     delete this.s.active[key];
+    // 工单 XX-NET-001:结案那一刻,世界应该有个回声。
+    //
+    // 之前 STORY.s.done 的读取点**全部**是「这条线是否已结」的门禁,
+    // 外加 history() 给 UI 展示 —— 没有任何一处是「结局 A 影响了结局 B」。
+    // 也就是说这张网是**放射状**的:每条线各自跑,结案不产生任何横向回响。
+    // 这是 ROADMAP.md:102「结局的长期影响」标着的下一步。
+    //
+    // 补法:结案时把尾声的第一句推进流言池。流言池与消费端**都已经是活的**
+    // (pushRumor/takeRumor 在 merchant.js:81 真的被消费),只差这一步,
+    // 放射状立刻变成网状 —— 商人会当着你的面念出你刚结的案。
+    //
+    // 为什么取第一句而不是整段:流言是被人转述的,转述只会记住头一句。
+    // 为什么跳过以「你」开头的句子:商人是跟**别人**讲的,不会用第二人称。
+    const echo = String(txt || '').split(/[。！？]/)
+      .map(x => x.trim())
+      .find(x => x && !/^你/.test(x));
+    this.pushRumor(echo || `${arc.name}的事,结了。`);
     this.logLine(arc.name, '【结案】' + txt);
     this.save();
     return { ok:true, name:arc.name, text:txt, reward };

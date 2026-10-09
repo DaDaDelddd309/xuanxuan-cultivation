@@ -8,7 +8,7 @@ import { vRealm as vRealmImpl } from './ui/realm.js';
 // title页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/title.js。
 import { vTitle as vTitleImpl } from './ui/title.js';
 // bag页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/bag.js。
-import { vBag as vBagImpl, showMountGet as showMountGetImpl, _nextPending as _nextPendingImpl, empty as emptyImpl, enterVillage as enterVillageImpl, vVillage as vVillageImpl, vMount as vMountImpl, vPeople as vPeopleImpl } from './ui/bag.js';
+import { vBag as vBagImpl, showMountGet as showMountGetImpl, _nextPending as _nextPendingImpl, empty as emptyImpl, enterVillage as enterVillageImpl, vVillage as vVillageImpl, vMount as vMountImpl, vPeople as vPeopleImpl, _feedBtnText as _feedBtnTextImpl, _vMutCard as _vMutCardImpl, _vPartPicker as _vPartPickerImpl } from './ui/bag.js';
 // dexsys页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/dexsys.js。
 import { vDex as vDexImpl, vSys as vSysImpl } from './ui/dexsys.js';
 // build页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/build.js。
@@ -36,6 +36,7 @@ import { CAMP, CAMP_TIERS, offlineReport } from './camp.js';
 import { Merchant } from './merchant.js';
 import { ENCOUNTERS } from './lore.js';
 import { COMPANION } from './companion.js';
+import { MUTATION } from './mutation.js';   // V0.99 灵伴变异(XX-MUTATION-003/004)
 import { CLOCK } from './clock.js';
 import { MARKET, MARKET_GOODS } from './market.js';   // V0.99 局外集市
 import { TAVERN, MATES } from './tavern.js';   // V0.99 酒馆同伴
@@ -143,6 +144,48 @@ export const Hall = {
   act(a, v, v2, slot) {
     const s = Cult.get();
     switch (a) {
+      // ===== 灵伴变异(XX-MUTATION-003/004)=====
+      // 载体是**真的把源石丢进漩涡**:石头被扣掉、状态永久变。
+      case 'feedpick':
+        this._feedStone = v;
+        if (this._feedPart && !MUTATION.PART_KEYS.includes(this._feedPart)) this._feedPart = null;
+        this.render();
+        break;
+      case 'feedpart':
+        this._feedPart = v;
+        this.render();
+        break;
+      case 'feeddo': {
+        const stone = STONES[v];
+        if (!stone || !COMPANION.born()) return;
+        if (MUTATION.isDone(COMPANION.s.mut)) { toast('真身已定稿,再投也没有回响了。'); return; }
+        if (!Bag.take(v, 1)) { toast('源石不够'); return; }
+        const finalTurn = COMPANION.canChooseFinal();
+        const r = COMPANION.feed(stone.tier, v2);
+        this._feedStone = null;
+        if (finalTurn) {
+          // 「再投一颗下去」= 伸手:路线修正 + 跳过化形过场
+          const res = COMPANION.chooseFinal(true);
+          this._feedPart = null;
+          toast(`你把${stone.name}投了进去。她没有变 —— 是你变了。`);
+          console.log('[mutation] 伸手分支', res);
+        } else {
+          const fam = MUTATION.FAMILIES[r.family];
+          toast(r.stageUp
+            ? `她动了一下。${MUTATION.STAGES[r.to].name} —— ${fam.sigil}${fam.name}`
+            : `${fam.sigil}${fam.name}的气息浓了一分`);
+        }
+        this.render();
+        break;
+      }
+      case 'feedstop': {
+        if (!COMPANION.canChooseFinal()) return;
+        const res = COMPANION.chooseFinal(false);
+        this._feedPart = null;
+        toast(`你收回了手。${MUTATION.FAMILIES[res.family].sigil}${MUTATION.FAMILIES[res.family].name}·真身`);
+        this.render();
+        break;
+      }
       // ===== 集市(V0.99 · XX-META-001)=====
       case 'mk-buy': {
         const r = MARKET.buy(+v);
@@ -672,15 +715,20 @@ export const Hall = {
          ['守谷妖修','妖修','momocha', false, 'shougu'],
          ['游方剑客','筑基初期','merchant', false, 'youfang']];
     const pick = foes[Math.floor(Math.random() * foes.length)];
-    // 立绘:仓库里独立立绘只有 8 张,其中 4 张是玩家可选的四个主角,
-    // 所以反派只能用 foe / momocha / merchant / companion 这几张轮换。
-    // 想让四个反派各有专属脸,得补美术 —— 代码解决不了。
+    // 立绘分派(XX-AUDIT-011):按敌人的**专属 key** 取,不再轮换。
+    // 旧逻辑只有 4 个键(foe/momocha/merchant/aunt),于是 4 个敌人挤在
+    // 3 张脸上轮换 —— 玩家反复遇到不同妖,看到的却是同一张脸。
+    // 旧注释说「想让反派各有专属脸,得补美术 —— 代码解决不了」:
+    // 美术**早就补好了**(6 张 villain-*.jpg),数据里也早就有专属 key,
+    // 缺的只是这张映射表。现在它接上了。
+    const artKey = pick[4];                       // moying/heifeng/shougu/youfang
     const FOE_ART = { foe: PORTRAIT.foe, momocha: PORTRAIT.momocha,
                       merchant: PORTRAIT.merchant, aunt: PORTRAIT.aunt };
     return {
       key: pick[4],                       // ← 台词/立绘分派用
       name: pick[0], title: pick[1],
-      img: FOE_ART[pick[2]] || PORTRAIT.foe,
+      // 优先专属立绘;没有专属图才退回旧的轮换表,最后兜底 foe
+      img: PORTRAIT[artKey] || FOE_ART[pick[2]] || PORTRAIT.foe,
       realmIdx: foeIdx,
       stronger: foeIdx > pIdx,
       isNemesis: !!pick[3],
@@ -928,6 +976,9 @@ export const Hall = {
   vCraft() { return vCraftImpl(this); },
   vTavern() { return vTavernImpl(this); },
   vBag() { return vBagImpl(this); },
+  _feedBtnText() { return _feedBtnTextImpl(this); },
+  _vMutCard() { return _vMutCardImpl(this); },
+  _vPartPicker() { return _vPartPickerImpl(this); },
   showMountGet(m) { return showMountGetImpl(this, m); },
   _nextPending() { return _nextPendingImpl(this); },
   empty(title, desc, clues) { return emptyImpl(this, title, desc, clues); },
