@@ -149,8 +149,51 @@ Z8 侧：先推 → 桌面侧拉 → 合并 → 合并方统一升版 → 全绿
 不要各自升版。
 ```
 
-当前待合并：桌面侧 `e23432c`（已上线）+ Z8 侧那 9 个提交。
+当前待合并：桌面侧 `df4066f`（已上线）+ Z8 侧那 9 个提交。
 **已知冲突点**：`tests/test-rng.mjs` 两边都有 —— **两边都留**。
+
+### 5.1 🚨 Z8 已完成 ui.js 拆分，与桌面侧改动**正面冲突**
+
+2026-10-10 实测 Z8 侧状态（**不是转述，已在 Z8 上跑过基线**）：
+
+| 项 | 实测 |
+|---|---|
+| 分支 | `merge-desktop`，基于 `261c3ee`（**早于桌面侧全部新提交**） |
+| 基线 | `lint=0` `test=0` `run-all=0` `check:full=0` ✅ **四项全绿** |
+| 成果 | `ui.js` **2176 → 942 行**，拆出 `js/xiuxian/ui/` 下 13 个模块 |
+| 新增 | `js/xiuxian/runcfg.js` `seed.js` `vendor/rot-rng.js` + 6 个 RNG 测试 |
+| 改动量 | 83 文件 / +7558 / −1739 |
+
+**冲突点：`js/xiuxian/ui/bag.js`（328 行）就是从 `ui.js` 拆出来的 `vBag()` 与 `act()`。
+而桌面侧 XX-MUTATION-003/004 的变异投喂入口，正是加在 `vBag()` 与 `act()` 里的
+（`_vMutCard` / `_vPartPicker` / `_sFeedable` / `feedpick` / `feedpart` / `feeddo` / `feedstop`）。**
+
+```
+git merge 时的表现：Z8 删掉 ui.js 里的 vBag → 桌面侧在同一处新增的方法
+                  → 冲突,且**不是文本冲突那么简单**：Z8 把代码搬到了另一个文件,
+                  git 可能"干净合并"但把我的 7 个 act 分支悄悄丢掉。
+```
+
+⚠️ **这是本项目最危险的一类冲突**：`AGENTS.md` 记着 V0.89 删死代码导致
+PASS 39→30 的事故 —— 就是「文本合上了、行为没了」。
+
+### 5.2 合并前必须做的三件事（顺序不能换）
+
+1. **桌面侧先 rebase 到 Z8 的 `merge-desktop`，让 git 把冲突摆到台面上**，
+   而不是先合 Z8（那会让 Z8 的拆分被当成基底，我的改动被当成增量糊上去）。
+2. **`js/xiuxian/ui/bag.js` 逐行人工核对**：确认 `_vMutCard` / `_vPartPicker` /
+   `_sFeedable` / `feedBtnText` 四个方法与 `feedpick` / `feedpart` / `feeddo` /
+   `feedstop` 四个 act 分支**一个不少地**出现在合并结果里。
+   `git merge` 绿了不算，要 `grep` 出来数。
+3. **跑 `tests/mutation-regression.mjs` 的 §10 接线契约**——
+   它断言的就是「ui.js 里确实有这四个 act 分支、`COMPANION.feed` 真被调用、
+   `Bag.take` 真扣源石」。**如果 Z8 把断言目标从 `ui.js` 换成 `ui/bag.js`，
+   这是正确的，要同步改断言路径**；如果没改而测试还绿，那说明断言失效了，必须查。
+
+> 顺带一个命名雷：Z8 新增 `js/xiuxian/ui/story.js`（235 行），
+> 而桌面侧叙事模块是 `js/xiuxian/story.js`。两者同名不同物，
+> 后面接「结案 → 掉装备」链路时极易拿错文件。建议 Z8 侧把前者改名
+> `ui/storypage.js` 之类（**独立工单，不夹在这次合并里**）。
 
 ---
 
@@ -164,3 +207,22 @@ Z8 侧：先推 → 桌面侧拉 → 合并 → 合并方统一升版 → 全绿
 6. **最后**：XX-EQUIP-004~005 与 XX-WORLD-006（都要动战斗/结算链，各自单独一版）
 
 **不要并行做** 4 与 6：两者都要改 `ui.js` 与战斗结算，并行必冲突。
+
+---
+
+## 七、SSH 协同现状（2026-10-10 已修复）
+
+之前「SSH 连不上」查下来是**两处都错**，不是单边问题：
+
+1. **Z8 真实用户是 `u0_a405`**，本机 `~/.ssh/config` 里按旧记录写的 `u0_a214`
+   一直 Permission denied。已补 `Host z8` 条目。
+2. **本机 sshd 根本没在跑** —— `$PREFIX/etc/ssh/` 整个目录都不存在，
+   所以 Z8 反向连入也不通。已生成 ed25519 + rsa 主机密钥、写了
+   `sshd_config`（去掉 Termux 不支持的 `UsePAM`），起在 **8022**，
+   本机地址 `192.168.10.130`。已补 `Host mini` 条目供 Z8 连入。
+3. 公钥已装进 Z8 的 `~/.ssh/authorized_keys`（只追加不覆盖，权限 700/600），
+   密钥认证实测通过。
+
+> 注意：Termux 的 sshd **忽略登录名**，给什么用户名进去都是 `u0_a405`。
+> 所以「换用户名试试」这种排查在 Termux 上是无效的 —— 真正的变量只有
+> `authorized_keys` 和权限。
