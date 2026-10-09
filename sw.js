@@ -46,7 +46,7 @@ const XX = [
   // 它们就在 ui.js 的**静态 import 图**上 —— 原生 ESM 全有或全无,
   // 离线拉不到任意一个就是整页白屏。dom.js 是共享 DOM 辅助(esc/toast),
   // 视图模块和 ui.js 都依赖它,漏掉等于整页转义失效。
-  'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/tomb.js',
+  'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/tomb.js', 'js/xiuxian/ui/meta.js',
   // 存档键集中注册表(XX-AUDIT-006 批 1)。
   // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
   // 离线拉不到就是整页白屏。

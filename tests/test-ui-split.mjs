@@ -152,6 +152,50 @@ console.log('\n[6] 运行时冒烟:拆出去的那一页要真能渲染');
   ok('进墓后不再显示「下墓」按钮', !/data-act="tomb-enter"/.test(inTomb));
 }
 
+// ─────────────────────────────────────────────────────────
+console.log('\n[7] 视图模块里用到的模块级常量必须都 import 了');
+// 拆 meta 页时真踩过:vMarket 用了 Bag / STONES / GOODS,搬过去时只写了
+// MARKET/CRAFT/TAVERN 的 import,`Bag is not defined` —— 而且**不报错**,
+// 函数定义得出来,只在玩家真点开集市页、且那一行被执行到时才炸。
+// 是 test-uitext 的「真渲染 13 个页签」把它抓出来的 —— 那个测试恰好
+// 渲染了集市,纯属运气好。
+//
+// 所以这里做成静态检查:不看运行时,直接比对「用到的标识符」与「import 进来的」。
+{
+  const { codeMask } = await import('./lib-uimod.mjs');
+  const BUILTIN = new Set(['Array', 'Object', 'String', 'Number', 'Math', 'JSON', 'Set', 'Map',
+    'Date', 'Infinity', 'NaN', 'Promise', 'Error', 'Symbol', 'Boolean', 'RegExp', 'Function', 'Map']);
+  for (const f of [...readdirSync(UIDIR).filter(x => x.endsWith('.js'))]) {
+    const src = readFileSync(UIDIR + '/' + f, 'utf8');
+    // 抹掉 import/export 语句本身 —— 否则 `ROOMS as TOMB_ROOMS` 里的 ROOMS
+    // 会被当成「用到了但没定义」(踩过一次)
+    const body = codeMask(src).code
+      .replace(/^\s*import[\s\S]*?;\s*$/gm, m => ' '.repeat(m.length))
+      .replace(/^\s*export\s/gm, m => ' '.repeat(m.length));
+
+    const imported = new Set();
+    for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from/g))
+      m[1].split(',').forEach(x => imported.add((x.split(' as ').pop() || '').trim()));
+
+    const local = new Set();
+    for (const m of body.matchAll(/\b(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g)) local.add(m[1]);
+    for (const m of src.matchAll(/(?:const|let)\s*\{([^}]*)\}\s*=/g))
+      m[1].split(',').forEach(x => { const n = (x.split(':').pop() || '').trim(); if (/^[A-Za-z_$]/.test(n)) local.add(n); });
+    for (const m of body.matchAll(/\(([^)]*)\)\s*=>/g))
+      m[1].split(',').forEach(x => { const n = x.trim().replace(/[^\w$]/g, ''); if (n) local.add(n); });
+    for (const m of body.matchAll(/(?:const|let|var)\s+\[([^\]]*)\]/g))
+      m[1].split(',').forEach(x => { const n = x.trim().replace(/[^\w$]/g, ''); if (n) local.add(n); });
+    for (const m of body.matchAll(/for\s*\(\s*(?:const|let)\s+\[([^\]]*)\]/g))
+      m[1].split(',').forEach(x => { const n = x.trim().replace(/[^\w$]/g, ''); if (n) local.add(n); });
+
+    // 外部模块常量一律大写开头;本地变量小写。放宽到 [A-Z][A-Za-z0-9_$]*
+    // 是因为 Bag / Cult / Craft 这类驼峰导出很常见,只认全大写会漏掉 Bag。
+    const used = new Set([...body.matchAll(/(^|[^\w.$'"`])([A-Z][A-Za-z0-9_$]*)/g)].map(m => m[2]));
+    const missing = [...used].filter(n => !imported.has(n) && !local.has(n) && !BUILTIN.has(n));
+    ok(`${f} 用到的模块级常量都有 import`, missing.length === 0, '缺: ' + missing.join(','));
+  }
+}
+
 console.log(`\ntest-ui-split: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);
 if (failed.length) { console.log('失败项:'); failed.forEach(f => console.log('  - ' + f)); }
 process.exit(fail ? 1 : 0);

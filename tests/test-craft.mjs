@@ -120,7 +120,11 @@ console.log('\n[8] 合成入口已接进界面');
   const ui = blob();
   ok('UI 层引入了 CRAFT', /from '\.\.\/craft\.js'/.test(ui) || /from '\.\/craft\.js'/.test(ui));
   ok('act() 里有 craft-do 动作', /case 'craft-do'/.test(methodBody('act')));
-  ok('集市页包含合成区', /this\.vCraft\(\)/.test(methodBody('vMarket')));
+  // ⚠️ 拆出 ui/meta.js 后 vMarket 里是 `hall.vCraft()` 而不是 `this.vCraft()`。
+  // 写死 this. 会在拆分当天报红,而报错信息("集市页没有包含合成区")会让人
+  // 去改本来正确的逻辑 —— 这正是工单 XX-AUDIT-005 点名的误判形态。
+  // 要验的是"集市页调用了合成视图",不是"用的是哪个接收者"。
+  ok('集市页包含合成区', /[A-Za-z_$][\w$]*\.vCraft\(\)/.test(methodBody('vMarket')));
   const css = readFileSync(ROOT + '/css/xiuxian.css', 'utf8');
   ok('有合成样式', /\.xx-cf-row/.test(css));
 }
