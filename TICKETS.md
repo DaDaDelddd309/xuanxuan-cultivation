@@ -92,7 +92,7 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
 
 # S1 · RNG 引入（XX-RL-001）
 
-## XX-S1-001 摘取 rot.js RNG 到 vendor ⬜ 待办
+## XX-S1-001 摘取 rot.js RNG 到 vendor ✅ 已完成（`117d7e1` vendor/rot-rng.js 5896B,Alea 原文 + BSD 头）
 - **文件**：`js/xiuxian/vendor/rot-rng.js`
 - **内容**：从 rot.js v2.2.1 摘 `src/rng.ts` 转成 JS 模块
 - **必须包含**：
@@ -101,21 +101,67 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
   - 导出为 class，**不导出单例**（避免模块级 `setSeed(Date.now())` 副作用）
 - **验收**：`node -e "import('...').then(m=>console.log(Object.keys(m)))"` 打印出类名
 
-## XX-S1-002 RNG 单元测试 ⬜ 待办
-- **文件**：`tests/test-rng.mjs`
-- **断言**：
-  1. 同 seed 两次生成 1000 个数，序列完全一致
-  2. `getState()` → 消耗 → `setState()` → 序列复现
-  3. `clone()` 独立消耗不影响原实例
-  4. `getWeightedValue` 权重比例正确（10000 次采样，误差 < 3%）
-  5. `getUniformInt` 边界正确（min/max 均可取到）
-- **验收**：5 项断言全过，输出 `test-rng: PASS`
+## XX-S1-002 RNG 单元测试 ✅ 已完成（`tests/test-rng-class.mjs` 55/0，2026-10-10）
+
+### 为什么这条拖了这么久，以及它原来的验收为什么是假的
+
+`tests/test-rng.mjs` **早就存在、16 条断言全绿、挂在 `npm run test:rng` 上**。
+但它测的是 **`profile.js` 的 `Seed`**（另一个模块的 mulberry32 封装），
+而本工单点名的是 **`vendor/rot-rng.js` 的 `RNG` 类**。
+
+于是：`rot-rng.js` 实现了 13 个方法，其中
+`getState` / `setState` / `clone` / `getWeightedValue` 这几个
+**是它自己注释里声明的核心用途**，却零直接覆盖。
+
+> **测试存在但测的是别的东西，比没有测试更危险** ——
+> 它让人以为这条有回归保护，于是真出问题时不会去查这里。
+> 参见 `TECHDEBT.md` P1-6「测试不在基线里跑等于不存在」的姊妹形态：
+> 这次更隐蔽 —— 它**确实在基线里跑**，只是跑的不是被测对象。
+
+### 本轮补的 `tests/test-rng-class.mjs`（55 条）
+
+覆盖工单点名的 5 项，外加把该类 13 个方法全部测到：
+
+| 组 | 覆盖 |
+|---|---|
+| [1][2] | 构造 / `getSeed` / `setSeed` 退回起点后可复现 / 同种子两实例同序列 |
+| [3] | `getUniform` 值域 `[0,1)`、均值≈0.5、覆盖到两端 |
+| [4] | `getUniformInt` 两端均可取到、单值区间、均匀性、**反向区间等价于交换** |
+| [5] | `getNormal` 均值与标准差符合设定、支持负均值 |
+| [6] | `getPercentage` 是 **1..100 闭区间**（两端均可取到） |
+| [7] | `getItem` / `shuffle`：不改原数组、是排列、不重复、多次结果不同 |
+| [8] | `getWeightedValue`：权重比例 ±2%、权重全 0 与空对象不崩 |
+| [9] | `getState`/`setState`：4 个寄存器、可序列化、跨实例搬运后同步 |
+| [10] | `clone()`：独立实例、**推进 clone 不改变原序列** |
+| [11] | 边界：种子为 0 / 字符串 / undefined 均不崩 |
+
+### 写这个测试时我自己错了三次（都靠反向注入才发现）
+
+| 错误 | 表现 |
+|---|---|
+| `getWeightedValue` 传数组 | 真实签名收的是**对象** `{键:权重}`、返回**键名**；传数组导致 `data[id]` 是对象、相加得 NaN |
+| `setSeed` 后拿「推进三次后的值」比较 | `setSeed` 把状态**退回起点**，该拿第 1 个值比 —— 我在测一个不存在的行为 |
+| `clone` 测试里多推进了原实例一次 | 序列天然错位一位，测的是「错位后的相等」而不是「clone 不影响原序列」 |
+
+### 反向注入验证（4 组，全部被抓到）
+
+| 注入 | 结果 |
+|---|---|
+| `getUniformInt` 的 `+1` 去掉（变半开区间） | ✅ FAIL 50/3 |
+| `getUniform` 返回值越过 `[0,1)` | ✅ FAIL 42/11 |
+| `getWeightedValue` 返回值改成权重值 | ✅ FAIL 48/5 |
+| `clone()` 改成 `return this`（共享状态） | ✅ FAIL 51/2 |
+
+> 第一轮注入时我还犯了错：注入字符串写的是 `lowerBound - lowerBound`，
+> 而实现用的是 `max/min` 归一化，**替换根本没生效**，于是「测试没抓到」
+> 其实是「没注入」。**假阴性比假阳性更难发现** —— 它会让你以为测试有效。
+> 这个坑记在这里，因为下次还会踩。
 
 ---
 
 # S2 · 分层种子（XX-RL-002）
 
-## XX-S2-001 seed.js 骨架 + 子种子派生 ⬜ 待办
+## XX-S2-001 seed.js 骨架 + 子种子派生 ✅ 已完成（`117d7e1` seed.js 四流派生,test-seed 26/0）
 - **文件**：`js/xiuxian/seed.js`
 - **内容**：
   ```js
@@ -128,12 +174,12 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
 - **要求**：子种子用 `hash(master + ':' + name)` 派生，不共用同一 RNG 实例
 - **验收**：单测断言 —— 改 loot 种子后，terrain 子种子值不变
 
-## XX-S2-002 存档序列化（只存种子不存世界） ⬜ 待办
+## XX-S2-002 存档序列化（只存种子不存世界） ✅ 已完成（`117d7e1` save()/load() 只取 payload.seed）
 - **内容**：`seed.js` 提供 `save()` / `load()`，写入 `localStorage`
 - **要求**：存档里**只有 masterSeed 一个数字**，不含任何世界数据
 - **验收**：单测 —— 生成世界 → 存种子 → 清空内存 → 读种子 → 重建 → 两世界深度相等
 
-## XX-S2-003 字符串种子解析 ⬜ 待办
+## XX-S2-003 字符串种子解析 ✅ 已完成（`117d7e1` FNV-1a hashStr,与 profile.js 同源）
 - **内容**：支持玩家输入中文名当种子（当前 UI 就是 `maxlength=12` 的文本框）
 - **要求**：字符串 → 32 位整数，用固定 hash（FNV-1a），保证跨平台一致
 - **验收**：同字符串任意时间解析结果一致
@@ -142,27 +188,27 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
 
 # S3 · 节点图生成（XX-RL-003）
 
-## XX-S3-001 网格占用与放置 ⬜ 待办
+## XX-S3-001 网格占用与放置 ✅ 已完成（`117d7e1` validate() 第1/2项 + 1000 种子主循环）
 - **内容**：在 6×6 网格上按类型数量随机放置节点
 - **要求**：青石村固定 `(1,1)` 且标记 `home:true`
 - **验收**：单测 —— 1000 种子下青石村坐标恒为 (1,1)
 
-## XX-S3-002 连边（全连通保证） ⬜ 待办
+## XX-S3-002 连边（全连通保证） ✅ 已完成（`117d7e1` validate() 第3项 BFS,1000/1000）
 - **内容**：曼哈顿距离 1 的相邻格子连边
 - **要求**：生成后跑 flood-fill，**不连通则用备用种子重生成**（最多 8 次）
 - **验收**：1000 种子全连通（测试见 S3-005）
 
-## XX-S3-003 距离约束校验 ⬜ 待办
+## XX-S3-003 距离约束校验 ✅ 已完成（`117d7e1` 第4项,实测秘境步数最远 4 步）
 - **约束**：秘境距起点 ≤ 4 步（BFS 最短路）
 - **做法**：生成后 BFS 算全图距离，超限则重生成
 - **验收**：1000 种子下所有 secret 节点距离 ≤ 4
 
-## XX-S3-004 Boss 死角规避 ⬜ 待办
+## XX-S3-004 Boss 死角规避 ✅ 已完成（`117d7e1` 第5项,300 种子 0 死角）
 - **约束**：Boss 节点的度数 ≥ 2
 - **做法**：若 Boss 落在度数 1 的节点，重选位置
 - **验收**：1000 种子下所有 boss 节点度数 ≥ 2
 
-## XX-S3-005 1000 种子回归测试 ⬜ 待办
+## XX-S3-005 1000 种子回归测试 ✅ 已完成（`117d7e1` test-worldgen 1000 循环 + 性能判据）
 - **文件**：`tests/test-worldgen.mjs`
 - **断言**：全连通 / 距离约束 / Boss 约束 / 密度区间 / 同种子可复现
 - **验收**：1000/1000 通过，输出 `test-worldgen: PASS (1000/1000)`
@@ -172,14 +218,14 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
 
 # S4 · 接入（XX-RL-004）
 
-## XX-S4-001 world.js 改为调用 worldgen ⬜ 待办
+## XX-S4-001 world.js 改为调用 worldgen ✅ 已完成（`117d7e1` world.js:15 import generate,ui.js 零改动）
 - **要求**：保持导出接口**签名完全不变**：
   `WORLD` / `nodeById()` / `neighbors()` / `homeNode()` / `travel()` /
   `pathBetween()` / `rollEnemy()`
 - **做法**：把原硬编码 MAP 换成 `worldgen.generate(seed)` 的结果
 - **验收**：`grep -c` 确认 10+ 处调用方零改动
 
-## XX-S4-002 现有 lint 全绿 ⬜ 待办
+## XX-S4-002 现有 lint 全绿 ✅ 已完成（21 个 lint 逐个单跑全部 exit 0）
 - **内容**：跑 `tests/lint-syntax.mjs` / `lint-css.mjs` / `lint-methods.mjs` / `lint-nsaccess.mjs` / `lint-tokens.mjs` / `lint-version.mjs`
 - **验收**：结果与 S0-003 的 baseline 一致或更好
 
@@ -192,7 +238,7 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
   4. 截图存档
 - **验收**：全部通过，截图存 `docs/shots/`
 
-## XX-S4-004 存档兼容性检查 ⬜ 待办
+## XX-S4-004 存档兼容性检查 ✅ 已完成（test-world-compat [10] 老存档无 seed 字段,58/0）
 - **风险**：老存档没有 seed 字段
 - **要求**：老存档载入时用默认种子生成，**不能崩**
 - **验收**：单测 —— 用 V0.96 格式的存档对象 load，不抛异常
@@ -204,12 +250,52 @@ ambience / bestiary / build / legend / profile / quest / story / spine / compani
 > 【2026-10-10 标注】RL 编号从 004 直接跳到 006，**全文不存在 XX-RL-005**。
 > 这是编号跳过，不是丢单 —— 不必再花时间去找它。RL-001~004 分别对应 S1~S4，RL-006 对应 S5。
 
-## XX-S5-001 lootSeed 生成矿脉节点 ⬜ 待办
+## XX-S5-001 lootSeed 生成矿脉节点 ⬛ 阻塞：与现有设计冲突，需 owner 拍板
+
 - **内容**：在 worldgen 中用 loot 流标注矿脉（标记在 field 节点上，不新增节点类型）
 - **理由**：不改 `NODE_TYPES`，避免破坏既有 UI 分支
 - **验收**：矿脉可从起点到达
 
-## XX-S5-002 矿脉产出接进 build.js ⬜ 待办
+### 2026-10-10 核实：验收能过，但**机制整个落空**
+
+实测 `grep -rn "loot" js/xiuxian/worldgen.js` → **0 命中**。
+`'loot'` 只在 `seed.js:35 STREAMS` 里定义，**没有任何消费者** ——
+只有 `tests/test-seed.mjs` 引它做复现断言。
+
+矿脉的实际来源是 `build.js` 的 `MINE_TIER` **按节点类型判定**，
+玩家占领即成矿脉（`FAMILY.claim()`）。所以：
+
+| 工单想要 | 现状 |
+|---|---|
+| loot 子种子决定哪些节点是矿脉 | 子种子无人用 |
+| 矿脉是**世界属性** | 矿脉是**玩家行为的结果** |
+
+**验收「矿脉可从起点到达」之所以能过，是因为它压根没检查 loot 流** ——
+它测的是「按节点类型判定的矿脉可不可达」，而那与工单要的机制无关。
+
+### 为什么这条需要 owner 拍板（不该我擅自定）
+
+两条路都成立，方向相反：
+
+**A. 种子决定矿脉**（工单原意）
+- 玩家可以占领任何节点，但只有被标记为矿脉的节点产源石
+- 优点：同一种子下世界完整复现，存档码能重现整张图
+- 代价：玩家不能自主选择产资源点，只能挑「哪个矿脉先占」
+
+**B. 玩家决定矿脉**（现状）
+- 任何节点占领后都能产源石
+- 优点：玩家的战略选择有意义
+- 代价：`loot` 子种子永远空转，seed.js 白留一条流
+
+> **我倾向 A**，因为 seed.js 的设计初衷（分层子流就是为了「改掉落不动地形」）
+> 与 B 冲突 —— 留着一条定义了不用的流，比没有这条流更糟：
+> 它会让下一个人以为「掉落已经种子化了」。
+
+**但这是玩法决策不是工程决策**，且影响玩家每日产出，所以不擅自改。
+等 owner 选。选完本条改为对应方向的具体工单。
+
+
+## XX-S5-002 矿脉产出接进 build.js ✅ 已完成（`d694bec` build.js claim()/mineYield(),test-mine 19/0）
 - **内容**：`build.js:25` 的 `land[]` 真正支持矿脉条目
 - **验收**：占领矿脉后产生资源，`audit-reach.py` 通过
 
@@ -2098,7 +2184,7 @@ V0.95 那个「50 处收敛到 :root 令牌」只覆盖了边框/底色那几类
 - ⬜ `XX-DEC-001` 阻断力度落地：目前是**硬失败**（退出 1）。
   若 owner 选 B「仅警告」，本段需改；但选 A 的话现状已经是 A。
 
-## XX-AUDIT-002 `lint-portraits` 是哑闸门（缺 Pillow） ⬜ 待办
+## XX-AUDIT-002 `lint-portraits` 是哑闸门（缺 Pillow） ✅ 已完成（`_need_pillow()` 缺依赖 exit 2 / 超标 exit 1 两条路径已分开；本机 Pillow 12.3.0 实测 16 张全 PASS）
 
 **问题**：`npm run lint` 唯一失败项。
 `tools/art/measure_style.py` 里 `from PIL import Image` 包在函数内，异常被吞后统一吐 `FAIL`，
@@ -2487,6 +2573,49 @@ procgen 的多样性在**布局**上，不该由「地名撞车」换来。
 
 **教训与 XX-NEW-004 同源**：一条「应该会跑」的链路，
 要确认它在 CI 的**实际调用图**上，而不是只看 package.json 里有没有这个 script。
+
+---
+
+## XX-NEW-008 三处「绿灯掩盖了未验证」（2026-10-10 工单状态对账时挖出）
+
+对 26 条「⬜ 待办」逐条核实真实状态时，找出**三个看起来有测试、实际没测**的地方。
+共同形态：**绿灯让人以为有保护，实际没有**。
+
+### 1. `test-mine.mjs` 的恒真断言
+
+```js
+ok('同种子分布稳定', sig() !== a || true);   // `|| true` 让它无条件通过
+```
+比普通假绿更糟：它让「同种子分布稳定」这个**真正重要的不变量**
+在报告里显示为「已测且通过」。而下一个人会以为这条已经有回归保护。
+
+**已修**（改为真实断言 + 补一条「同种子重复生成结果一致」）。
+反向注入验证：把 `regenerate` 改成「同种子也变」→ **2 条全红**。
+
+### 2. `test-rng.mjs` 测的不是工单点名的对象
+
+它在基线里跑、16 条断言全绿，但测的是 `profile.js` 的 `Seed`；
+工单 XX-S1-002 点名的是 `vendor/rot-rng.js` 的 `RNG` 类。
+于是 `getState`/`setState`/`clone`/`getWeightedValue` 零直接覆盖 ——
+而这几个正是 `rot-rng.js` 注释里**自己声明的核心用途**。
+
+**已修**：新增 `tests/test-rng-class.mjs`（55 条，覆盖全部 13 个方法）。
+反向注入 4 组全部被抓（区间边界 / 值域越界 / 权重返回值 / clone 共享状态）。
+
+> 姊妹形态见 `TECHDEBT.md` P1-6：那边是「测试不在基线里跑」，
+> 这边更隐蔽 —— 它**确实在跑**，只是跑的不是被测对象。
+
+### 3. `test-drops.mjs` 的 flaky 断言
+
+用 400 次随机采样估计 0.05 的掉率，断言 `rate > 0.03`。
+统计上越界概率约 **4%** —— **每跑 25 次红一次**（实测连跑 5 次就撞上）。
+
+flaky 比不测更坏：它训练人忽略这一条，于是真出问题时
+先怀疑「又 flaky 了」而不是「它红了」。
+
+**已修**：① 直接断言配置常量 `STONE_DROP.elite === 0.05`（零方差，且它才是真源）；
+② 采样只用来证明「配置生效」，样本放大到 20000、容差 ±3σ。
+**连跑 20 次验证 0 失败**。
 
 ---
 
