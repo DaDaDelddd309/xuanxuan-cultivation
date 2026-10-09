@@ -50,6 +50,34 @@ const SPLITS = {
       "import { esc, toast } from './dom.js';",
     ],
   },
+  arts: {   // 神通 / 悟道 / 营地 —— 工单 XX-CONTENT-001 + 营地页
+    start: '  // ---------- 神通 / 悟道 ----------',
+    end: '  // ---------- 家族 ----------',
+    file: 'ui/arts.js',
+    methods: ['artHow', 'vArts', 'vCamp'],
+    imports: [
+      "import { ARTS } from '../arts.js';",
+      "import { ARTSTAR } from '../artstar.js';",
+      "import { CAMP } from '../camp.js';",
+      "import { DAY, STONE_LIST, Bag } from '../items.js';",
+      "import { esc, toast } from './dom.js';",
+    ],
+  },
+  story: {  // 剧情演出 + 支线 —— 工单 XX-ARCH-006
+    start: '  showStoryBeat(b) {',
+    end: '  // ---------- 领地建造 ----------',
+    file: 'ui/story.js',
+    methods: ['showStoryBeat', 'showLegend', 'vQuest', 'showQuestReady',
+              'askStoryPath', 'showStoryDone', 'askPath', 'askSpecial', 'showQuestDone'],
+    imports: [
+      "import { STORY, ARCS, ARC_REWARD } from '../story.js';",
+      "import { QUEST } from '../quest.js';",
+      "import { SPINE } from '../spine.js';",
+      "import { NAGER, NAG } from '../nag.js';",
+      "import { LEGEND } from '../legend.js';",
+      "import { esc, toast } from './dom.js';",
+    ],
+  },
 };
 
 // ——————————————————————————————————————————————
@@ -83,12 +111,22 @@ if (extra.length) throw new Error(`区间里多了方法:${extra.join(',')} —�
 let body = block
   .replace(/^  (\w+)\(([^)]*)\) \{/gm, (s, n, ps) => `export function ${n}(hall${ps.trim() ? ', ' + ps : ''}) {`)
   .replace(/^  (?=\S)/gm, '')                                   // 去剩余缩进
-  .replace(/^\},$/gm, '}');                                     // 顶层函数没有对象尾逗号
-const nThis = (body.match(/(?<![\w.])this\.(\w+\()/g) || []).length;
-body = body.replace(/(?<![\w.])this\.(\w+\()/g, 'hall.$1');
+  .replace(/^\},$/gm, '}')                                      // 独占一行的对象尾逗号
+  // 单行方法(`showQuestReady(q) { toast(...); },`)的尾逗号在**同一行**,
+  // 上面那条独占一行的规则管不到它 —— 拆 story 页时踩到,产出直接语法错。
+  .replace(/^export function .*\},$/gm, l => l.slice(0, -2) + '}');
+// `this.` **一律**换成 `hall.`,不只是方法调用 ——
+// 踩过一次:原来只换 `this.xxx(`,于是属性读取 `this.picking` / `this._bn`
+// 留在原地。这两个是 Hall 上的**数据属性**(picking: null 声明在对象里,
+// _bn 是 showStoryBeat 运行时挂上去的),在独立函数里 this 是 undefined,
+// 一读就 TypeError —— 而神通页正是"选了一门神通待融合"时才走这条路。
+// 原生 ESM 顶层 this 是 undefined,不会退化成全局对象,所以不会静默拿到错值,
+// 它会直接抛。
+const nThis = (body.match(/(?<![\w.$])this\./g) || []).length;
+body = body.replace(/(?<![\w.$])this\./g, 'hall.');
 
 // —— 自检 3/4:两类"不会自己报警"的改写必须干净 ——
-if (/(?<![\w.])this\.\w+\(/.test(body)) throw new Error('还有 this. 没换成 hall.');
+if (/(?<![\w.$])this\./.test(body)) throw new Error('还有 this. 没换成 hall.');
 if (/^\},$/m.test(body)) throw new Error('还有对象尾逗号');
 
 // —— 自检 5:视图模块不得 import Hall(循环依赖) ——
@@ -114,7 +152,27 @@ ${cfg.imports.map(s => s).join('\n')}
 
 `;
 const outFile = ROOT + '/js/xiuxian/' + cfg.file;
-writeFileSync(outFile, header + body.replace(/\n+$/, '\n'));
+const finalBody = header + body.replace(/\n+$/, '\n');
+
+// —— 自检 7:产出必须真的能解析 ——
+// 前六道自检全是文本层面的,漏了一种排版就漏了(单行方法的尾逗号就是这么漏的)。
+// 所以最后拿 node --check 验一遍**真解析**。不过就不写盘、不改 ui.js ——
+// 宁可什么都不做,也不要留下一个语法错的 ui.js。
+{
+  const { execFileSync } = await import('child_process');
+  const probe = ROOT + '/.split-check-' + process.pid + '.mjs';
+  try {
+    writeFileSync(probe, finalBody);
+    execFileSync(process.execPath, ['--check', probe], { stdio: 'pipe' });
+  } catch (e) {
+    throw new Error('产出语法错误,已中止(未改动 ui.js):\n' +
+      String(e.stderr || e.message).split('\n').slice(0, 6).join('\n'));
+  } finally {
+    try { (await import('fs')).unlinkSync(probe); } catch {}
+  }
+}
+
+writeFileSync(outFile, finalBody);
 
 // —— ui.js:留壳 + 加 import ——
 // 壳保留**原签名**,不用 `(...a)` 展开:展开虽然等价,但会让 Hall.vMarket.length
