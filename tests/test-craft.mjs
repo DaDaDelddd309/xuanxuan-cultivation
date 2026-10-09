@@ -114,10 +114,13 @@ console.log('\n[7] 计数与存档');
 
 console.log('\n[8] 合成入口已接进界面');
 {
-  const ui = readFileSync(ROOT + '/js/xiuxian/ui.js', 'utf8');
-  ok('ui.js 引入了 CRAFT', /from '\.\/craft\.js'/.test(ui));
-  ok('有 craft-do 动作', /case 'craft-do'/.test(ui));
-  ok('集市页包含合成区', /this\.vCraft\(\)/.test(ui));
+  // ⚠️ XX-AUDIT-005:见 test-artstar 同款说明。三个锚点分别落在
+  // import / act() / vMarket(),不能只盯 ui.js 一个文件。
+  const { blob, methodBody } = await import('./lib-uimod.mjs');
+  const ui = blob();
+  ok('UI 层引入了 CRAFT', /from '\.\.\/craft\.js'/.test(ui) || /from '\.\/craft\.js'/.test(ui));
+  ok('act() 里有 craft-do 动作', /case 'craft-do'/.test(methodBody('act')));
+  ok('集市页包含合成区', /this\.vCraft\(\)/.test(methodBody('vMarket')));
   const css = readFileSync(ROOT + '/css/xiuxian.css', 'utf8');
   ok('有合成样式', /\.xx-cf-row/.test(css));
 }

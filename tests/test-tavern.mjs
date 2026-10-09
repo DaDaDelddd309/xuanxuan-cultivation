@@ -145,9 +145,11 @@ console.log('\n[9] 同伴已接进局内(结构检查)');
   ok('开局把 mods 灌给 Director', /Director\.setMateMods\(TAVERN\.mods\(\)\)/.test(main));
   ok('属性 mods 落到 player.stats', /p0\.stats\.might/.test(main) && /p0\.stats\.magnet/.test(main));
   ok('护栏吃了同伴加成', /wardRadius\(pr, TAVERN\.mods\(\)\.wardBonus/.test(main));
-  const ui = readFileSync(ROOT + '/js/xiuxian/ui.js', 'utf8');
-  ok('修仙阁有酒馆入口', /vTavern\(\)/.test(ui));
-  ok('集市页包含酒馆', /this\.vTavern\(\)/.test(ui));
+  // ⚠️ XX-AUDIT-005:酒馆视图会搬到 ui/tavern.js,`this.vTavern()` 在 vMarket() 里。
+  // 原来两条都读 ui.js 全文,拆完第一条会因为"实现不在那儿了"变红。
+  const { methodBody } = await import('./lib-uimod.mjs');
+  ok('修仙阁有酒馆视图', /vTavern\(\)/.test(methodBody('vTavern')));
+  ok('集市页包含酒馆', /this\.vTavern\(\)/.test(methodBody('vMarket')));
 }
 
 console.log(`\ntest-tavern: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);

@@ -83,6 +83,14 @@ export function codeMask(src) {
   let i = 0;
   const n = src.length;
   const top = () => st[st.length - 1];
+  // 字符串区间(含引号本身),供 literals() 用。
+  // ⚠️ 不能改成"在 mask 里找引号" —— mask 把引号也抹成空格了,根本找不到。
+  const strings = [];
+  const closeString = (end) => {
+    const f0 = strOpen.pop();
+    if (f0 !== undefined) strings.push({ q: src[f0.i], start: f0.i, end });
+  };
+  const strOpen = [];
 
   while (i < n) {
     const c = src[i];
@@ -91,7 +99,7 @@ export function codeMask(src) {
     // —— 模板串体内 ——
     if (top() && top().t === 'tmpl') {
       if (c === '\\') { blank(i, 2); i += 2; continue; }
-      if (c === '`') { blank(i); st.pop(); i++; continue; }
+      if (c === '`') { blank(i); st.pop(); closeString(i); i++; continue; }
       if (c === '$' && d === '{') { blank(i, 2); st.push({ t: 'expr', d: 0 }); i += 2; continue; }
       blank(i); i++; continue;      // 普通模板文本
     }
@@ -110,16 +118,18 @@ export function codeMask(src) {
     }
     // 普通字符串
     if (c === '"' || c === "'") {
+      strOpen.push({ i });
       blank(i); i++;
       while (i < n) {
         if (src[i] === '\\') { blank(i, 2); i += 2; continue; }
         if (src[i] === c) { blank(i); i++; break; }
         blank(i); i++;
       }
+      closeString(i);
       continue;
     }
     // 模板串开头(栈式处理,支持嵌套)
-    if (c === '`') { blank(i); st.push({ t: 'tmpl' }); i++; continue; }
+    if (c === '`') { blank(i); strOpen.push({ i }); st.push({ t: 'tmpl' }); i++; continue; }
     // 正则字面量:上一个代码字符是这些之一时,`/` 才是正则开头
     if (c === '/' && (prev === '' || '(,=:[!&|?{};+-*%~^<>'.includes(prev))) {
       let j = i + 1, cls = false, ok = false;
@@ -150,7 +160,27 @@ export function codeMask(src) {
     if (!/\s/.test(c)) prev = c;
     i++;
   }
-  return { code: out.join('') };
+  return { code: out.join(''), strings };
+}
+
+/**
+ * 取源码里**真正的字符串字面量**内容(不含注释、不含代码)。
+ *
+ * 为什么需要:早先"扫界面文案"用的是
+ *   readFileSync(...).replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'')
+ * 然后 /(['"`])[^'"`]*[一-龥][^'"`]*\1/g。
+ * 那个剥离器在**原始文本**上跑,不认识字符串 —— 一段多行字符串后面那行
+ * 的 `//` 注释就混进了"界面文案"里,于是 js/game/pickups.js 里一句
+ * 「// V0.99:捡宝石 = 加生成压力」被当成了玩家能看到的文字。
+ * codeMask 已经在做正确的字符串/注释切分,这里直接复用。
+ *
+ * @param {string} src
+ * @returns {string[]} 每个字符串字面量的内容(不含引号)
+ */
+export function literals(src) {
+  return codeMask(src).strings
+    .map(({ start, end }) => src.slice(start + 1, end - 1))
+    .filter(body => /[\u4e00-\u9fa5]/.test(body));
 }
 
 // 方法体提取缓存:codeMask 很贵(每个字符扫一遍)

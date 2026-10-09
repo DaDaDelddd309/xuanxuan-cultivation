@@ -25,20 +25,27 @@ W(); S.STORY.see('qingqiong');
 const onArrive = () => M.MOUNT.checkUnlocks();   // 这就是 ui.js 现在做的事
 t('抵达节点能发出坐骑', onArrive().length===1);
 t('发出来之后坐骑在手', M.MOUNT.has('qiao'));
-// 如果 ui.js 没接,玩家永远拿不到 —— 用 grep 验证接线
-const {readFileSync}=await import('fs');
-const ui=readFileSync('js/xiuxian/ui.js','utf8');
-t('ui.js 里真的调用了 checkUnlocks', /MOUNT\.checkUnlocks\(\)/.test(ui));
-t('ui.js 里 import 了 MOUNT', /import\s*\{[^}]*MOUNT/.test(ui));
+// 如果 ui.js 没接,玩家永远拿不到 —— 用 grep 验证接线。
+// ⚠️ XX-AUDIT-005:读的是整个 UI 层而不是 ui.js 一个文件。ui.js 拆成
+// js/xiuxian/ui/*.js 之后,`MOUNT.checkUnlocks()` 会跟着 arrive() 一起搬走,
+// 断言会**因为代码不在那儿了而变红** —— 更坏的情况是有人去"修"本来正确的逻辑。
+// 这里两个锚点都精确落在 arrive() 里,所以连位置一起收进方法体内判断。
+const {blob, methodBody}=await import('./lib-uimod.mjs');
+const ui=blob();
+const arrive=methodBody('arrive');
+t('arrive 里真的调用了 checkUnlocks', /MOUNT\.checkUnlocks\(\)/.test(arrive));
+t('UI 层 import 了 MOUNT', /import\s*\{[^}]*MOUNT/.test(ui));
 
 console.log('\n=== 断链 1b:冷却不能吞掉「见到」本身 ===');
 // V0.94 曾把 STORY.see() 放进冷却 if 里 —— 冷却期内玩家走一圈
 // 没见过青穹,就拿不到它的坐骑。可达性 bug,不是测试问题。
 {
-  const ui=readFileSync('js/xiuxian/ui.js','utf8');
-  const iSee=ui.indexOf('STORY.see(l.key)');
-  const iCool=ui.indexOf('const cool =');
-  t('STORY.see 在冷却判断之前', iSee>-1 && iCool>-1 && iSee<iCool);
+  // 范围收到 arrive() 里:原来在全文件找第一处 'const cool =',
+  // 一旦同文件里再出现第二个 const cool,断言就会指向不相干的那一处。
+  const iSee=arrive.indexOf('STORY.see(l.key)');
+  const iCool=arrive.indexOf('const cool =');
+  t('STORY.see 在冷却判断之前', iSee>-1 && iCool>-1 && iSee<iCool,
+    `see@${iSee} cool@${iCool}`);
 }
 
 console.log('\n=== 断链 1c:坐骑发到了,UI 真的有弹吗 ===');
@@ -54,16 +61,16 @@ console.log('\n=== 断链 1c:坐骑发到了,UI 真的有弹吗 ===');
 //   「发出来之后坐骑在手」测的是 MOUNT.has(),
 //   **从头到尾没有一条断言过 UI 有没有弹** —— 可达性只测了一半。
 {
-  const ui=readFileSync('js/xiuxian/ui.js','utf8');
-  const fills = /this\._pendingMount\s*=\s*\(this\._pendingMount\|\|\[\]\)\.concat\(m\)/.test(ui);
+  // 同样收进 arrive():这三个锚点全在 arrive() 里。
+  const fills = /this\._pendingMount\s*=\s*\(this\._pendingMount\|\|\[\]\)\.concat\(m\)/.test(arrive);
   t('arrive 把坐骑塞进待弹队列', fills);
   // 关键:队列必须有人消费。只填充不消费 = 弹层永远不出现。
-  const drains = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(ui);
+  const drains = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(arrive);
   t('填充后立刻消费队列(否则弹层永远不弹)', drains,
     '找不到 arrive 里对 _nextPending() 的调用 —— 坐骑到手但玩家看不到提示');
-  t('_nextPending 确实读这个队列', /const q = this\._pendingMount;/.test(ui));
+  t('_nextPending 确实读这个队列', /const q = this\._pendingMount;/.test(methodBody('_nextPending')));
   // 反向:确认不是「靠别处间接调用」蒙混过关
-  const calls = (ui.match(/_nextPending\(\)/g) || []).length;
+  const calls = (arrive.match(/_nextPending\(\)/g) || []).length;
   const fromArrive = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(ui);
   t('_nextPending 的调用点存在外部入口', fromArrive,
     `全文件出现 ${calls} 次`);
