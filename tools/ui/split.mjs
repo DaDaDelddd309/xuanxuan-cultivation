@@ -78,6 +78,85 @@ const SPLITS = {
       "import { esc, toast } from './dom.js';",
     ],
   },
+  fam: {      // 家族
+    start: '  // ---------- 家族 ----------',
+    end: '  // ---------- 领地建造 ----------',
+    file: 'ui/fam.js',
+    methods: ['vFam'],
+    imports: [
+      "import { FAMILY } from '../family.js';",
+      "import { CHRONICLE } from '../chronicle.js';",
+      "import { esc, toast } from './dom.js';",
+    ],
+  },
+  build: {    // 领地建造
+    start: '  // ---------- 领地建造 ----------',
+    end: '  // ---------- 图鉴(怪物 + NPC)----------',
+    file: 'ui/build.js',
+    methods: ['vBuild'],
+    imports: [
+      "import { BUILD, FIELD_PERIOD } from '../build.js';",
+      "import { BUILDINGS, RICE } from '../bestiary.js';",
+      "import { Bag } from '../items.js';",
+      "import { esc, toast } from './dom.js';",
+    ],
+  },
+  dexsys: {   // 图鉴 + 存档
+    start: '  // ---------- 图鉴(怪物 + NPC)----------',
+    end: '  // ---------- 行囊 ----------',
+    file: 'ui/dexsys.js',
+    methods: ['vDex', 'vSys'],
+    imports: [
+      "import { BUILDINGS, BESTIARY, NPCS, TIERS } from '../bestiary.js';",
+      "import { Profile, Seed } from '../profile.js';",
+      "import { CHRONICLE } from '../chronicle.js';",
+      "import { CLOCK } from '../clock.js';",
+      "import { Cult } from '../index.js';",
+      "import { STONES, SCROLLS } from '../items.js';",
+      "import { WORLD_INFO } from '../world.js';",
+      "import { STORY } from '../story.js';",
+      "import { LEGEND_LIST } from '../legend.js';",
+      "import { COMPANION } from '../companion.js';",
+      "import { esc, toast } from './dom.js';",
+    ],
+  },
+  bag: {      // 行囊 + 人物 + 村庄 + 坐骑 + 全屏卡队列
+    start: '  // ---------- 行囊 ----------',
+    end: '  // ---------- 称号 ----------',
+    file: 'ui/bag.js',
+    methods: ['vBag', 'showMountGet', '_nextPending', 'empty',
+              'enterVillage', 'vVillage', 'vMount', 'vPeople'],
+    imports: [
+      "import { STONES, STONE_LIST, SCROLL_LIST, Bag, DAY } from '../items.js';",
+      "import { MOUNT, MOUNTS, MOUNT_LIST } from '../mount.js';",
+      "import { CHARACTERS, TITLES, WORLD as LORE } from '../lore.js';",
+      "import { Cult } from '../index.js';",
+      "import { SCROLLS, GOODS } from '../items.js';",
+      "import { NAGER, NAG } from '../nag.js';",
+      "import { STORY } from '../story.js';",
+      "import { TOMB } from '../tomb.js';",
+      "import { PORTRAIT } from './portrait.js';",
+      "import { esc, toast } from './dom.js';",
+    ],
+  },
+  title: {    // 称号
+    start: '  // ---------- 称号 ----------',
+    end: null,          // 最后一个方法,到 Hall 对象收尾为止
+    file: 'ui/title.js',
+    methods: ['vTitle'],
+    imports: ["import { TITLES } from '../lore.js';", "import { Cult } from '../index.js';", "import { esc } from './dom.js';"],
+  },
+  realm: {    // 境界
+    start: '  // ---------- 境界 ----------',
+    end: '  // ---------- 地图 ----------',
+    file: 'ui/realm.js',
+    methods: ['vRealm'],
+    imports: [
+      "import { REALMS, getRealm, maxLayerOf, layerCost, canBreakthrough, realmTitle, PILLS } from '../realms.js';",
+      "import { CHRONICLE } from '../chronicle.js';",
+      "import { pct, esc } from './dom.js';",
+    ],
+  },
 };
 
 // ——————————————————————————————————————————————
@@ -90,25 +169,56 @@ if (!cfg) {
 const src = readFileSync(UI, 'utf8');
 
 // —— 自检 1:锚点存在且唯一,顺序正确 ——
-for (const [label, anchor] of [['start', cfg.start], ['end', cfg.end]]) {
-  const n = src.split(anchor).length - 1;
-  if (n !== 1) throw new Error(`锚点 ${label} 出现 ${n} 次(应为 1):${anchor}\nui.js 结构可能变了 —— 停下来人工看,不要猜`);
+// end 可以写 null,表示"到 Hall 对象字面量收尾为止"。
+// 称号页是最后一个方法,原本拿 `};` 当 end —— 而文件里 `};` 出现 10 次,
+// 自检直接把它拦下来了。这比让它蒙混过去好:锚点不唯一 =区间不确定。
+const i = src.indexOf(cfg.start);
+if (cfg.start && src.split(cfg.start).length - 1 !== 1)
+  throw new Error(`锚点 start 出现 ${src.split(cfg.start).length - 1} 次(应为 1):${cfg.start}\nui.js 结构可能变了 —— 停下来人工看,不要猜`);
+let j;
+if (cfg.end === null) {
+  j = src.lastIndexOf('\n};');
+  if (j < 0) throw new Error('找不到 Hall 对象字面量的收尾 `\n};`');
+} else {
+  const n = src.split(cfg.end).length - 1;
+  if (n !== 1) throw new Error(`锚点 end 出现 ${n} 次(应为 1):${cfg.end}\nui.js 结构可能变了 —— 停下来人工看,不要猜`);
+  j = src.indexOf(cfg.end);
 }
-const i = src.indexOf(cfg.start), j = src.indexOf(cfg.end);
 if (j <= i) throw new Error('end 锚点在 start 之前');
 
 // —— 自检 2:区间里的方法集合与配置完全一致 ——
 // 少一个 = 有人漏搬;多一个 = 有人把别的东西顺手带进来了。
-const block = src.slice(i, j);
-const found = (block.match(/^  (\w+)\(/gm) || []).map(x => x.trim().slice(0, -1));
+// —— 自检 2:区间里**只应有本页的实现**,不能有别的页已经拆走的壳 ——
+// ⚠️ 这里翻过车,而且翻得很隐蔽:先是看到"区间里多了方法"就报错,于是我加了容错
+// (isShell 把它们跳过)。结果更糟 —— 壳被当成实现又搬了一遍:
+// fam 的区间跨过了 story 那 9 个壳 → fam.js 里出现 9 个假的
+// `export function showStoryBeat(hall,b){ return showStoryBeatImpl(this,b); }`,
+// 同时 ui.js 里那 9 个真壳**被删掉了**(脚本用变换后的内容替换整个区间)。
+// 当时脚本还打印了 ✅。
+//
+// 正确做法不是"容错",是**剔除**:壳属于别的页,不该出现在本页的实现里。
+// 剔除之后再断言剩下的方法集合 == 配置,多一个少一个都停。
+// 用 src.slice(0,i)+壳+src.slice(j) 写回 ui.js,那些壳原样保留,不受影响。
+const isShellLine = (l) => /^  \w+\([^)]*\) \{ return \w+Impl\(this/.test(l);
+const blockLines = src.slice(i, j).split('\n');
+const implBlock = blockLines.filter(l => !isShellLine(l)).join('\n');
+const shellsInRange = blockLines.filter(isShellLine);
+// ⚠️ 写回 ui.js 时必须把区间里原有的这些壳**原样放回去**。
+// 只剔除不保留的话,`src.slice(0,i) + 本页新壳 + src.slice(j)` 会把整个区间丢掉 ——
+// 那 9 个 story 的壳就没了,而 Hall 上少了方法,调用点还在,点了没反应
+// (V0.89 误删 askStoryPath 就是这个形态)。
+const keptShells = blockLines.filter(isShellLine);
+
+const found = (implBlock.match(/^  (\w+)\(/gm) || []).map(x => x.trim().slice(0, -1));
 const want = cfg.methods.filter(m => m !== 'vTomb');   // 已拆过的壳不在这段里
 const missing = want.filter(m => !found.includes(m));
-const extra = found.filter(m => !want.includes(m) && !cfg.methods.includes(m));
+const extra = found.filter(m => !want.includes(m));
 if (missing.length) throw new Error(`区间里少了方法:${missing.join(',')}`);
 if (extra.length) throw new Error(`区间里多了方法:${extra.join(',')} —— 配置该更新,或代码变了`);
+if (shellsInRange) console.log(`  (区间里有 ${shellsInRange} 行别页的转发壳,已剔除、不动它们)`);
 
 // —— 变换 ——
-let body = block
+let body = implBlock
   .replace(/^  (\w+)\(([^)]*)\) \{/gm, (s, n, ps) => `export function ${n}(hall${ps.trim() ? ', ' + ps : ''}) {`)
   .replace(/^  (?=\S)/gm, '')                                   // 去剩余缩进
   .replace(/^\},$/gm, '}')                                      // 独占一行的对象尾逗号
@@ -180,11 +290,12 @@ writeFileSync(outFile, finalBody);
 // 工单里写明的形态就是 `vRealm(s) { return vRealm(this, s); }`。
 const alias = cfg.methods.map(m => `${m} as ${m}Impl`).join(', ');
 const shells = cfg.methods.map(m => {
-  const sig = (block.match(new RegExp(`^  ${m}\\(([^)]*)\\) \\{`, 'm')) || [])[1];
+  const sig = (implBlock.match(new RegExp(`^  ${m}\\(([^)]*)\\) \\{`, 'm')) || [])[1];
   if (sig === undefined) throw new Error(`没在区间里找到 ${m} 的签名`);
   return `  ${m}(${sig}) { return ${m}Impl(this${sig.trim() ? ', ' + sig : ''}); },\n`;
 }).join('');
-let s2 = src.slice(0, i) + shells + '\n' + src.slice(j);
+let s2 = src.slice(0, i) + shells + '\n'
+  + (keptShells.length ? keptShells.join('\n') + '\n' : '') + src.slice(j);
 s2 = s2.replace("import { Cult } from './index.js';",
   `import { Cult } from './index.js';\n` +
   `// ${cfg.file.replace('ui/', '').replace('.js', '')}页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ${cfg.file}。\n` +

@@ -424,12 +424,11 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !loc
 // ===== 修仙层入口(V0.78)=====
 import { Cult } from './xiuxian/index.js';
 import { REALMS, addExp } from './xiuxian/realms.js';
-// 回合制过场要立绘(XX-COMBAT-001)。ui.js 里那份 PORTRAIT 同一个文件里也有,
-// 这里只取用到的几个,避免整个 ui 被拉进主循环。
-const PORTRAIT = {
-  hero: 'assets/portrait/knight.jpg',
-  foe:  'assets/portrait/villain-moying.jpg',
-};
+// 回合制过场要立绘(XX-COMBAT-001)。
+// ⚠️ 2026-10-10(XX-AUDIT-005):原来这里另有一份只含 hero/foe 的 PORTRAIT,
+// 和 ui.js 里那份同名不同容 —— 改一处忘一处就会画错人。
+// 现在统一从 ui/portrait.js 取(那份文件很轻,不会把整个 ui 拉进主循环)。
+import { PORTRAIT } from './xiuxian/ui/portrait.js';
 import { Duel } from './xiuxian/duel.js';
 import { Hall } from './xiuxian/ui.js';
 import { Bag, DAY } from './xiuxian/items.js';

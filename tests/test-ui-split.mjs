@@ -193,6 +193,15 @@ console.log('\n[7] 视图模块里用到的模块级常量必须都 import 了')
     const used = new Set([...body.matchAll(/(^|[^\w.$'"`])([A-Z][A-Za-z0-9_$]*)/g)].map(m => m[2]));
     const missing = [...used].filter(n => !imported.has(n) && !local.has(n) && !BUILTIN.has(n));
     ok(`${f} 用到的模块级常量都有 import`, missing.length === 0, '缺: ' + missing.join(','));
+
+    // ⚠️ 小写的共享辅助函数同样要查 —— 这条是被 `pct is not defined` 逼出来的。
+    // 上面那条只认大写开头的标识符,而 dom.js 导出的 pct / esc / toast 全是小写,
+    // 于是 realm.js 少 import 一个 pct 照样通过。是 test-uitext 真渲染境界页
+    // 时报的 ReferenceError —— 一个不报错的检查,和一个没有检查效果一样。
+    const HELPERS = ['pct', 'esc', 'toast', 'tierNeedText'];
+    const missHelper = HELPERS.filter(h =>
+      new RegExp('(?<![\\w.$])' + h + '\\s*\\(').test(body) && !imported.has(h) && !local.has(h));
+    ok(`${f} 用到的共享辅助都有 import`, missHelper.length === 0, '缺: ' + missHelper.join(','));
   }
 }
 

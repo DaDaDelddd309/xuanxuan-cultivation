@@ -68,7 +68,10 @@ console.log('\n=== 断链 1c:坐骑发到了,UI 真的有弹吗 ===');
   const drains = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(arrive);
   t('填充后立刻消费队列(否则弹层永远不弹)', drains,
     '找不到 arrive 里对 _nextPending() 的调用 —— 坐骑到手但玩家看不到提示');
-  t('_nextPending 确实读这个队列', /const q = this\._pendingMount;/.test(methodBody('_nextPending')));
+  // ⚠️ 同 test-craft/test-tavern:_nextPending 搬进 ui/bag.js 后,里面是
+  // `hall._pendingMount` 而不是 `this._pendingMount`。写死 this. 会在拆分当天
+  // 报红,而报错信息("队列没人读")会让人去改本来正确的逻辑。
+  t('_nextPending 确实读这个队列', /const q = (?:this|hall)\._pendingMount;/.test(methodBody('_nextPending')));
   // 反向:确认不是「靠别处间接调用」蒙混过关
   const calls = (arrive.match(/_nextPending\(\)/g) || []).length;
   const fromArrive = /if \(gotMounts\.length\) this\._nextPending\(\);/.test(ui);
