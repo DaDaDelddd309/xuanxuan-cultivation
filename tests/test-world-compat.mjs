@@ -4,7 +4,7 @@
 // ui.js 调用的那套接口行为必须与 V0.96 完全一致。
 // run: node tests/test-world-compat.mjs
 import { WORLD, nodeById, neighbors, homeNode, travel, pathBetween,
-         buildEdges, rollEnemy, NODE_TYPES, ENEMY_POOL, SECRET_PILL, WORLD_INFO } from '../js/xiuxian/world.js';
+         buildEdges, rollEnemy, NODE_TYPES, ENEMY_POOL, WORLD_INFO } from '../js/xiuxian/world.js';
 
 let pass = 0, fail = 0;
 const failed = [];
@@ -17,7 +17,7 @@ function ok(name, cond, detail = '') {
 console.log('\n[1] 导出面完整（旧调用方依赖）');
 {
   const required = ['WORLD', 'nodeById', 'neighbors', 'homeNode', 'rollEnemy', 'travel', 'pathBetween',
-                    'buildEdges', 'NODE_TYPES', 'ENEMY_POOL', 'SECRET_PILL'];
+                    'buildEdges', 'NODE_TYPES', 'ENEMY_POOL'];
   const missing = required.filter(k => !(k in (globalThis.__probe || {}) || true));
   // 直接检查函数/对象存在
   ok('WORLD 是对象', WORLD && typeof WORLD === 'object');
@@ -32,7 +32,6 @@ console.log('\n[1] 导出面完整（旧调用方依赖）');
      ['village','field','elite','secret','boss'].every(t => NODE_TYPES[t]));
   ok('ENEMY_POOL 四种池齐全',
      ['field','elite','secret','boss'].every(t => Array.isArray(ENEMY_POOL[t]) && ENEMY_POOL[t].length));
-  ok('SECRET_PILL 非空', Object.keys(SECRET_PILL).length >= 4);
 }
 
 console.log('\n[2] WORLD 结构形状（edges 必须是 id 字符串）');
@@ -154,8 +153,24 @@ console.log('\n[9] 世界内容合理性');
   ok('至少 1 个村庄', (types.village || 0) >= 1);
   ok('没有触发兜底布局', WORLD_INFO.fallback === false);
   ok('村庄都有名字', WORLD.nodes.filter(n => n.type === 'village').every(n => !!n.name));
-  ok('秘境都指定了丹药',
-     WORLD.nodes.filter(n => n.type === 'secret').every(n => !!n.pill && SECRET_PILL[n.pill] === n.pill || !!n.pill));
+  // 2026-10-10 修一处**假断言**:
+  //   原写法 `!!n.pill && SECRET_PILL[n.pill] === n.pill || !!n.pill`
+  //   因为 && 优先级高于 ||,整式等价于 `((有pill && 映射匹配) || 有pill)`,
+  //   只要有 pill 就恒真 —— 中间那半截 SECRET_PILL 校验是死的,测了个寂寞。
+  //   而 SECRET_PILL 的键是 secret1..secret4,worldgen 实际把 pill 直接写成
+  //   pill_zhuji 这样的 id,映射本来就对不上 —— 这条断言一直在骗人。
+  //   那个常量本身已在本轮删除(world.js 留了说明),它是 V0.77 硬编码时代的遗留。
+  //
+  //   真正该保证的是:秘境的 pill 必须是**真实存在的丹药 id**,
+  //   否则玩家走到秘境拿到一个不存在的东西。
+  const { PILLS } = await import('../js/xiuxian/realms.js');
+  const secretNodes = WORLD.nodes.filter(n => n.type === 'secret');
+  const badPills = secretNodes.filter(n => !PILLS[n.pill]).map(n => `${n.name || n.id}=${n.pill}`);
+  ok('秘境都指定了丹药', secretNodes.every(n => !!n.pill), `缺 pill 的秘境: ${secretNodes.filter(n=>!n.pill).length} 个`);
+  ok('秘境的丹药 id 都真实存在', badPills.length === 0, badPills.join(' '));
+  // 同一张图内丹药不该重复 —— 4 个秘境给 4 种不同的丹,是可回放性的保证
+  const pills = secretNodes.map(n => n.pill);
+  ok('秘境的丹药不重复', new Set(pills).size === pills.length, pills.join(','));
 }
 
 console.log('\n[10] 存档兼容：老存档无 seed 字段');

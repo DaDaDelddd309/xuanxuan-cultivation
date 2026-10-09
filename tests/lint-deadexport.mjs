@@ -232,20 +232,46 @@ if (fresh.length) {
   }
 }
 
+if (process.argv.includes('--list')) {
+  // 逐条清偿基线里那些条目时需要这个视图:光看「新增 0」没法开工,
+  // 也看不出来「基线里有几条已经不再是候选了」—— 那些可以摘掉。
+  console.log('\n全部候选:');
+  for (const c of candidates) {
+    const d = c.decls[0];
+    const mark = known.has(c.name) ? '[基线内]' : '[新增]  ';
+    console.log(`  ${mark} ${c.name.padEnd(22)} ${d.file}  (${d.kind}, ${c.decls.length} 处)`);
+  }
+  const names = new Set(candidates.map(c => c.name));
+  const stale = [...known].filter(n => !names.has(n));
+  console.log(`\n基线里已不再是候选(${stale.length} 条 —— 说明它们已被引用,可考虑从 baseline 摘掉):`);
+  if (!stale.length) console.log('  (无)');
+  else for (const n of stale) console.log(`  · ${n}`);
+}
+
+// ⚠️ 覆盖护栏(2026-10-10 补)
+// 原来这里无条件 writeFileSync 覆盖整个基线文件 —— 而基线里的**理由注释**
+// 是人工逐条写的,重新生成会把那些理由全部冲成光秃秃的名字列表。
+// 工具在破坏它自己要保护的东西。已存在且非空时必须显式 --force。
 if (process.argv.includes('--write-baseline')) {
-  const lines = [
-    '# 未使用导出 · 人工确认清单',
-    '#',
-    '# 写进来 = 确认「这个导出不能删」。理由写清楚,别只列名字:',
-    '#   · 动态访问 / HTML 内联引用 / 给调试留的口子',
-    '#   · 计划用(注明挂在哪个工单上)',
-    '# 确认没人用的,**不要**写进来 —— 它会一直出现在上面那份清单里提醒你删。',
-    '',
-    ...candidates.map(c => c.name),
-    '',
-  ];
-  writeFileSync(BASELINE, lines.join('\n'));
-  console.log(`\n✅ 基线已写:${BASELINE}(${candidates.length} 条)`);
+  if (known.size && !process.argv.includes('--force')) {
+    console.log(`\n❌ ${BASELINE} 已有 ${known.size} 条人工确认的基线条目,本次未写入。`);
+    console.log('   重新生成会**冲掉全部理由注释** —— 那正是这份文件存在的意义。');
+    console.log('   确认要覆盖请加 --force(建议先自行备份)。');
+  } else {
+    const lines = [
+      '# 未使用导出 · 人工确认清单',
+      '#',
+      '# 写进来 = 确认「这个导出不能删」。理由写清楚,别只列名字:',
+      '#   · 动态访问 / HTML 内联引用 / 给调试留的口子',
+      '#   · 计划用(注明挂在哪个工单上)',
+      '# 确认没人用的,**不要**写进来 —— 它会一直出现在报告里提醒你删。',
+      '',
+      ...candidates.map(c => c.name),
+      '',
+    ];
+    writeFileSync(BASELINE, lines.join('\n'));
+    console.log(`\n✅ 基线已写:${BASELINE}(${candidates.length} 条)`);
+  }
 }
 
 console.log(REPORT_ONLY

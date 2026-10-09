@@ -9,7 +9,7 @@
 //   · 现在由 worldgen 保证不变量:全连通 / 秘境≤4步 / Boss非死角 / 青石村固定起点。
 //
 // ★ 对外接口一字未改,ui.js 等调用方零改动:
-//   NODE_TYPES / ENEMY_POOL / SECRET_PILL / buildEdges / WORLD
+//   NODE_TYPES / ENEMY_POOL / buildEdges / WORLD
 //   nodeById / neighbors / homeNode / rollEnemy / travel / pathBetween
 
 import { generate, GRID, DENSITY, MAX_SECRET_DEPTH } from './worldgen.js';
@@ -33,11 +33,17 @@ export const ENEMY_POOL = {
   boss:   [ {k:'devil',r:1.0} ],
 };
 
-// 秘境出产哪种丹 —— 实际取值由 worldgen 写在节点的 pill 字段上
-export const SECRET_PILL = {
-  secret1: 'pill_zhuji', secret2: 'pill_jindan',
-  secret3: 'pill_yuanying', secret4: 'pill_huashen',
-};
+// 【2026-10-10 删除】这里原来有个 SECRET_PILL:
+//     secret1: 'pill_zhuji', secret2: 'pill_jindan', ... 
+// 它是 V0.77 硬编码 11 节点时代的遗产 —— 当时节点字段叫 secret1..secret4,
+// 需要一张表把字段名翻译成丹药 id。世界改成 worldgen 生成之后,
+// worldgen 直接把 pill 写成真实丹药 id(pill_zhuji 等),这张表没人消费了,
+// 而且它的键与实现**对不上**:SECRET_PILL[n.pill] 永远是 undefined。
+//
+// 更糟的是 tests/test-world-compat.mjs 曾用它做断言,而那条断言因为
+// `|| !!n.pill` 短路恒真 —— 测试在验证一个不存在的东西。
+// 现已改为对照 realms.js 的 PILLS 验「丹药 id 真实存在」。
+// 丹药池的单一真源是 worldgen.js 的 SECRET_PILL_POOL。
 
 // —— 生成当前世界 ——
 // 不用模块级常量:WORLD 的节点需要能随换种子重建(V0.97 的核心需求)。

@@ -5,7 +5,9 @@
 #   · 计划用(注明挂在哪个工单上)
 # 确认没人用的,**不要**写进来 —— 它会一直出现在报告里提醒你删。
 #
-# 本清单由 2026-10-10 逐条人工核实生成。20 条候选均已确认:
+# 本清单由 2026-10-10 逐条人工核实生成(初版 20 条,本轮收敛到 17 条:
+# SECRET_PILL 已删除、rollEnemy/homeNode 已有消费者被摘除)。当前 17 条与候选完全对齐:
+# `node tests/lint-deadexport.mjs --list` 可核对,「已不再是候选」应为 0。
 #   · 全仓库(js/ tests/ tools/)零代码引用
 #   · 零 HTML 内联引用(index.html 等)
 #   · 零动态下标访问
@@ -13,17 +15,24 @@
 #
 # —— 有据可查的保留项 ——
 
+# 【2026-10-10 摘除】下面两条曾在本清单里,现已不是死导出:
+#   rollEnemy / homeNode —— 世界改成按种子生成后归位的 tests/test-mine.mjs 与
+#   tests/test-world-compat.mjs 引用了它们。有消费者就不该占着「人工确认保留」的名额,
+#   否则清单会慢慢失真,而失真的清单比没有清单更糟。
+#   (本清单因此新增了 `--list` 视图:能直接看出「哪些基线条目已经不再是候选」。)
+
+
 SUPER_ARTS_EXPORT
 # arts.js:73 明确注释「超武表的对外别名(与 SUPER_ARTS 同源,保留以免打断外部引用)」
 # 是有意留的兼容别名,不是漏删。
 
-rollEnemy
-# TECHDEBT P1-4 明确写了:「计划用(如 rollEnemy 是昼夜生态表要用的)→ 在 ROADMAP 标注,别删」
-# 昼夜生态表(时段 × 节点类型的二维怪物表)动工时要用它。
 
-SECRET_PILL
-# world.js 丹药常量,剧情线(丹道分支)尚未接线,ROADMAP 已列。
-# 删了将来接线要重新推导数值,故先留。
+# 【2026-10-10 删除】SECRET_PILL
+#   它是 V0.77 硬编码 11 节点时代的遗产:当时节点字段叫 secret1..secret4,
+#   需要一张表把字段名翻译成丹药 id。世界改成 worldgen 生成之后,
+#   worldgen 直接把 pill 写成真实丹药 id,这张表没人消费,
+#   而且它的键与实现**对不上**(SECRET_PILL[n.pill] 永远 undefined)。
+#   world.js 里已留删除说明。丹药池的真源是 worldgen.js 的 SECRET_PILL_POOL。
 
 MOUNT_BLUEPRINT
 # mount.js 坐骑蓝图表,坐骑系统(XX-RL 系列)动工时消费。
@@ -34,8 +43,6 @@ BOSS_KEYS
 isFinalRealm
 # realms.js 终极境界判定,悟道终点(XX-ARCH-006 打通死循环后)需要它。
 
-homeNode
-# world.js 家园节点构造,家园支线未开工。
 
 inheritedRatio
 # battle.js 战斗血量比例,回合制重构时要用。

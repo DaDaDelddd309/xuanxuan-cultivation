@@ -30,9 +30,10 @@ tools/visual/baseline/
 assets/_legacy/
 
 # 会话级协作产物(2026-10-10):
-# 这两份是写给**当时并行的另一个开发会话**看的临时说明 ——
-# 「请帮我推一下」「这些活已经做完了别重复做」。
+# 这几份是写给**当时并行的另一个开发会话**看的临时说明 ——
+# 「请帮我推一下」「桌面侧已上线,直接 push」「这些活别重复做」。
 # 内容带时间戳和一次性上下文,提交进仓库只会让后来的人读到过时的状态,
 # 真正的项目文档在 README / ARCHITECTURE / HANDOVER / TICKETS 里。
 DEPLOY-REQUEST.md
 DEV-SYNC.md
+MERGE-GUIDE.md
