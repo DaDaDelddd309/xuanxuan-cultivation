@@ -33,12 +33,23 @@ function spriteCanvas(names, px) {
 }
 
 // 统一按钮绑定:防连点(300ms 内忽略)+ 点击音效;onclick 赋值覆盖旧回调,防重复绑定
-let _lastTap = -1e9;
+//
+// ⚠️ 防连点状态必须**按元素**记,不能用一个模块级全局。
+//   原实现是 `let _lastTap`(模块级单例),被全站 10 处 bindTap 共享 ——
+//   后果:在 A 按钮点了之后 300ms 内点 B,**B 被静默吞掉**,无提示无音效无日志。
+//   实测最容易撞上的路径:点「砍杀」→ 1~2 秒后结算层弹出 → 手快点「进入无尽」,
+//   落在 300ms 窗口内 → 玩家看到的就是「点了没反应」。
+//   结算层三按钮(btn-again / btn-endless / btn-menu)是横向并排的,
+//   它们互相吞的体感最差。
+//   同文件里 `showLevelUp` 用的就是每面板独立的 done 标志 ——
+//   **两套防重入机制,只有一套是对的**,这里改成与之同构。
+const _lastTapByEl = new WeakMap();      // el -> 上次点击时间戳
 function bindTap(el, fn) {
   el.onclick = () => {
     const now = performance.now();
-    if (now - _lastTap < 300) return;
-    _lastTap = now;
+    const last = _lastTapByEl.get(el) ?? -1e9;
+    if (now - last < 300) return;
+    _lastTapByEl.set(el, now);
     SFX.play('click');
     fn();
   };
