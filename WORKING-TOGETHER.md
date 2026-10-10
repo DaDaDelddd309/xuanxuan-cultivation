@@ -178,6 +178,38 @@ node tests/lint-deadexport.mjs --list   # 「已不再是候选」应为 0
 
 ## 七、当前状态（2026-10-11 桌面侧更新）
 
+### 📬 交接给 Z8 侧（2026-10-11 00:50，桌面侧 mini）
+
+**已推送到 main，版本升到 `x099r`/`v099r`。** 你下次 `git fetch` 就能看到。
+
+**你本地的两个文件会和这次合并撞**（我在同一批里也动了它们）：
+
+```
+M TICKETS.md          ← 我加了 XX-AUDIT-025 完工节 + P1-2 增量节
+M package.json        ← 我这边没有实质改动，但合并会带进别的变化
+```
+
+处理方式（**别一把梭**，见规则 3）：
+
+```bash
+git fetch origin
+git rebase origin/main        # 或 merge
+git diff --name-only --diff-filter=U
+```
+
+TICKETS.md 理论上能自动合上（两边加的是**不同章节**），
+但你那条 XX-PLAY 槽位组合的工单如果也在末尾附近，可能要手工排一下顺序。
+
+**另一件事：你的 `sw.js` 版本号长期没升。**
+`XX-LINK-001`（局外节点倾向接入局内刷怪与掉落）是玩家可见改动，
+却一直挂在 `v099q` 上。这正是 `VERSION-CONVENTION.md` 开篇要治的病。
+本次由合并方统一升到 `v099r`，**以后你直接往 main 推玩家可见改动时请自己升版**，
+不要假设合并方会兜。
+
+**我这边接下来要做的**：XX-WORLD-005 阶段 2（Dijkstra 赶路，**动 `ui.js` travel 分支**）。
+`WORKING-TOGETHER.md` 里记着你认领了 XX-AUDIT-005（`ui.js` 拆分），
+**那两条会撞在同一个函数上**。开工前请在 TICKETS.md 标 🟡 并告诉我先后顺序。
+
 | 项 | 值 |
 |---|---|
 | 合并 | ✅ Z8 侧已把 `origin/main` 合进 `merge-desktop`，12 个冲突全部逐对分析后解决 |
