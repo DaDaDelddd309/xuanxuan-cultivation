@@ -6492,3 +6492,100 @@ enemies 的 90px/×8%+30 等。**漂移集中在「注释在给活代码写具�
 2. **loot.js 三个死 cap**——补进 `CAPPED` 还是改 JSDoc 承认它们不生效?
 3. **weapons.js 死数组**——删掉 + 改注释,还是接回 v3 实现?
 4. 文件头 CONTRACT 旧数值要不要保留(当补丁史)还是同步成当前真值?
+
+---
+
+## XX-AUDIT-026 · 三路并行审计：断链 / 重复定义与存档键 ⛔ 2 条产品级待修
+
+**发现时间**：2026-10-11（owner 要求「把以前的坑找出来严谨仔细排查」，分三路并行）
+**方法**：三路 explore 只读排查，全程禁用 `npm test`/`npm run lint`/重模拟（本机 CPU 吃紧）。
+每条发现要求给出可复现证据；**无法验证的一律单列「待验证」，不混进已确认**。
+
+> 与 XX-PLAY-015/017 同源的一类坑：**注释/结构说的和代码做的不一致**。本次是系统性重扫。
+
+## ① 断链审计（V0.92 类）
+
+### A1 ★★ 功法升星对战斗零影响 —— 玩家花钱升星，战斗数字纹丝不动
+`js/xiuxian/artstar.js:79-92` 的 `ARTSTAR.effect(id)` 是**星数→战斗属性的唯一桥梁**
+（`power: 1+st*0.12`、`reach: 1+st*0.06`、`st>=3` 多一次），它自己的注释就写着「纯数据,交给调用方」。
+`grep -rn "ARTSTAR\.\|artstar" js` 排除自身后**只有 4 处 import，没有任何一处调用 `effect`**；
+反向 grep `battle.js`/`arts.js`/`player.js` 里的 star → **零命中**。
+**玩家侧链路却是通的**：扣金币+传承书、toast「升至 ★★★·万法归一」、`arts.js:62` 显示 ★，
+然后威力/射程/次数**一个数都不变**。
+> 形状与 `tests/lint-deadwire.mjs:15-18` 记录的 `player.gearBonus` 事故**完全一致**。
+
+### A2 ★★ 跨区域链路断在装配层 —— 区域已画出来，相邻关系永远建不起来
+`network.js:469` 的 `bindRegions()` **零调用点**（grep 全仓只有定义和两行注释）
+→ `NODE_REGION_REF` 永远 null → `regionAdjacency()` 恒返回空 Map，
+而 `regionAdjacency()` **自己也零调用**。
+但 `regions.js:198` 的 `NODE_REGION` 早就导出好了，**数据在、注入函数在、唯独没人调**。
+且 `FEATURE_FLAGS.regions=true`、`ui/map.js:100-104` 正在真渲染区域色块，
+`ROADS` 里有 14 处 `crossesRegion:true` 的**活跃数据**（非 PENDING）却无人校验。
+
+### A3 ★ 建筑落位被丢弃 —— 建筑总往左堆，且灵田自动下种静默失效
+`build.js:156` 把 `slot` 存成 `inst.slot`（**该字段全仓从未被读取**），
+却用 `this.s.placed.push(inst)` 追加到数组末尾；而**所有消费方一律按数组下标取**
+（`harvest(bidx)` / `canAssign` / `assign` / `tickField` / `remove` / UI 渲染 `placed[i]`）。
+玩家点空格 N → 建筑渲染在**别的格子**；`ui.js:465` 取到 undefined →
+`BUILD.harvest(+v)` 灵田自动下种**静默不执行**。只有恰好点「下一个顺序空格」才对上。
+（建材**种类**选择是通的，坏的只是**落位**。）
+
+### A4 ○ 节点 facet 身份层整层不可见
+`nodes.js:97` 的 `NODE_FACETS`（7 个面向）零消费，`.facets` **零运行时读取**。
+但 7 个节点已打了标签，其中 4 个是玩家看得见的 legacy 节点。
+`nodes.js:12` 声明「身份用 facet 表达」、`types.js:208` 有契约，**地图上一个都不显示**。
+
+### A5 ○ `adjacentRegions()` 是直接 throw 的地雷
+`regions.js:213-215` 函数体只有 `throw`，注释却宣称「由 network.js 的 regionAdjacency() 实现并覆盖」
+——而 A2 已证 `regionAdjacency` 不可用，名字都不一样。当前零调用，但**任何未来接线都会直接抛**。
+
+## ② 重复定义 / import 分裂 / 存档键
+
+### 模块身份分裂：**0 处**（已修且有常驻门禁）
+103 个模块、82 个纯路径 / 21 个带戳 / **0 个分裂**；门禁 `lint-module-identity.mjs` 挂在 `npm run lint`。
+`2f249b7` 已修过 5 处（spawner / core-save / core-engine / gear / core-audio）。
+
+### 重复定义：**0 处**
+模块顶层重复声明 0、对象字面量重复成员 0（自写扫描器，**先用 4 个阳性对照验证过**，
+其中 C1 正是 V0.89 那个形态 `showStoryDone(v){}` 重复两次）。
+V0.89 的两个符号已拆分完毕：`ui/story.js:136/:165` 实现 + `ui.js:1034-1035` 转发壳；
+ui.js 已从 1394 行降到 1070 行、下挂 `ui/` 14 个子页。
+
+### C1 ★ 唯一还能静默毁数据的点：`relations.js:98` 的 Titles 裸 parse
+```js
+load() {
+  try { const r = localStorage.getItem('xx_titles_v077');
+        if (r) this.s = JSON.parse(r); } catch {}   // ← 无 def 合并
+}
+```
+全仓**唯一**一处 `load()` 不做默认合并（同文件 `Nemesis.load()` 反倒是正确的 `{...this.s, ...JSON.parse(r)}`）。
+存档若缺 `flags`/`active` → `Titles.track()` 的 `this.s.flags[action] = ...` 与
+`add()` 的 `.active.includes()` 抛 TypeError → 紧随的 `save()` 把残缺形状**固化回存档**。
+**形态与藏了 13 个版本的 V0.77 P0 完全一致。**
+
+其余 27 个存档键逐个核对过 `def` 覆盖度，**全部安全**：
+`Cult` 走 `defaultState()` 且 `init()` 确实调了 `load()`（V0.90 修复在位）；
+`camp` 用未污染初始态深拷贝做 def（最稳）；`gear` 的 `sanitize()` 逐字段强制回填（最防御性）；
+Profile 统一档的 `EMPTY` 与 `collect()` 写入字段精确对应。
+
+### 两个尚未成灾的隐患
+- `js/ui/hud.js` 用 `?r=8`，与其余全用 `?v=` 的戳体系不同 —— 再加一个不带戳的 import 就会立刻分裂。
+- `js/core/palette.js` 与 `js/pix/palette.js` 同名不同目录（URL 不同故不冲突，但是可读性陷阱）。
+
+## ③ 注释漂移
+
+已单独记在 XX-PLAY-017。最严重的是 `player.js:114` 声称的「攻击成长总上限 ×2.84」**不存在**
+（实测 lv=30 就是 2.920、lv=60 是 4.934，比它声称已替换的旧曲线还高）。
+
+## ⏳ 优先级建议
+
+| 级别 | 条目 | 理由 |
+|---|---|---|
+| **P0** | A1 升星零影响 | 玩家花钱且 UI 全程显示，唯独收益为零 —— 同 `gearBonus` 事故 |
+| **P0** | `player.js:114` 假上限 | 数值安全，30 级就破，一局典型就能到 |
+| **P1** | A2 跨区装配层 | 数据与函数都在，只差一行调用 |
+| **P1** | A3 建筑落位 | 玩家「点哪建哪」实际不成立，且连带灵田失效 |
+| **P1** | C1 Titles 裸 parse | 唯一还能静默毁数据的点 |
+| **P2** | A4 / A5 / loot 死 cap / weapons 死数组 / companion JSDoc 打架 | 清理类 |
+
+> P0/P1 都需要 owner 拍板或授权才能改 `js/`（`AGENTS.md` 第六节第 3 条），本轮**一条都没擅自动**。
