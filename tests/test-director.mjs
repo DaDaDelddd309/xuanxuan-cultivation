@@ -14,7 +14,7 @@ const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
 globalThis.localStorage = {
   getItem: () => null, setItem: () => {}, removeItem: () => {},
 };
-const { Director, P, WARD_BY_PHASE, wardTarget, stepWard, resetWard, computeWard, wardSlack, wardSafe,
+const { Director, P, WARD_BY_PHASE, wardTarget, stepWard, resetWard, computeWard, wardSlack, canIdleCamp,
          tickEmber, resetEmber, emberPoints } =
   await import('../js/game/director.js');
 const { ENEMY_TYPES } = await import('../js/game/enemies.js?v=17');
@@ -331,8 +331,8 @@ console.log('\n[12] 护栏 ↔ 拾取:一条可投入的成长线');
   ok('但也没有无限大到没有取舍', tiny <= 4000 * 2.7, `ward=${tiny}`);
 
   // 挂机判定要真的可用
-  ok('1 级不算能挂机', wardSafe(1, LOW_PICKUP) === false);
-  ok('5 级 + 小拾取范围 = 能挂机', wardSafe(5, LOW_PICKUP) === true);
+  ok('1 级不算能挂机', canIdleCamp(1, LOW_PICKUP) === false);
+  ok('5 级 + 小拾取范围 = 能挂机', canIdleCamp(5, LOW_PICKUP) === true);
 }
 
 console.log('\n[13] 篝火余烬:夜里缠身 + 将熄预告');

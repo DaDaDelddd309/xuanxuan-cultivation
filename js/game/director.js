@@ -275,8 +275,20 @@ export function wardSlack(ward, pickup) {
   return Math.max(0, Math.round(pickup - ward));
 }
 
-/** 这套护栏能不能让玩家挂机:护栏完全盖住拾取范围,且篝火等级够高 */
-export function wardSafe(campLv, pickup) {
+/**
+ * 这套篝火护栏能不能让玩家**挂机**:护栏完全盖住拾取范围,且篝火等级够高。
+ *
+ * ⚠️ 原名 `wardSafe`(XX-AUDIT-024 已改名)。`Safe` 会被读成
+ *    「玩家在此是否安全」—— 但护栏**根本不负责赶妖**:
+ *    驱敌是 main.js 的物理推出,护栏只画一个圈。
+ *    这个函数从头到尾问的是「能不能挂机」,所以叫 canIdleCamp。
+ *    邻居都是 ward* 前缀,这里故意不跟 —— 它不是护栏的一个量,是护栏的**用途判定**。
+ *
+ * 产品侧目前无人调用,只有 tests/test-director.mjs 在验这条规则。
+ * **不要为了「让它有意义」去接 UI** —— 营地页目前没有挂机提示这个概念,
+ * 凭空造一个是为函数找场景(见 XX-AUDIT-024 / XX-AUDIT-031 同款记录)。
+ */
+export function canIdleCamp(campLv, pickup) {
   return Math.max(1, campLv) >= 3 && wardSlack(computeWard({ campLv, pickup }), pickup) === 0;
 }
 

@@ -100,3 +100,11 @@ js/xiuxian/world.js :: rollEnemy
 # 删函数要连带动样式,属独立清理工单,不适合夹带在缺陷修复里。
 # ⚠️ 不要为了「让它有意义」而去调用它 —— 那是为函数找场景,不是为场景找函数。
 js/xiuxian/companion-broadcast.js :: setVisible
+# 「能不能挂机」的判定(XX-AUDIT-024,原名 wardSafe)。
+# 改名不是为了让门禁闭嘴 —— 它**仍然只有测试在调**,收基线与改名是两件事:
+#   命名问题  → 已改 canIdleCamp()(wardSafe 会被读成「玩家是否安全」,
+#               但护栏根本不负责赶妖,驱敌是 main.js 的物理推出)
+#   可达性问题 → 收基线。营地页没有「挂机提示」这个概念(ui.js:70 只有篝火
+#               作为建筑需求),接 UI 等于凭空造功能。
+# ⚠️ 不要为了「让它有意义」而去接 UI —— 那是为函数找场景,不是为场景找函数。
+js/game/director.js :: canIdleCamp
