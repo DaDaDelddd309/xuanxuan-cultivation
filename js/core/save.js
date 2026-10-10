@@ -1,15 +1,29 @@
 // ===== 🖥️ UI agent 名下:本地存档(容错解析 + 字段校验 + 坏档回默认) =====
-// 结构契约:{v,gold,chars,settings,best,totalRuns,totalKills}  key:'pxs_save'
+// 结构契约:{v,gold,chars,settings,best,gear,totalRuns,totalKills}  key:'pxs_save'
 const KEY = 'pxs_save';
 
 // 角色白名单(与 CHARACTERS 一致,防脏数据混入)
 const VALID_CHARS = ['knight', 'mage', 'ranger', 'white'];
+
+// 装备槽位 + 装备 id 白名单(XX-EQUIP-003)。
+// 这里**重复声明**而不从 game/gear.js import:save.js 是最早被加载的模块,
+// 从它拉 gear.js 会把整个游戏层拖进 UI 层依赖链,方向反了。
+// 两份列表若不一致,由 tests/gear-regression.mjs 的存档契约段报出来 ——
+// 比运行时才发现「存档里有件不存在的装备」便宜得多。
+const VALID_SLOTS = ['head', 'body', 'hand', 'foot'];
+const VALID_GEAR = [
+  'hongyi_garment', 'laolao_hairpin', 'baize_claw', 'dangkang_ring',
+  'qingqiong_robe', 'jiangu_blade', 'shijiang_seal', 'dengshi_lamp',
+];
 
 function defaults() {
   return {
     v: 1, gold: 0, chars: ['knight'],
     settings: { sfx: true, music: true, shake: true, lowgfx: false, fpsShow: false },
     best: { time: 0, kills: 0, level: 0, victory: false },
+    // 装备:槽位 → 装备 id。新档全空 —— 送了新手装备就会让
+    // 「结案 → 掉装备 → 穿戴」这条链变成可有可无(那是 XX-EQUIP-005 要验的东西)。
+    gear: { head: null, body: null, hand: null, foot: null },
     totalRuns: 0, totalKills: 0,
   };
 }
@@ -46,6 +60,14 @@ function sanitize(raw) {
   }
   d.totalRuns = toInt(raw.totalRuns, 0);
   d.totalKills = toInt(raw.totalKills, 0);
+  // 装备:逐槽清洗。旧档没有 gear 字段 → 全空(不是报错,是正常升级路径)。
+  // 槽位不合法或装备 id 不在白名单 → 当作没穿,而不是崩。
+  if (raw.gear && typeof raw.gear === 'object') {
+    for (const slot of VALID_SLOTS) {
+      const id = raw.gear[slot];
+      d.gear[slot] = (typeof id === 'string' && VALID_GEAR.includes(id)) ? id : null;
+    }
+  }
   return d;
 }
 

@@ -18,6 +18,7 @@ const CORE = [
   'js/core/engine.js', 'js/core/camera.js', 'js/core/input.js', 'js/core/save.js', 'js/core/audio.js',
   'js/game/player.js', 'js/game/map.js', 'js/game/particles.js', 'js/game/enemies.js',
   'js/game/weapons.js', 'js/game/director.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
+  'js/game/gear.js',   // 装备数据层(XX-EQUIP-002/003) —— main.js 已 import,必须进预缓存
   'assets/portrait/villain-shexie.jpg', 'assets/portrait/villain-nvxia.jpg', 'assets/portrait/villain-yaohou.jpg', 'assets/portrait/villain-youfang.jpg', 'assets/portrait/villain-heifeng.jpg', 'assets/portrait/villain-shougu.jpg',
   'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/bestiary.js', 'js/ui/screens.js', 'js/ui/joystick.js',
 ];
