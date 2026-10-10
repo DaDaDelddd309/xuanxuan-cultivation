@@ -99,6 +99,45 @@ sv up sshd    # 交给 runit 托管（推荐）
 「手动 sshd + runit + watchdog」三套保活抢同一批端口、写同一个 pidfile，
 开机必然出现「启动失败（端口被占用?）」。
 
+## 推 GitHub 时 github.com:443 不通 —— 按 IP 绕过（2026-10-10 实测）
+
+**症状**：`git push` 卡 130 秒后 `Failed to connect to github.com port 443`，
+反复重试无果；但同一时刻 `ssh.github.com:443`、清华镜像、npm 镜像全都通。
+
+**不是断网，是按 IP 过滤**：DNS 把 `github.com` 解析到 `20.205.243.166`，
+这个 IP 连不通；而**同子网相邻的 `20.205.243.160`（即 `ssh.github.com`）、`.168`，
+以及 `20.27.177.113`、`140.82.113.4` 都可达**。是那一个 IP 的问题，不是 GitHub 的问题。
+
+```sh
+# 先找一个可达的 GitHub IP
+for ip in 20.27.177.113 140.82.113.4 20.205.243.160 20.205.243.168; do
+  timeout 6 sh -c "cat </dev/null >/dev/tcp/$ip/443" 2>/dev/null && echo "OK $ip"
+done
+
+# 再用它推送（curloptResolve 只改解析，Host 与 TLS SNI 仍是 github.com）
+git -c "http.curloptResolve=github.com:443:20.27.177.113" push origin HEAD:main
+```
+
+这些 IP 用 `curl --resolve github.com:443:<ip>` 验证过：
+`info/refs?service=git-upload-pack` 返回 **HTTP 200**，`ssl_verify_result=0`
+（证书校验通过，因为 SNI 仍是 `github.com`）。
+
+⚠️ **不要改 `/etc/hosts`**：那是全局解析改动，会影响 Termux 里所有程序；
+`curloptResolve` 只作用于这一次 git 调用。
+⚠️ 换网络后 GitHub 的 IP 段会变，上面的 IP 只是本次实测可用，**每次用前先探测**。
+
+**推不上去时的替代路径**：GitHub 不通不影响三台互相同步 ——
+本机可以直接往手机的仓库推（注意用 `git push <ssh-url> HEAD:main`，
+且**不要加 `--force`**；手机工作区可能有对面 agent 的未提交改动）：
+
+```sh
+GIT_SSH_COMMAND="ssh -F /dev/null -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null -o BatchMode=yes -i ~/.ssh/pc_keys/<key> -p 8022" \
+  git push "ssh://<user>@<ip>:8022/data/data/com.termux/files/home/<repo>" HEAD:main
+```
+
+这样只更新远端 `main` ref，手机上**当前签出的分支和未提交改动原样不动**。
+
 ## 待办
 
 - **三台都没装 Termux:Boot**（`com.termux.boot` 不在已装包里，只有 `com.termux`）。
