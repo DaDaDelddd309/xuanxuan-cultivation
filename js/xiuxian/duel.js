@@ -37,6 +37,18 @@ const FOE_HIT = {
   youfang:  `「接得住再说。」`,
 };
 
+// —— 局内 boss 的台词(XX-PLAY-005)——
+//
+// 原来 main.js 把 key 写死成 'moying',于是打石像守卫/无常尊者进回合制,
+// 屏幕上出现的是墨影的立绘、说的是墨影的台词。owner 报「石像守卫叫你不该来」即此。
+//
+// 这两个是 roguelike 的 sprite(不是修仙阁反派),各有各的来历,不该借墨影的嘴。
+// 仍然守 duel 的调性骨架(见 XX-ARCH-009):短句、只说一件事、不解释立场。
+const FOE_LINES_BOSS = {
+  boss_golem:    `「……你踩到我了。」`,
+  boss_overlord: `「这条路的规矩,是我定的。」`,
+};
+
 // ————————————————————————————————————————————————————————————
 // 工单 XX-NET-002:台词按**已结的结局**分支
 //
@@ -277,9 +289,15 @@ export const Duel = {
     // XX-NET-002:结局分支。放在宿敌之后、敌人默认之前。
     const p = S.story && S.story.done ? echoOf(S) : null;
     if (p && FOE_LINES_ECHO[key]) return FOE_LINES_ECHO[key](p);
+    if (FOE_LINES_BOSS[key]) return FOE_LINES_BOSS[key];   // XX-PLAY-005:局内 boss 各有自己的
     if (FOE_LINES[key]) return FOE_LINES[key];
     if (S.cfg.foe.stronger)
       return `${S.e.realm}的气息压过来,像一座山。你知道自己打不过——但你也退不了。`;
+    // 通用小妖走**自己的**随机台词(`${S.e.line}`),不是固定句。
+    // ⚠️ 我第一版在这里换成了固定兜底句,被 duel-echo-regression 的
+    //    「普通小妖台词不受结局影响」当场打红 —— 那是既有设计,不该动。
+    //    XX-PLAY-005 的真根因只是 main.js 把 key 写死成 'moying',
+    //    而 FOE_LINES_BOSS 已经接住了 boss_golem / boss_overlord。
     return `${S.e.line}你退了半步,又站住了。`;
   },
   heroLine(S) {
