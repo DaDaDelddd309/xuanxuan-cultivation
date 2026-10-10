@@ -87,21 +87,51 @@ while (stack.length) {
   const v = stack.pop(); if (seen.has(v)) continue; seen.add(v);
   for (const w of graph.get(v) || []) if (!seen.has(w)) stack.push(w);
 }
+// 【阶段化白名单】—— 2026-10-10 工单 XX-WORLD-001 起
+//
+// 有些模块是**故意**先落地、后接线的:大世界的 types/nodes/regions/network
+// 四件套按工单要求「纯数据落地、FEATURE_FLAGS 全 false、world.js 一行不改」,
+// 也就是阶段 0。它此刻必然是死代码 —— 但它是**有计划地**死,不是忘了接线。
+//
+// 白名单规则(刻意做得很严):
+//   · 必须逐个列出文件路径,不允许前缀/通配
+//   · 必须写清「哪个工单、哪个阶段接它」
+//   · 阶段一旦落地,该条**必须删掉** —— 否则就变成了永久豁免,而豁免是腐烂的起点
+// 到期没删时,本门禁会打印提醒(不阻断),让「该接线的还没接」重新变得可见。
+const STAGED = {
+  'js/xiuxian/world/types.js':   'XX-WORLD-004 阶段 1:区域上地图时接线',
+  'js/xiuxian/world/nodes.js':   'XX-WORLD-004 阶段 1:visibleNodes 接入 UI',
+  'js/xiuxian/world/regions.js': 'XX-WORLD-004 阶段 1:区域着色与危险度',
+  'js/xiuxian/world/network.js': 'XX-WORLD-005 阶段 2:Dijkstra 赶路',
+};
 const dead = [...graph.keys()].filter(k => k !== ENTRY && !seen.has(k)).sort();
-if (dead.length) {
-  console.log(`  ❌ ${dead.length} 个模块从 ${ENTRY} 不可达(写好了但没人用):`);
-  dead.forEach(d => console.log(`     ${d}`));
+const deadStaged = dead.filter(d => STAGED[d]);
+const deadReal = dead.filter(d => !STAGED[d]);
+if (deadReal.length) {
+  console.log(`  ❌ ${deadReal.length} 个模块从 ${ENTRY} 不可达(写好了但没人用):`);
+  deadReal.forEach(d => console.log(`     ${d}`));
   bad++;
 } else {
-  console.log(`✅ 无死代码(${graph.size} 个模块全部从入口可达)`);
+  console.log(`✅ 无死代码(${graph.size} 个模块全部从入口可达${deadStaged.length ? `,${deadStaged.length} 个阶段化暂存` : ''})`);
+}
+for (const d of deadStaged) {
+  console.log(`  ⏳ 暂存(按计划未接线): ${d}  ← ${STAGED[d]}`);
+}
+
+// 白名单自身也要能过期:阶段早就到了却还挂着,提醒一次
+for (const [p, why] of Object.entries(STAGED)) {
+  if (!dead.some(d => d === p)) {
+    console.log(`  ⚠️ 白名单里的 ${p} 已经接上线了,这条可以删掉(${why})`);
+  }
 }
 
 // ---------- 3. 孤儿(无人 import) ----------
 const imported = new Set([...graph.values()].flat());
 const orphan = [...graph.keys()].filter(k => k !== ENTRY && !imported.has(k));
-if (orphan.length) {
-  console.log(`  ❌ ${orphan.length} 个模块无人 import:`);
-  orphan.forEach(d => console.log(`     ${d}`));
+const orphanReal = orphan.filter(o => !STAGED[o]);
+if (orphanReal.length) {
+  console.log(`  ❌ ${orphanReal.length} 个模块无人 import:`);
+  orphanReal.forEach(d => console.log(`     ${d}`));
   bad++;
 }
 

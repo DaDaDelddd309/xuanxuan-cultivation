@@ -3,6 +3,7 @@ const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 预缓存清单重复 → 每次 addAll 白下载一遍
 // 清单里有文件不存在 → 整个 install 失败,SW 不注册
 import { readFileSync, existsSync, readdirSync } from 'fs';
+import path, { normalize } from 'path';
 import { stripComments } from './lib-swlist.mjs';
 const ROOT=__ROOT__+'';
 const s=readFileSync(ROOT+'/sw.js','utf8');
@@ -51,7 +52,41 @@ per.forEach(items=>items.forEach(x=>{
     return out;
   };
   const all=walk(ROOT+'/js').concat(walk(ROOT+'/css'));
-  const miss=all.filter(f=>!listed.has(f));
+
+  // 【阶段化未接线文件】—— 2026-10-10 工单 XX-WORLD-001
+  //
+  // 「磁盘有、清单没有」有两种完全不同的成因:
+  //   ① 真事故:文件已经在 main.js 的 import 图上,但漏登记进 sw.js。
+  //      离线/PWA 下白屏 —— 审计批 2 就是这么丢的(.github/workflows/ci.yml)。
+  //   ② 按计划未接线:工单明确要求「纯数据落地、world.js 一行不改」,
+  //      于是文件此刻**根本不在 import 图上**,不进预缓存是**正确**的。
+  //
+  // 本 lint 第一版只判存在性,不判因果,所以 ② 也被报红 —— 报的还是
+  // 「离线会白屏」这种极重的措辞,而实际上离线根本不会加载它。
+  //
+  // 判据:**只有确实无人 import 的文件才豁免**。一旦它被接线了,
+  // 本条立刻恢复报错 —— 豁免跟着因果走,不是跟着文件名走。
+  const sources = walk(ROOT+'/js');
+  const imported = new Set();
+  const IMPORT_RE = /(?:^|[;\n])\s*import\s[^'"\n]*?from\s*['"]([^'"]+)['"]/g;
+  for (const f of sources) {
+    let src; try { src = readFileSync(ROOT+'/'+f,'utf8'); } catch { continue; }
+    for (const m of src.matchAll(IMPORT_RE)) {
+      const spec = m[1].split('?')[0];
+      if (!spec.startsWith('.')) continue;
+      imported.add(normalize(path.resolve(path.dirname(ROOT+'/'+f), spec)));
+    }
+  }
+  const isWired = rel => imported.has(path.resolve(ROOT+'/'+rel));
+
+  const missAll = all.filter(f=>!listed.has(f));
+  const missUnwired = missAll.filter(f=>!isWired(f));      // 按计划未接线 → 豁免
+  const miss = missAll.filter(f=>isWired(f));              // 接了线却没登记 → 真事故
+
+  if(missUnwired.length){
+    console.log(`  ⏳ ${missUnwired.length} 个文件按工单计划尚未接线,暂不进预缓存:`);
+    missUnwired.forEach(m=>console.log(`     ${m}`));
+  }
   if(miss.length){
     console.log(`  ❌ 磁盘有、预缓存清单没有 ${miss.length} 个(离线会白屏):`);
     miss.forEach(m=>console.log(`     ${m}`));
