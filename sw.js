@@ -20,7 +20,7 @@
 //
 // ⚠️ 这次是**两边都升到 v099s 之后的撞车**(VERSION-CONVENTION §2 警告过的情况):
 //   合并方按规则再升一格 → v099t。已缓存 v099s 的客户端必须靠这个版本号差才能更新 sw.js。
-const V = 'xuanxuan-v099u';
+const V = 'xuanxuan-v099v';
 const BUILD = '20261011-0200';
 
 const CORE = [

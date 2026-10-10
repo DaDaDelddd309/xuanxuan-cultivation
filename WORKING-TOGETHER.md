@@ -180,7 +180,7 @@ node tests/lint-deadexport.mjs --list   # 「已不再是候选」应为 0
 
 | 项 | 值 |
 |---|---|
-| 当前版本 | `x099u`（**Z8 侧升的**，`v099t→v099u`，见 `4e76af6`） |
+| 当前版本 | `x099v`（**Z8 侧升的**，`v099u→v099v`，见 `e5e8528`） |
 | 死导出基线 | **30 条**（原 17 条 + 13 条 XX-WORLD 阶段脚手架），候选 30/30，新增 0 |
 | CI | `check` ✅ / `browser` ❌ **2/8**（run `38073937451`）—— **6 个红已全部定位，4 个完整定位，见第四节** |
 | 合并 | ✅ Z8 侧已把 `origin/main` 合进 `merge-desktop`，12 个冲突逐对分析后解决 |
@@ -286,6 +286,21 @@ tomb.beat[0]   要 n8(boss)    →   5/200 (  2.5%)   ⚠️ 随种子漂
 > **是测试只按写死的 `b.node` 走**（`t88.py:50` 的 `for(const b of beats) STORY.arrive(b.node)`），
 > 于是 78% 的种子过不去。测试没钉种子。
 
+**这条不是读代码推的，是实测的。** 用真实 `worldgen` 挑一个 `n4=field / n5=secret`
+的种子（seed 0），同一个 `STORY` 实例跑两种走法：
+
+```
+种子 0(真实 worldgen)
+  n4=field  n5=secret   ← beat[2] 要 n4=secret, beat[3] 要 n5=elite
+  这张图里真正的 secret 节点=n5   elite 节点=n6
+
+  按写死 id 走(t88 现在的写法)      beat=3/4  readyFinish=false   ❌ 推不完
+  走同类节点(玩家的真实做法)        beat=4/4  readyFinish=true    ✅ 推完
+```
+
+> **兜底分支确实有效。** 玩家推得动主线，推不动的是测试的走法。
+> 所以这条**不要**按产品缺陷报出去 —— 那会把「测试写错了」说成「游戏坏了」。
+
 ##### ③ `full79` —— 点了个被冻结掉的按钮
 
 `tests/full79.py:82` 无条件 `click('[data-act=meditate]')`，
@@ -364,6 +379,42 @@ enter() ok=true at=dk → move('qd') ok → move('ce') ok → move('qd') ok → 
 | **B** | 你接 ⑤⑥ 里疑似与玩法相关的部分（灵气吸取、墓道结局），我只交付 ①②③④ |
 
 要 B 的话请在 `TICKETS.md` 的 XX-AUDIT-033 标 🟡 并留一句，我照你的来。
+
+#### 🚨 七、另外：`f178bab`（village 经验 P0）把一条测试变成了**抛硬币**
+
+这不是我的改动，是合并你 `e5e8528` 时跑基线撞见的（`check` rc=1），但它会卡住所有人，先报你。
+
+**症状**：`test-runcfg-loot-wiring` 的 `[6]` 在**完整 `npm run check` 里挂**，单独跑却过：
+
+```
+完整 check:   ❌ 五种节点的掉落画像互不相同 — 4/5 唯一
+                 village  gemXp=2400  coin=303  meat=9   chest=0
+                 field    gemXp=2400  coin=303  meat=9   chest=0     ← 与 village 完全相同
+单独跑该文件: ✅ PASS (17 通过 / 0 失败)
+                 village  gemXp=2400  coin=290  meat=11  chest=0
+                 field    gemXp=2400  coin=320  meat=6   chest=0     ← 不同
+```
+
+**根因**：`f178bab` 把 `runcfg.js` 的 village `loot` 从 `{0,0,1.0,1.0}` 改成 `{1.0,1.0,1.0,1.0}`，
+于是 **village 与 field 的倍率完全相同**。而 `[6]`（`tests/test-runcfg-loot-wiring.mjs:146-153`）
+是用**共享 RNG** 每种采一次 `killBatch(600, MOB)`，签名取
+`[gemXp, coin, meat, chest]`：
+
+- 改之前：village 的 `gemBias=0` 让它 `gemXp=0`，**结构上**就不可能和 field 撞 → 永远过；
+- 改之后：两者倍率一样，签名唯一性**只能靠随机计数恰好不同** → **抛硬币**。
+
+> 所以准确的说法不是「[5] 和 [6] 互相矛盾」，而是
+> **这个 P0 修得对，但顺手把一条确定性断言变成了概率性断言。**
+
+**两个方向，你定**（我没动 `runcfg.js`）：
+
+| | 做法 | 代价 |
+|---|---|---|
+| **i** | village 保留 `gemBias=1`（P0 照修），但给 `coinBias`/`meatBias` 一个和 field 不同的值 | 既保住 P0，又保住 `[6]` 的「五种画像互不相同」设计意图 |
+| **ii** | 承认 village ≡ field 是设计（`note` 写的就是「从村庄出发·平稳开局」），把 `[6]` 改成只比 `field/elite/secret/boss` 四种，外加一条显式断言 village ≡ field | 更诚实，但等于承认村庄在掉落上不再有独立画像 |
+
+> 顺带：`[6]` 的标题写「**四种**节点掉落画像」，实际断言的是**五种**（`sig.size === 5`）。
+> 改的时候一并修掉。
 
 #### 五、推代码不用再经我中转
 
