@@ -28,6 +28,10 @@ const XX = [
   'js/xiuxian/ui.js', 'js/xiuxian/duel.js', 'js/xiuxian/items.js', 'js/xiuxian/camp.js',
   'js/xiuxian/merchant.js', 'js/xiuxian/companion.js', 'js/xiuxian/bond.js',
   'js/xiuxian/ritual.js', 'js/xiuxian/loot.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
+  // XX-WORLD-004:ui.js 现在**运行时**import 这两个。阶段 0 时它们零消费者,
+  // 不在预缓存里没关系;阶段 1 接上线后就必须有 —— 否则离线时 SW 取不到,
+  // ui.js 整个模块加载失败,修仙阁直接白屏。network.js 仍未接线,留给 WORLD-005。
+  'js/xiuxian/world/nodes.js', 'js/xiuxian/world/regions.js',
   'js/xiuxian/tomb.js', 'js/xiuxian/nag.js', 'js/xiuxian/spirit.js', 'js/xiuxian/mount.js',
   // V0.98 补齐:这批文件在 V0.86~V0.90 重写清单时被漏掉,
   // 但它们都在 main.js / ui.js 的**静态 import 图**上 ——
@@ -47,7 +51,7 @@ const XX = [
   // 它们就在 ui.js 的**静态 import 图**上 —— 原生 ESM 全有或全无,
   // 离线拉不到任意一个就是整页白屏。dom.js 是共享 DOM 辅助(esc/toast),
   // 视图模块和 ui.js 都依赖它,漏掉等于整页转义失效。
-  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/gear.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
+  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/gear.js', 'js/xiuxian/ui/map.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
   // 存档键集中注册表(XX-AUDIT-006 批 1)。
   // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
   // 离线拉不到就是整页白屏。

@@ -63,6 +63,7 @@ let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
 
 import { $, pct, esc, toast } from './ui/dom.js';
+import { regionLayer, regionLegend } from './ui/map.js';        // 区域色块(XX-WORLD-004)
 import { PORTRAIT } from './ui/portrait.js';   // 立绘映射表唯一一份(XX-AUDIT-005)   // 共享 DOM 辅助,唯一一份(XX-AUDIT-005)
 function tierNeedText(nx){
   if(!nx) return '已达顶级。';
@@ -890,6 +891,9 @@ export const Hall = {
       y: 9 + (n.y - y0) * sy,
     });
     let nodes = '', edges = '';
+    // XX-WORLD-004 区域层:11 个点 → 5 片地方。几何按当前种子现算,
+    // 只铺色块/危险度/势力名,不改任何判定。开关在 FEATURE_FLAGS.regions。
+    const rgnLayer = regionLayer(WORLD.nodes, pos, s, DAY.isNight());
     for (const e of WORLD.edges) {
       const a = nodeById(e[0]), b = nodeById(e[1]);
       const pa = pos(a), pb = pos(b);
@@ -951,7 +955,8 @@ export const Hall = {
         <button class="xx-btn main" data-act="tomb-enter">${TOMB.s.in?'继 续 往 下 走':'下 墓'}</button>
       </div>` : '');
 
-    return tombGate + storyHdr + `<div class="xx-map">${edges}${nodes}</div>
+    return tombGate + storyHdr + `<div class="xx-map">${rgnLayer}${edges}${nodes}</div>
+      ${regionLegend(WORLD.nodes, pos, DAY.isNight())}
       <div class="xx-card" style="margin-top:14px">
         <div class="xx-label">当前位置</div>
         <div class="xx-val">${esc(cur.name || cur.id)} · ${typeName}</div>

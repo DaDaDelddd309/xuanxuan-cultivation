@@ -4466,3 +4466,114 @@ try { cult = Cult.settle({...}); } catch (e) { console.warn('[cult-settle]', e);
 **反向验证两轮**：调回 1900Hz 方波 → 红；把音效一刀切全改 triangle → 4 条红。
 
 `check:full=0`
+
+<!-- ======== 以下为 z8/w004 侧(并行开发)追加 ======== -->
+
+<!-- 以下为 Z8 侧 2026-10-10 并行开发追加(XX-WORLD-004) -->
+
+---
+
+## XX-WORLD-004 · 区域上地图（阶段 1） ✅ 已落地
+
+**工单来源**：`docs/JOINT-DEV-PLAN.md` 线 B 阶段 1 —— 区域上地图：色块 + 危险度 + 势力名，
+**只改渲染**，11 个点 → 5 片地方。
+
+**落地范围**：`js/xiuxian/ui/map.js`（新）+ `ui.js vMap()` 接线 + `css/xiuxian.css`
++ `sw.js` 预缓存 + `FEATURE_FLAGS.regions` 翻 true + 两条门禁。
+
+### 一、开工前先验数据，结果推翻了实现方案
+
+工单说「区域上地图」。动手前我先量了一遍 `regions.js` 里那张手写的 `mapRect`，
+量出来的结论是**它不能用**：
+
+- 当前默认种子下，**12/15 个节点落在自己区域的矩形外面**；
+- 8 个种子 → **8 种布局**（地图由 `worldgen.generate()` 按种子生成），
+  所以任何静态坐标只对某一个种子成立，换种子整张图错位。
+
+**处置**：删掉全部 `mapRect`，改由 `regions.js regionRects(nodes, posOf)` 在渲染时
+按**当前可见节点的真实落点**现算包围盒。`types.js` 的 Region 契约同步删掉该字段。
+几何自检跨 12 个种子断言「每个成员都落在自己色块内」。
+
+### 二、三个真 bug（都不是这版代码引入的，是阶段 0 原样带进来的）
+
+| # | 位置 | 问题 | 后果 |
+|---|---|---|---|
+| 1 | `regions.js` | `n6` 同时写进 `r_luoyun` 与 `r_guzhan` | `NODE_REGION` 是 `flatMap` 建的，重复节点被后写区域**静默夺走** → `n6` 解析成 `r_guzhan`，与 `nodes.js` 声明的 `r_luoyun` 矛盾。而 `verifyRegionCoverage()` 用 `Set` 去重，12 条目覆盖 11 节点照样返回 ok，**重复完全隐形** |
+| 2 | `regions.js regionView()` | 白天分支乘的是 `dayNight.dayYieldMul`（**产出**倍率） | 「白天出丹多」被翻译成「白天更凶」：青岚秘境白天 2.2、古战场 3.15（应为 2 / 3）。`regionView` 当时**零测试覆盖** |
+| 3 | `ui/map.js` 第一版 | 拿 `visibleNodes()`（`NODES` 静态坐标）的节点配 `pos()` 的边界换算 | `NODES.x/y` 与 `generate(seed)` 产出的布局**不是同一套**，实测 11 个 legacy 节点里 **7 个坐标不同**。色块会整体错位，且**不报错** |
+
+第 3 条是我自己写进去的，被写进 `world-data-regression.mjs` 的跨种子断言当场抓住。
+已加断言 `NODES 与 WORLD 坐标确实不同源` 把该前提钉死。
+
+### 三、`verifyRegionCoverage()` 的第二个盲区
+
+它只查「节点没被任何区域覆盖」（orphan），**不查重复归属**。已补
+`verifyRegionMembership()`（唯一性 + 与 `nodes.js` 的 `region` 字段一致）与
+`verifyRegionDanger()`（区域危险度 = 成员 DENS 最大值，5 个区域实测 1/1/2/2/3 全部成立）。
+
+### 四、迷雾：区域名会剧透
+
+`n4` 所在区域叫「青岚秘境」，而 `n4` 本身是 `secret`。直接铺地名等于把伏笔提前拆了。
+所以：**成员一个都没去过的区域不写名字也不写危险度**，只写「未探之地」。
+这是渲染层的事，不该由玩法逻辑背。
+
+### 五、反向验证记录（5 条注入）
+
+| 注入 | 门禁反应 |
+|---|---|
+| 几何改回静态 `mapRect` | ✅ 抓到：12 种子 62 个节点在框外，退出 1 |
+| 昼夜倍率改回 `dayYieldMul` | ✅ 抓到：`r_qinglan 白天 2.2 ≠ 基础 2` |
+| 去掉迷雾（全报区域名） | ✅ 抓到 3 条 |
+| CSS 去掉 `pointer-events:none` | ✅ 抓到（色块吃掉点击 = 节点点不动） |
+| `n6` 重新塞回 `r_guzhan` | ✅ 抓到：`n6∈[r_luoyun+r_guzhan]` |
+
+**第二条第一次没抓到**，值得单独记：当时 §4 的断言是「屏幕上的危险度 == `regionView()` 返回的危险度」——
+等于让被检查的函数给自己作证，它坏了两边一起坏。补了一条**独立期望**
+（白天危险度 == 区域申报的基础值 `r.danger`，因为没有任何区域声明 `dayDangerMul`）才抓住。
+这就是本项目 P1-7「断言的期望值必须独立于被检查的数据」的第三次复现。
+
+### 六、门禁自身修的两个 bug
+
+- 断言「5 个 `.xx-rgn` 块」用 `/class="xx-rgn/g` —— 把 `xx-rgn-nm`/`xx-rgn-sub`/`xx-rgn-fa`
+  子元素一起数进来，实测 20。改成 `/class="xx-rgn[\s"]/`。
+- 图例行数用 `split('xx-lg-row').length`，`split` 在首尾各留一段，少减 1 恒差一。
+
+### 七、lint-deps 白名单按计划过期
+
+STAGED 里 `types/nodes/regions` 三条随本工单接线而失效，已删（门禁本会打印 ⚠️ 提醒）。
+`network.js` 保留（留给 XX-WORLD-005 阶段 2）。
+
+另新增 `TYPE_ONLY` 一类：`world/types.js` 是纯 typedef，引用只在 JSDoc `import()` 里，
+运行期无人 import 是**正确状态**。塞进 STAGED 会撒谎 —— 它不会在某个阶段「接上线」，
+那条过期提醒也会永远响，而提醒一响就等于没提醒。
+
+### 八、阶段 0 那条断言的教训
+
+`world-data-regression.mjs` §2 原本断言「六个开关全 false」。阶段 1 一落地它就假红。
+已改成断言「**开着的开关恰好等于已落地的阶段清单**」，白名单跟着工单走。
+门禁永远钉死 false / true 都会在下一阶段变成噪声 —— 而假红的门禁比没门禁更坏，
+因为大家会习惯性地忽略它。
+
+### 九、连带修 `lint-methods` 的一个假阳性（XX-WORLD-004 撞出来的）
+
+新建 `ui/map.js` 后 `npm run lint` 报：
+`❌ ui/map.js: 调用了 this.filter() 但没定义`。
+
+`ui/map.js` 里根本没有 `this.`。根因：该 lint 对 `ui/` 下的文件，把**导出函数的首形参**
+一律当成 hall，而 `regionLayer(nodes, posOf, s, isNight)` 的首参叫 `nodes` ——
+于是 `nodes.filter(...)` 被读成 `hall.filter(...)`。
+
+**处置**：显式排除语言内建方法名（`filter/map/forEach/slice/join/includes/…`），
+而不是把我的变量改名去迎合 lint —— 变量叫 `nodes` 是诚实的名字，为过 lint 而改名
+等于把工具的错误转嫁给代码。
+
+护栏与反向验证：
+
+- 内建名若同时也是 Hall 方法（实测 `round` / `log` / `assign` 三个都是），
+  自动移出内建集并打印 ⚠️，**不让排除规则漏掉真调用**；
+- 注入 `hall.thisDoesNotExistAnywhere()` / `hall.vTotallyMadeUp()` → 仍报错 ✅；
+- 注入 `this.render()`（合法 Hall 方法）→ 正确放行 ✅；
+- 注入一串 `.map().filter().join().slice().includes()` → 零假阳性 ✅。
+
+这个 lint 的注释里已经写过两次「假阳性淹没信号，那种 lint 等于没有 lint」。
+这是第三次撞上同一类问题，根因都是「把约定当成了无条件的定律」。
