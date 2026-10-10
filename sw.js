@@ -3,7 +3,7 @@
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v099p';
+const V = 'xuanxuan-v099q';
 const BUILD = '20261008-1710';
 
 const CORE = [
@@ -37,7 +37,17 @@ const XX = [
   'js/xiuxian/codex.js',
   'js/xiuxian/story.js', 'js/xiuxian/spine.js',
   'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js', 'js/xiuxian/market.js', 'js/xiuxian/tavern.js', 'js/xiuxian/artstar.js', 'js/xiuxian/craft.js',
-  // V0.99 补齐:存档键集中注册表(XX-AUDIT-006 批 1)。
+  // 程序化生成 + 分层种子 + 局内配置链(V0.97~V0.98)。
+  // world.js 已经 import 了 worldgen/seed,vendor/rot-rng 是它们的底座,
+  // ui.js 又 import 了 runcfg —— 4 个文件全在静态 import 图上,一个都不能少。
+  'js/xiuxian/seed.js', 'js/xiuxian/worldgen.js', 'js/xiuxian/runcfg.js',
+  'js/xiuxian/vendor/rot-rng.js',
+  // 修仙阁 UI 拆分(XX-AUDIT-005)。ui.js 拆出去之后,ui.js import 这些文件,
+  // 它们就在 ui.js 的**静态 import 图**上 —— 原生 ESM 全有或全无,
+  // 离线拉不到任意一个就是整页白屏。dom.js 是共享 DOM 辅助(esc/toast),
+  // 视图模块和 ui.js 都依赖它,漏掉等于整页转义失效。
+  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
+  // 存档键集中注册表(XX-AUDIT-006 批 1)。
   // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
   // 离线拉不到就是整页白屏。
   'js/xiuxian/save-keys.js',

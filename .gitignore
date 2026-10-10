@@ -4,7 +4,7 @@ tests/_shots/
 *.log
 
 # 一次性改写脚本:用完即弃,不该进仓库
-# (它们把绝对路径写死了,留���反而误导下一个人)
+# (它们把绝对路径写死了,留着反而误导下一个人)
 apply_hints.py
 apply_palette.py
 fixpaths.mjs
@@ -12,7 +12,10 @@ fixq.py
 
 # 生图请求草稿
 assets/portrait/req-*.json
-.github/workflows/ci.yml
+# 2026-10-10:原有一行 ".github/workflows/ci.yml" 把 CI 配置排除在版本库外。
+# 那行导致它从没被提交过 —— 2026-10 仓库损坏后从 GitHub 干净重克隆,
+# 未跟踪的文件不会回来,CI 配置就此整个丢失(只能从隔离的坏副本里找回)。
+# 放着不提交 = 随时可能再丢一次。CI 是要跑的东西,不是本地草稿。
 
 # python 缓存
 __pycache__/
@@ -25,3 +28,12 @@ tools/visual/baseline/
 
 # 旧资产备份,留在仓库外
 assets/_legacy/
+
+# 会话级协作产物(2026-10-10):
+# 这几份是写给**当时并行的另一个开发会话**看的临时说明 ——
+# 「请帮我推一下」「桌面侧已上线,直接 push」「这些活别重复做」。
+# 内容带时间戳和一次性上下文,提交进仓库只会让后来的人读到过时的状态,
+# 真正的项目文档在 README / ARCHITECTURE / HANDOVER / TICKETS 里。
+DEPLOY-REQUEST.md
+DEV-SYNC.md
+MERGE-GUIDE.md

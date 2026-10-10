@@ -58,6 +58,27 @@ function walk(dir, out = []) {
 }
 const files = SCAN_ROOTS.flatMap(r => walk(r));
 
+// C1 的后半条:**自检断言 tests/ 真的被扫到了**
+// 工单(TICKETS XX-AUDIT-007 的 C1)写的是「roots 硬编码 js/ tests/ tools/,
+// 并加自检断言 tests/ 文件数 > 0」。前一句做了,后一句两版都漏了。
+// 为什么这条自检值钱:当初「39→30」那次事故的根因就是只扫了 js/、漏掉 tests/。
+//
+// ⚠️ 这里踩过一次坑,值得写下来:
+//   第一版自检写成「SCAN_ROOTS 里的每个根都得扫到文件」——
+//   于是有人把 'tests' 从 SCAN_ROOTS 里删掉时,自检**照样通过**
+//   (配置里没列 tests,自然不会因 tests 为空而红)。
+//   断言跟着配置走,它就只会验证配置自己的自洽,永远抓不到「少扫了根」。
+//   正解是**固定期望**:不管 SCAN_ROOTS 怎么写,tests/ 下必须有源文件。
+const MUST_HAVE_FILES = ['js', 'tests', 'tools'];
+for (const root of MUST_HAVE_FILES) {
+  const n = files.filter(f => f.startsWith(root + '/')).length;
+  if (!n) {
+    console.error(`❌ C1 自检失败:'${root}/' 一个源文件都没扫到(实际扫到 ${files.length} 个)。`);
+    console.error('   少扫一个根不会让报告变红,只会让它悄悄漏报 —— 这条自检就是防这个的。');
+    process.exit(1);
+  }
+}
+
 // ---------- 收集导出 ----------
 /** @type {{name:string, file:string, line:string, kind:string}[]} */
 const exportsList = [];
@@ -232,20 +253,46 @@ if (fresh.length) {
   }
 }
 
+if (process.argv.includes('--list')) {
+  // 逐条清偿基线里那些条目时需要这个视图:光看「新增 0」没法开工,
+  // 也看不出来「基线里有几条已经不再是候选了」—— 那些可以摘掉。
+  console.log('\n全部候选:');
+  for (const c of candidates) {
+    const d = c.decls[0];
+    const mark = known.has(c.name) ? '[基线内]' : '[新增]  ';
+    console.log(`  ${mark} ${c.name.padEnd(22)} ${d.file}  (${d.kind}, ${c.decls.length} 处)`);
+  }
+  const names = new Set(candidates.map(c => c.name));
+  const stale = [...known].filter(n => !names.has(n));
+  console.log(`\n基线里已不再是候选(${stale.length} 条 —— 说明它们已被引用,可考虑从 baseline 摘掉):`);
+  if (!stale.length) console.log('  (无)');
+  else for (const n of stale) console.log(`  · ${n}`);
+}
+
+// ⚠️ 覆盖护栏(2026-10-10 补)
+// 原来这里无条件 writeFileSync 覆盖整个基线文件 —— 而基线里的**理由注释**
+// 是人工逐条写的,重新生成会把那些理由全部冲成光秃秃的名字列表。
+// 工具在破坏它自己要保护的东西。已存在且非空时必须显式 --force。
 if (process.argv.includes('--write-baseline')) {
-  const lines = [
-    '# 未使用导出 · 人工确认清单',
-    '#',
-    '# 写进来 = 确认「这个导出不能删」。理由写清楚,别只列名字:',
-    '#   · 动态访问 / HTML 内联引用 / 给调试留的口子',
-    '#   · 计划用(注明挂在哪个工单上)',
-    '# 确认没人用的,**不要**写进来 —— 它会一直出现在上面那份清单里提醒你删。',
-    '',
-    ...candidates.map(c => c.name),
-    '',
-  ];
-  writeFileSync(BASELINE, lines.join('\n'));
-  console.log(`\n✅ 基线已写:${BASELINE}(${candidates.length} 条)`);
+  if (known.size && !process.argv.includes('--force')) {
+    console.log(`\n❌ ${BASELINE} 已有 ${known.size} 条人工确认的基线条目,本次未写入。`);
+    console.log('   重新生成会**冲掉全部理由注释** —— 那正是这份文件存在的意义。');
+    console.log('   确认要覆盖请加 --force(建议先自行备份)。');
+  } else {
+    const lines = [
+      '# 未使用导出 · 人工确认清单',
+      '#',
+      '# 写进来 = 确认「这个导出不能删」。理由写清楚,别只列名字:',
+      '#   · 动态访问 / HTML 内联引用 / 给调试留的口子',
+      '#   · 计划用(注明挂在哪个工单上)',
+      '# 确认没人用的,**不要**写进来 —— 它会一直出现在报告里提醒你删。',
+      '',
+      ...candidates.map(c => c.name),
+      '',
+    ];
+    writeFileSync(BASELINE, lines.join('\n'));
+    console.log(`\n✅ 基线已写:${BASELINE}(${candidates.length} 条)`);
+  }
 }
 
 console.log(REPORT_ONLY

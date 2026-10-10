@@ -10,19 +10,28 @@
 //
 // 本测试验证接线真的生效:每个敌人拿到的 img 必须是**它自己那张**,
 // 而不是所有人挤在 3 张脸上轮换。
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv, join } from 'path';
 
 const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
-const SRC = readFileSync(join(ROOT, 'js/xiuxian/ui.js'), 'utf8');
+// XX-AUDIT-005(ui.js 拆分)之后,PORTRAIT 表搬到了 js/xiuxian/ui/portrait.js。
+// 本测试原本只读 ui.js,于是「表搬走了」和「表被删了」在它眼里一样 —— 拆完即报红。
+// 改成扫整个修仙阁源码树:搬家不误报,真删除照样抓。
+const UI_DIR = join(ROOT, 'js/xiuxian/ui');
+const SRC = readFileSync(join(ROOT, 'js/xiuxian/ui.js'), 'utf8')
+  + '\n' + (existsSync(UI_DIR)
+    ? readdirSync(UI_DIR).filter(f => f.endsWith('.js'))
+        .map(f => readFileSync(join(UI_DIR, f), 'utf8')).join('\n')
+    : '');
 
 let pass = 0, fail = 0;
 const t = (n, c, d = '') => { if (c) pass++; else { fail++; console.log(`  ❌ ${n}${d ? ' — ' + d : ''}`); } };
 
 console.log('\n=== [1] 六张反派立绘都进了 PORTRAIT 表 ===');
 {
-  const tbl = SRC.slice(SRC.indexOf('const PORTRAIT'), SRC.indexOf('const TABS'));
+  // 表在 ui/portrait.js 里,不要再按 'const TABS' 切片 —— 拼接后边界已不可靠。
+  const tbl = SRC;
   for (const [key, file] of [
     ['heifeng', 'villain-heifeng.jpg'],
     ['shougu',  'villain-shougu.jpg'],

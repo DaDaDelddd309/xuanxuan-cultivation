@@ -3,9 +3,30 @@
 // 契约:只读 Cult.s 并调用其已有函数,不改状态结构。
 
 import { Cult } from './index.js';
+// realm页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/realm.js。
+import { vRealm as vRealmImpl } from './ui/realm.js';
+// title页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/title.js。
+import { vTitle as vTitleImpl } from './ui/title.js';
+// bag页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/bag.js。
+import { vBag as vBagImpl, showMountGet as showMountGetImpl, _nextPending as _nextPendingImpl, empty as emptyImpl, enterVillage as enterVillageImpl, vVillage as vVillageImpl, vMount as vMountImpl, vPeople as vPeopleImpl, _feedBtnText as _feedBtnTextImpl, _vMutCard as _vMutCardImpl, _vPartPicker as _vPartPickerImpl, _sFeedable as _sFeedableImpl } from './ui/bag.js';
+// dexsys页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/dexsys.js。
+import { vDex as vDexImpl, vSys as vSysImpl } from './ui/dexsys.js';
+// build页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/build.js。
+import { vBuild as vBuildImpl } from './ui/build.js';
+// fam页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/fam.js。
+import { vFam as vFamImpl } from './ui/fam.js';
+// story页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/story.js。
+import { showStoryBeat as showStoryBeatImpl, showLegend as showLegendImpl, vQuest as vQuestImpl, showQuestReady as showQuestReadyImpl, askStoryPath as askStoryPathImpl, showStoryDone as showStoryDoneImpl, askPath as askPathImpl, askSpecial as askSpecialImpl, showQuestDone as showQuestDoneImpl } from './ui/story.js';
+// arts页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/arts.js。
+import { artHow as artHowImpl, vArts as vArtsImpl, vCamp as vCampImpl } from './ui/arts.js';
+// meta页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/meta.js。
+import { vMarket as vMarketImpl, vCraft as vCraftImpl, vTavern as vTavernImpl } from './ui/meta.js';
+// 仙人墓页已拆出(XX-AUDIT-005)。下面 4 个是转发壳,实现见 ui/tomb.js。
+import { vTomb as vTombImpl, tombRoom as tombRoomImpl, askTombWords as askTombWordsImpl, tombEnding as tombEndingImpl } from './ui/tomb.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
-import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES } from './world.js';
+import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES, regenerate, WORLD_INFO } from './world.js';
+import { runConfigFor, setActive, clearActive } from './runcfg.js';   // 2026-10-10 接线:抵达节点即定本局参数
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
@@ -35,55 +56,19 @@ import { MOUNT, MOUNTS, MOUNT_LIST } from './mount.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
-// V0.98:按人分图。四张卡原本全部落到 hero.jpg(CHARACTERS 没有 portrait 字段),
-// 商人还复用 foe —— 一张图到处套。
-const PORTRAIT = {
-  knight:'assets/portrait/knight.jpg', mage:'assets/portrait/mage.jpg',
-  ranger:'assets/portrait/ranger.jpg', white:'assets/portrait/white.jpg',
-  companion:'assets/portrait/companion.jpg', momocha:'assets/portrait/momocha.jpg',
-  merchant:'assets/portrait/merchant.jpg',
-  foe:'assets/portrait/villain-moying.jpg', hero:'assets/portrait/knight.jpg', aunt:'assets/portrait/companion.jpg',
-  // ── 六位反派专属立绘(XX-AUDIT-011)───────────────────────────
-  // 这 6 张**早就画好了**,却因为下面这行注释的判断而从未被引用:
-  //   「立绘:仓库里独立立绘只有 8 张……所以反派只能用 foe/momocha/
-  //     merchant/companion 这几张轮换。想让反派各有专属脸,得补美术
-  //     —— 代码解决不了。」
-  // **那个判断在写下的当时是对的,后来就不对了。**
-  // 实测:6 张 villain-*.jpg 共 681 KB,全在 sw.js 预缓存里,
-  // 即**每台设备都在下载**,而 asset-reach 检索确认它们零引用。
-  // 敌人数据(`foes` 数组第 6 位)早就带了专属 key:
-  //   moying / heifeng / shougu / youfang
-  // 也就是说:数据早就准备好了,只差一张映射表。
-  // 接上之后:反派不再轮换同一张脸 —— 这是**观感修复**,不只是带宽。
-  heifeng:'assets/portrait/villain-heifeng.jpg',
-  shougu: 'assets/portrait/villain-shougu.jpg',
-  youfang: 'assets/portrait/villain-youfang.jpg',
-  shemie: 'assets/portrait/villain-shexie.jpg',
-  nvxia:  'assets/portrait/villain-nvxia.jpg',
-  yaohou: 'assets/portrait/villain-yaohou.jpg',
-};
 const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['market','集市'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
 
-const $ = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
-const pct = (a, b) => b > 0 ? Math.min(100, Math.max(0, a / b * 100)) : 0;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+import { $, pct, esc, toast } from './ui/dom.js';
+import { PORTRAIT } from './ui/portrait.js';   // 立绘映射表唯一一份(XX-AUDIT-005)   // 共享 DOM 辅助,唯一一份(XX-AUDIT-005)
 function tierNeedText(nx){
   if(!nx) return '已达顶级。';
   const n=nx.need;
   return `晋升「${nx.name}」需:建筑 ${n.builds} · 人口 ${n.pop} · 篝火 ${n.fires}`;
 }
 
-function toast(msg) {
-  let t = document.getElementById('xx-toast');
-  if (!t) { t = $('div', 'xx-toast'); t.id = 'xx-toast'; document.body.appendChild(t); }
-  t.textContent = msg;
-  requestAnimationFrame(() => t.classList.add('on'));
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove('on'), 1900);
-}
 
 export const Hall = {
   // 页签读写器:render() 读的是模块级 `tab`,但代码里有两处写的是 `this.tab='map'`
@@ -260,7 +245,7 @@ export const Hall = {
         // 之前直接 `${g}` 插值 → 吐纳 [object Object] 点修为(每次点必现)。
         const r = addExp(s, 40);
         // ⚠️ XX-FIX-017:道行**每次吐纳都给**,原来它被写在了下面的 `if (yr)` 里。
-        // 而 CHRONICLE.day() 只在「跨年那一 tick」返回对象(见 chronicle.js 契约注释),
+        // 而 CHRONICLE.action() 只在「跨年那一 tick」返回对象(见 chronicle.js 契约注释),
         // 于是 +200 道行一年才发一次 —— 跨一次年要点 3650 下,实测道行永远是 0。
         // 给资源和报事件是两件事,不该共用一个分支。
         Cult.get().dao += 200;
@@ -268,7 +253,7 @@ export const Hall = {
         const _ms = Cult.get();
         _ms.medStreak = (_ms.medStreak || 0) + 1;
         if (_ms.medStreak >= 30) { Cult.titles.track('streak', 1); _ms.medStreak = 0; }
-        const yr = CHRONICLE.day();
+        const yr = CHRONICLE.action();
         if (yr) {
           toast(`吐纳 · 修为 +40 · 道行 +200 · 第${yr.year}年:${yr.ev}`);
         } else {
@@ -482,13 +467,23 @@ export const Hall = {
         const si = document.getElementById('xx-seed');
         const v = si ? si.value : '';
         Seed.set(v);
+        // 2026-10-10 接线(此前完全缺失):
+        //   世界改成按种子生成(worldgen.js)之后,换种子**必须**重建世界,
+        //   否则玩家点「换一世」,种子名变了、奇遇变了、地图却纹丝不动 ——
+        //   那不是随机,是装饰。world.js 的注释一直写着「ui.js 的换一世会调它」,
+        //   而 ui.js 从来没调过。
+        //   顺序要紧:Seed.set() 先落定真源(它同时刷新 seed.js 的内存态),
+        //   regenerate() 再按新种子重跑生成。
+        const w = regenerate(Seed.cur);
+        // 换世 = 整张地图换了,本局参数随之失效,回到默认(field)而不是留上局的。
+        clearActive();
         Cult.commit();
         // XX-FIX-003:Cult.commit() 只写修仙状态的键,profile.seed 会停在旧值。
         // 运行时读种子走的是独立键 xx_seed_v081,所以**不影响玩法**,
         // 只是存档码里那个种子名显示成旧的。这里补一次 Profile 收集。
         try { Profile.collect(mods); } catch (e) { console.warn('[seed-sync]', e); }
         this.render();
-        toast(`新的一世:${Seed.cur}`); break;
+        toast(`新的一世:${Seed.cur} · ${w.nodes.length} 个节点`); break;
       }
       case 'copycode': {
         const ta = document.getElementById('xx-code');
@@ -532,6 +527,11 @@ export const Hall = {
   //   elite   → 进回合制(Duel.start);ENEMY_POOL.elite 有 yao/elder/devil
   //   secret  → 进回合制,且必掉丹药(n.pill)
   //   boss    → 进回合制,ENEMY_POOL.boss 只有 devil;宿敌在这一档
+  //
+  // 2026-10-10 追加:把 runcfg.js 的**局内倾向**也摆出来。
+  //   理由:那层参数是「你从哪个节点出发 → 这一局会遇到什么」的唯一载体,
+  //   但它只对代码有意义、对玩家不可见时,选点依然只是选个颜色。
+  //   数字全部来自 runcfg 本身,没有第二份硬编码,不会和实现对不上。
   nodeTip(n, s) {
     // 用 world.js 里现成的 NODE_TYPES(它本来是死代码,自带 desc/turnBased/dropsPill),
     // 不再在这里手写第二份 —— 两份描述迟早会对不上(XX-DROP-003)。
@@ -544,6 +544,16 @@ export const Hall = {
     const marks = [];
     if (STORY.activeList().some(a => a.next && a.next.node === n.id)) marks.push('有事');
     if (LEGEND_LIST.some(l => l.where === n.type && !STORY.met(l.key))) marks.push('异兽');
+    // —— 局内倾向(2026-10-10)——
+    try {
+      let mineN = 0;
+      try { mineN = (FAMILY.s && FAMILY.s.mines) ? FAMILY.s.mines.length : 0; } catch (e) {}
+      const cfg = runConfigFor(n.id, mineN);
+      // 回合制是概率不是必然(险地 35%),别和「必定回合」混为一谈
+      if (cfg.turnBased >= 1) marks.push('开局入回合');
+      else if (cfg.turnBased > 0) marks.push(`回合 ${Math.round(cfg.turnBased * 100)}%`);
+      if (cfg.mineBonus > 1) marks.push(`爆率 ×${cfg.mineBonus.toFixed(2)}`);
+    } catch (e) { console.warn('[runcfg-tip]', e); }
     return marks.length ? t + ' · ' + marks.join('·') : t;
   },
 
@@ -551,6 +561,15 @@ export const Hall = {
     const s = Cult.get();
     const n = nodeById(id);
     if (!n) return;
+    // —— 2026-10-10 接线(此前完全缺失)——
+    //   runcfg.js 是「修仙阁 ↔ 砍杀」之间唯一的接口(V0.98 建的),
+    //   建好之后却没有任何调用点 —— 于是「你从哪个节点出发」依然不决定
+    //   「这一局会遇到什么」,前后两个游戏还是各做各的。
+    //   「抵达节点」正是「从这一节点出发」的那一刻,在这里定本局参数。
+    //   矿脉数 = 出产加成:领地占得越多,这一局爆率越高(上限 1.5×)。
+    let mineN = 0;
+    try { mineN = (FAMILY.s && FAMILY.s.mines) ? FAMILY.s.mines.length : 0; } catch (e) { console.warn('[runcfg]', e); }
+    setActive(runConfigFor(id, mineN));
     // —— 叙事推进:这条线该不会该露头 ——
     const beats = STORY.arrive(id);
     for (const b of beats) {
@@ -598,8 +617,17 @@ export const Hall = {
     // bug(V0.92 修):checkUnlocks 以前全项目零调用,坐骑永远发不出去。
     // 现在每次抵达节点就查一次,拿到就给提示。
     // 坐骑解锁:排队等本节点的弹层演完再出,别和「初见妖」叠在一起
+    //
+    // bug(2026-10-10 修):**弹层从来没弹过**。
+    //   这里把坐骑塞进 `this._pendingMount` 队列,但全项目**没有任何地方调用
+    //   `_nextPending()`** —— 它只被自己递归(1923)和同样零调用的 `showMountGet` 调用。
+    //   也就是说:坐骑**发到了**(MOUNT.s.have 更新),玩家却**看不到任何提示**,
+    //   不知道刚拿到什么、去哪换。
+    //   为什么一直没人发现:`t92.mjs` 只断言 `MOUNT.checkUnlocks()` 的返回值,
+    //   **从头到尾没断言过 UI 有没有弹** —— 又是一次「可达性只测了一半」。
     const gotMounts = MOUNT.checkUnlocks();
     for (const m of gotMounts) this._pendingMount = (this._pendingMount||[]).concat(m);
+    if (gotMounts.length) this._nextPending();
 
     // 村庄:不战斗,给休整
     if (n.type === 'village') { this.enterVillage(n); return; }
@@ -825,48 +853,7 @@ export const Hall = {
     Cult.commit();
   },
 
-  // ---------- 境界 ----------
-  vRealm(s) {
-    const r = getRealm(s.realm);
-    const maxL = maxLayerOf(s.realm);
-    const need = layerCost(s.realm, s.layer);
-    const chk = canBreakthrough(s);
-    const cost = need == null ? 0 : need;
-    let pills = '';
-    for (const [id, p] of Object.entries(PILLS)) {
-      const own = s.pills[id] || 0;
-      pills += `<div class="xx-card">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div class="xx-label">${p.name}${own ? ` ×${own}` : ''}</div>
-          <div class="xx-val">${p.price} 道行</div></div>
-          <button class="xx-btn tiny" data-act="buy" data-v="${id}">购</button>
-        </div>
-        <div class="xx-dim" style="margin-top:6px">${p.desc}</div>
-      </div>`;
-    }
-    return `
-      <div class="xx-card">
-        <div class="xx-label">${esc(r.desc)}</div>
-        <div class="xx-big">${r.name} · ${s.layer}/${maxL} 层</div>
-        ${need == null
-          ? `<div class="xx-dim" style="margin-top:8px">本境界已修满,需 ${PILLS[REALMS.find(x=>x.id===s.realm).requires]?.name || '丹药'} 方可突破</div>`
-          : `<div class="xx-bar"><i style="width:${pct(s.exp, cost)}%"></i></div>
-             <div class="xx-dim" style="margin-top:6px">修为 ${Math.floor(s.exp)} / ${cost}</div>`}
-      </div>
-      <div class="xx-grid">
-        <div class="xx-card"><div class="xx-label">道行</div><div class="xx-big">${s.dao}</div></div>
-        <div class="xx-card"><div class="xx-label">击杀</div><div class="xx-big">${s.totalKills}</div></div>
-        <div class="xx-card" style="grid-column:1/-1"><div class="xx-label">年 表</div>
-          <div class="xx-dim">${esc(CHRONICLE.stamp())}</div></div>
-      </div>
-      <button class="xx-btn" data-act="meditate">吐 纳 修 炼</button>
-      <button class="xx-btn main" data-act="break" ${chk.ok ? '' : 'disabled'}>
-        ${chk.needPill ? `服 ${PILLS[chk.needPill]?.name || '丹'} 突 破` : '突 破'}
-        ${chk.ok ? '' : `<div class="xx-dim" style="letter-spacing:0;margin-top:4px">${esc(chk.msg || '')}</div>`}
-      </button>
-      <div style="height:12px"></div>
-      <div class="xx-label">丹 药</div>${pills}`;
-  },
+  vRealm(s) { return vRealmImpl(this, s); },
 
   // ---------- 地图 ----------
   vMap(s) {
@@ -956,1305 +943,55 @@ export const Hall = {
   },
 
   // ---------- 仙人墓 · 地下层 ----------
-  // 独立视图:墓里没有大地图,只有相邻的几间屋子
-  vTomb() {
-    const cur = TOMB.room();
-    if (!cur) return `<div class="xx-card"><div class="xx-label">仙 人 墓</div>
-      <div class="xx-dim">你不在墓里。</div>
-      <button class="xx-btn main" style="margin-top:10px" data-act="tomb-enter">下 墓</button></div>`;
-
-    // 平面图:已走过的显示名字,没走过的只给个位置
-    const g = 5;
-    const pos = r => ({ x: 4 + (r.x / 3) * 92, y: 10 + (r.y / 2) * 74 });
-    let edges = '', nodes = '';
-    const drawn = new Set();
-    for (const r of TOMB_ROOMS) for (const to of r.edge) {
-      const pair = [r.id, to].sort().join('-');
-      if (drawn.has(pair)) continue;
-      drawn.add(pair);
-      const a = pos(r), b = pos(TOMB_ROOMS.find(x=>x.id===to));
-      const len = Math.hypot(b.x-a.x, b.y-a.y), ang = Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI;
-      edges += `<div class="xx-edge" style="left:${a.x}%;top:${a.y}%;width:${len}%;
-        transform:rotate(${ang}deg)"></div>`;
-    }
-    for (const r of TOMB_ROOMS) {
-      const p = pos(r);
-      const seen = TOMB.seen(r.id);
-      const here = cur.id === r.id;
-      const canGo = cur.edge.includes(r.id);
-      const cls = ['xx-node','tomb'];
-      if (here) cls.push('cur');
-      else if (!seen) cls.push('fog');
-      if (!here && !canGo) cls.push('locked');
-      const mark = here ? '◆' : seen ? '●' : '?';
-      const label = seen ? esc(r.name) : '未 至';
-      nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
-        ${canGo&&!here?`data-act="tomb-go" data-v="${r.id}"`:''}>
-        <div class="xx-fogq" style="${seen&&!here?'display:none':''}">${mark}</div>
-        <div class="xx-node-lb">${label}</div></div>`;
-    }
-
-    const pr = TOMB.progress();
-    // 石将前 → 补完那半句话
-    const guard = cur.guard && !TOMB.s.done
-      ? `<button class="xx-btn main" style="width:100%;margin-top:12px" data-act="tomb-words">补 完 那 半 句 话</button>`
-      : '';
-    const canEnd = cur.end && !TOMB.s.done
-      ? `<div class="xx-dim" style="margin-top:10px;text-align:center">这里就是尽头了。</div>` : '';
-
-    return `<div class="xx-card">
-        <div class="xx-label">仙 人 墓</div>
-        <div class="xx-dim">已至 ${pr.seen} / ${pr.total} 处 · 越往里,字越少</div>
-      </div>
-      <div class="xx-map" style="height:190px">${edges}${nodes}</div>
-      <div class="xx-card" style="border-color:rgba(181,52,42,.4)">
-        <div class="xx-label">${esc(cur.name)}</div>
-        <div class="xx-story-t" style="white-space:pre-wrap;line-height:2">${esc(cur.text)}</div>
-        ${cur.beat?`<div class="xx-story-b" style="margin-top:9px">${esc(cur.beat)}</div>`:''}
-        ${guard}
-        ${canEnd}
-        <div style="display:flex;gap:8px;margin-top:12px">
-          ${cur.edge.map(t=>`<button class="xx-btn" style="flex:1"
-            data-act="tomb-go" data-v="${t}">往 ${esc(TOMB_ROOMS.find(x=>x.id===t).name.replace(/\s/g,''))}</button>`).join('')}
-        </div>
-        <button class="xx-btn" style="width:100%;margin-top:8px" data-act="tomb-leave">出 墓</button>
-      </div>`;
-  },
-
+  // 独立视图:墓里没有大地图,只有相邻的几间屋子。实现见 ui/tomb.js。
+  vTomb() { return vTombImpl(this); },
   // 进入某间房:结算内容并展示
-  tombRoom(id) {
-    TOMB.move(id);
-    const s = TOMB.settle(id);
-    this.render();
-    if (!s) return;
-    // 侧室/主墓的收获提示
-    if (s.gift && s.gift.text.length) toast('得了 ' + s.gift.text.join(' · '));
-    // 叙事线最后一环的提示
-    if (s.arcBeat) {
-      toast('石将侧过身,让出半步。');
-    }
-  },
-
+  tombRoom(id) { return tombRoomImpl(this, id); },
   // 补完半句话 —— 只能在石将跟前做
-  askTombWords() {
-    if (!TOMB.canFinish()) { toast('你还没走到石将跟前'); return; }
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.dataset.nag = 'must';     // 必须决策
-    el.innerHTML = `<div class="xx-sc-n">半 句 话</div>
-      <div class="xx-sc-t">石将背上,「此生不悔」四个字还缺一半。<br>你手上有两个补法。</div>
-      ${TOMB_WORDS.map(w=>`<div class="xx-sc-go" style="cursor:pointer;margin-top:13px;
-        font-size:13px;line-height:1.7" data-w="${w.path}">
-        <b style="color:var(--xx-gold)">${esc(w.text)}</b><br>
-        <span class="xx-dim">${esc(w.note)}</span></div>`).join('')}
-      <div class="xx-sc-x">再想想</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{
-      const path = +b.dataset.w;
-      const r = TOMB.finish(path);
-      el.remove();
-      if (!r.ok) { toast(r.msg||'还不行'); this.render(); return; }
-      QUEST.settleShijiang(path);
-      this.tombEnding(r);
-    });
-    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
-  },
-
+  askTombWords() { return askTombWordsImpl(this); },
   // 墓的结局演出
-  tombEnding(r) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">此 生 不 悔 · ${esc(r.words)}</div>
-      <div class="xx-sc-t" style="white-space:pre-wrap">${esc(r.note)}</div>
-      <div class="xx-sc-t" style="white-space:pre-wrap;margin-top:10px;color:var(--xx-paper)">${esc(r.after)}</div>
-      ${r.reward&&r.reward.text.length?`<div class="xx-sc-r" style="color:var(--xx-gold)">${esc(r.reward.text.join(' · '))}</div>`:''}
-      <div class="xx-sc-x">走出墓去</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick=()=>{ el.remove(); this.render(); };
-    setTimeout(()=>{ el.remove(); this.render(); }, 11000);
-  },
+  tombEnding(r) { return tombEndingImpl(this, r); },
+
+  artHow(a) { return artHowImpl(this, a); },
+  vArts(s) { return vArtsImpl(this, s); },
+  vCamp(s) { return vCampImpl(this, s); },
+
+  vFam() { return vFamImpl(this); },
+
+  showStoryBeat(b) { return showStoryBeatImpl(this, b); },
+  showLegend(l, causal) { return showLegendImpl(this, l, causal); },
+  vQuest() { return vQuestImpl(this); },
+  showQuestReady(q) { return showQuestReadyImpl(this, q); },
+  askStoryPath(k) { return askStoryPathImpl(this, k); },
+  showStoryDone(r) { return showStoryDoneImpl(this, r); },
+  askPath(k) { return askPathImpl(this, k); },
+  askSpecial(k, sp) { return askSpecialImpl(this, k, sp); },
+  showQuestDone(res) { return showQuestDoneImpl(this, res); },
+  vBuild() { return vBuildImpl(this); },
+
+  vDex() { return vDexImpl(this); },
+  vSys() { return vSysImpl(this); },
+
+  vMarket(s) { return vMarketImpl(this, s); },
+  vCraft() { return vCraftImpl(this); },
+  vTavern() { return vTavernImpl(this); },
+  vBag() { return vBagImpl(this); },
+  _feedBtnText() { return _feedBtnTextImpl(this); },
+  _vMutCard() { return _vMutCardImpl(this); },
+  _vPartPicker() { return _vPartPickerImpl(this); },
+  // XX-MUTATION-003 修复:这个壳在 ui.js 拆分时丢了 —— 连同源石卡上的「饲」按钮一起,
+  // 于是投喂整条链不可达,而 act() 里四个 feed* 分支都还在、merge 干净、测试全绿。
+  // `test-ui-split` 的「拆出去的每个方法 Hall 上必须还有同名壳」就是守住这层的门禁。
+  _sFeedable(stoneId) { return _sFeedableImpl(this, stoneId); },
+  showMountGet(m) { return showMountGetImpl(this, m); },
+  _nextPending() { return _nextPendingImpl(this); },
+  empty(title, desc, clues) { return emptyImpl(this, title, desc, clues); },
+  enterVillage(n) { return enterVillageImpl(this, n); },
+  vVillage(n) { return vVillageImpl(this, n); },
+  vMount() { return vMountImpl(this); },
+  vPeople() { return vPeopleImpl(this); },
+
+  vTitle() { return vTitleImpl(this); },
 
-  // ---------- 神通 / 悟道 ----------
-  // 神通怎么到手(XX-CONTENT-001)
-  //
-  // 这条工单我**否掉过一次** —— 当时神通系统是死锁的(悟道要两门满级,
-  // 但局内升级池根本没有神通,永远凑不出第二门),写"如何获得"等于
-  // 骗玩家反复去试。XX-ARCH-006 打通之后才有资格写。
-  //
-  // 现在两条真实路径(都是代码里实际存在的,不是编的):
-  //   1. 局内砍杀,升级三选一时会随机出现「参悟 X」
-  //   2. 修仙阁悟道:两门满级神通 + 够道行 → 融合出这门
-  artHow(a) {
-    if (a.fused) return '由两门满级神通融合而成';
-    const F = { sword: '剑系', wind: '风系', thunder: '雷法', fire: '炎法',
-                water: '水墨', shield: '守御', orb: '器灵', move: '身法' }[a.family] || '';
-    return `局内升级时随机参悟 · ${F}。或与另一门满级神通悟道融合`;
-  },
 
-  vArts(s) {
-    const owned = Object.keys(s.arts).filter(k => s.arts[k] > 0);
-    const full = owned.filter(k => s.arts[k] >= 5);
-    let h = '';
-    if (this.picking) {
-      h += `<div class="xx-card"><div class="xx-label">悟 道</div>
-        <div class="xx-val">已选「${ARTS[this.picking]?.name}」,再选一门满级神通</div>
-        <div class="xx-dim" style="margin-top:5px">道行消耗视配方而定,融合后二者各降一级</div></div>`;
-    } else {
-      h += `<div class="xx-card">
-        <div class="xx-label">悟 道</div>
-        <div class="xx-val">两门神通皆修至满级(5级)可融合出超武</div>
-        <div class="xx-dim" style="margin-top:5px">
-          满级神通 ${full.length} / 14 门 · 当前道行 ${s.dao}</div></div>`;
-    }
-    const grid = Object.entries(ARTS).map(([k, a]) => {
-      const lv = s.arts[k] || 0;
-      const cls = ['xx-art'];
-      if (!lv) cls.push('lock');
-      if (lv >= a.max) cls.push('max');
-      if (a.fused) cls.push('fused');
-      const sel = this.picking === k;
-      // 局外升星(XX-META-004):神通页顺手能花钱升星
-      const star = ARTSTAR.stars(k);
-      const c = ARTSTAR.cost(k, Object.assign({ base: 260 * (a.max || 5) }, a));
-      const canStar = lv > 0 && c;
-      return `<div class="${cls.join(' ')}" ${lv ? `data-act="enlighten" data-v="${k}"` : ''}>
-        ${a.fused ? '<span class="xx-tag">超武</span>' : lv >= a.max ? '<span class="xx-tag gold">满</span>' : ''}
-        ${star ? `<span class="xx-tag star" data-act="art-star" data-v="${k}">${'★'.repeat(star)}</span>` : ''}
-        <div class="xx-art-n">${esc(a.name)}</div>
-        <div class="xx-art-b">${lv || '—'}</div>
-        <div class="xx-art-lv">${sel ? '已选' : a.d.slice(0, 6)}</div>
-        ${lv ? '' : `<div class="xx-art-cond">${esc(this.artHow(a))}</div>`}
-        ${canStar ? `<div class="xx-art-up" data-act="art-star" data-v="${k}">升星 · ${c.gold}金 + ${c.books}书</div>` : ''}
-        ${!lv ? '<div class="xx-art-up lock">尚未习得</div>' : ''}
-        ${lv > 0 && !c ? '<div class="xx-art-up maxed">已满星</div>' : ''}
-      </div>`;
-    }).join('');
-    return h + `<div class="xx-grid3">${grid}</div>`;
-  },
-
-  // ---------- 营地 ----------
-  vCamp(s) {
-    const burning = CAMP.burning();
-    const t = CAMP.tier(), nx = CAMP.next();
-    const d = DAY.phase();
-    const fuel = CAMP.fuelMin();
-    const maxF = CAMP.maxFuel();
-    const barW = maxF > 0 ? Math.min(100, fuel / (maxF + fuel) * 100) : 0;
-
-    let stones = '';
-    if (burning) {
-      stones = STONE_LIST.filter(x => Bag.count(x.id) > 0).map(x => `
-        <div class="xx-stone has" data-act="feed" data-v="${x.id}">
-          <div class="xm-"></div><div class="xx-stone-m">${Bag.count(x.id)}</div>
-          <div class="xx-stone-n" style="color:${x.col}">${x.name}</div>
-          <div class="xx-stone-d">${x.dur} 分钟</div>
-          <div class="xx-stone-c">投 ${feedN}</div>
-        </div>`).join('') ||
-        '<div class="xx-dim" style="text-align:center;padding:10px">没有源石了 —— 源石只能靠猎妖、秘境外加兑换。</div>';
-    }
-
-    const mem = CAMP.s.members.length
-      ? CAMP.s.members.map(m => `
-        <div class="xx-mem">
-          <div class="a">
-            <div class="n">${esc(m.name)}<span class="xx-dim" style="margin-left:6px">${esc(m.title)}</span></div>
-            <div class="t">修为 ${m.lv} 层 · 已赠 ${m.gift}/3</div>
-          </div>
-          <div class="act">
-            <button class="xx-mbtn" data-act="gift" data-v="${m.uid}">讨谢礼</button>
-            <button class="xx-mbtn" data-act="teach" data-v="${m.uid}">授传承</button>
-          </div>
-        </div>`).join('')
-      : '<div class="xx-dim">还没有人留下。营地的名声要靠时间传出去。</div>';
-
-    return `
-      <div class="xx-fire ${burning ? 'on' : ''}">
-        <div class="xx-fire-t">${burning ? '火 还 烧 着' : '尚 无 篝 火'}</div>
-        <div class="xx-fire-s">${burning ? `余 ${fuel} 分钟 · ${esc(t.name)} LV${t.lv}` : '需要一枚源石'}</div>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">昼 夜</div>
-        <div class="xx-daynow">${d.name} · ${d.desc}</div>
-        <div class="xx-daybar"></div>
-        <div class="xx-dim">夜间挂机收益 ×1.35,但没有火会更危险。</div>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">源 石(${Bag.stoneMinutes()} 分钟)</div>
-        ${burning
-          ? `<div class="xx-bar s"><i style="width:${barW}%"></i></div>
-             <div class="xx-dim" style="margin:6px 0 10px">烧完为止。当前容量 ${maxF} 分钟。</div>
-             <div class="xx-numrow">
-               <button class="xx-nbtn" data-act="nfeed" data-v="-1">−</button>
-               <div class="xx-val">${feedN}</div>
-               <button class="xx-nbtn" data-act="nfeed" data-v="1">＋</button>
-             </div>
-             <div class="xx-stones">${stones}</div>
-             <button class="xx-btn" style="margin-top:10px" data-act="feed">全 部 投 入</button>
-             <button class="xx-btn" data-act="douse">熄 火</button>`
-          : `<button class="xx-btn main" data-act="light">生 火 · 投入现有源石</button>`}
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">营 地</div>
-        <div class="xx-val">${t.name} · LV${t.lv}</div>
-        <div class="xx-dim" style="margin-top:5px">${t.d}</div>
-        ${nx ? `<div class="xx-bar jade"><i style="width:${Math.min(100, CAMP.s.totalSec / nx.need * 100)}%"></i></div>
-          <div class="xx-dim" style="margin-top:5px">距「${nx.name}」还需燃烧 ${Math.ceil((nx.need - CAMP.s.totalSec)/60)} 分钟 · 声望 ${CAMP.s.rep}</div>`
-          : '<div class="xx-gold" style="margin-top:6px">已至顶级。</div>'}
-        ${CAMP.tier().lv >= 4 ? '<div class="xx-dim">阵旗已成:此营地可作方圆传送点(传送一次 ' + CAMP.teleportCost() + ' 道行)。</div>' : ''}
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">人 员 (${CAMP.s.members.length})</div>
-        ${mem}
-      </div>
-
-      ${CAMP.tier().lv >= 5 ? `<button class="xx-btn main" data-act="sect">${CAMP.s.formed ? '宗门已成' : '立 宗'}</button>`
-        : '<div class="xx-dim" style="text-align:center">营地经营至「山门」并持家族令,可自立宗门。</div>'}
-
-      <div style="height:10px"></div>
-      <button class="xx-btn" data-act="merchant">招 呼 路 过 的 商 人</button>`;
-  },
-
-  // ---------- 家族 ----------
-  vFam() {
-    const f = FAMILY.s;
-    if (!f.founded) {
-      return `<div class="xx-card"><div class="xx-label">宗 族</div>
-        <div class="xx-val">尚未立族</div>
-        <div class="xx-dim" style="margin-top:6px">家是一切的根。有家,才有传承。</div>
-        <div class="xx-numrow" style="margin-top:12px">
-          <input id="xx-famname" value="轩氏" maxlength="6"
-            style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(201,162,39,.4);
-            border-radius:3px;padding:10px;color:var(--xx-paper);font-size:15px;
-            font-family:inherit;text-align:center;outline:none;letter-spacing:3px">
-        </div>
-        <button class="xx-btn main" data-act="found">立 族</button></div>
-      <div class="xx-empty">
-        <div class="xx-empty-h">立 族 之 后</div>
-        ${[['族人','有族人才能干活:挂机收益、灵田、采矿'],
-           ['领地','营地LV2 可开一块地,盖房、种田、炼丹'],
-           ['繁衍','族人之间可结亲,添丁进口'],
-           ['传 承','族人满 5 人可推举全属性修士(战力 ×3)']]
-          .map((c,i)=>`<div class="xx-clue"><span class="xx-clue-i">${i+1}</span>
-            <span><b style="color:var(--xx-gold)">${esc(c[0])}</b><br>
-            <span class="xx-clue-w">${esc(c[1])}</span></span></div>`).join('')}
-      </div>`;
-    }
-    const mem = f.members.map(m => {
-      const p = FAMILY.member(m.partner);
-      if (m.npc === 'momocha') {
-        return `<div class="xx-mem" style="border-color:rgba(201,162,39,.5)">
-          <div class="a">
-            <div class="n">${esc(m.name)}<span style="color:${m.col};margin-left:6px;font-size:11px">${esc(m.roleName)}</span>
-              <span class="xx-gold" style="font-size:9px;margin-left:5px">同道</span></div>
-            <div class="t" style="color:var(--xx-gold)">全局挂机收益 +25% · 灵田产量 ×1.8 · 族产固定 +260 道行</div>
-          </div>
-        </div>`;
-      }
-      return `<div class="xx-mem">
-        <div class="a">
-          <div class="n">${esc(m.name)}<span style="color:${m.col};margin-left:6px;font-size:11px">${esc(m.roleName)}</span></div>
-          <div class="t">${m.lv} 层 · 忠 ${m.aff}${p?' · 配偶 '+esc(p.name):''}</div>
-        </div>
-        <div class="act">
-          <button class="xx-mbtn" data-act="feedrice" data-v2="${m.uid}">喂灵米</button>
-          <button class="xx-mbtn" data-act="fam" data-v="talk" data-v2="${m.uid}">叙话</button>
-          <button class="xx-mbtn" data-act="fam" data-v="train" data-v2="${m.uid}">督修</button>
-        </div></div>`;
-    }).join('') || '<div class="xx-dim">族中无人。</div>';
-
-    return `
-      <div class="xx-card">
-        <div class="xx-label">${esc(CHRONICLE.stamp())}</div>
-        <div class="xx-big">${esc(f.name)} · 第 ${f.gen} 代</div>
-        <div class="xx-dim" style="margin-top:6px">
-          族人 ${f.members.length} · 资产 ${f.wealth} · 领地 ${f.land.length} 处 ·
-          战功 ${f.defended}/${f.attacks} · 族力 ${FAMILY.power()}</div>
-      </div>
-      <div class="xx-card">
-        <div class="xx-label">年 表</div>
-        ${CHRONICLE.s.log.slice(0,4).map(l=>`<div class="xx-dim" style="margin-bottom:5px">
-          <span class="xx-gold">第${l.year}年</span> ${esc(l.ev)}</div>`).join('') ||
-          '<div class="xx-dim">太平无事。江湖就是这样开始的。</div>'}
-      </div>
-      <div class="xx-card">
-        <div class="xx-label">族 人</div>${mem}
-      </div>
-      <div class="xx-card">
-        <div class="xx-label">全 属 性 修 士</div>
-        <div class="xx-dim" style="margin-bottom:9px">
-          耗 500 资产养成。一人抵三人,四项全产(源石/丹/修为/道行)。不可婚配 —— 他的道已定。</div>
-        <div class="xx-grid3">
-          ${FAMILY.RAISED.map(k=>`<button class="xx-btn sm"
-            data-act="raise" data-v="${k.key}">${k.name}</button>`).join('')}
-        </div>
-        ${(()=>{const _g=FAMILY.raiseGap();return _g.full?'<div class="xx-hint">族人已满 · 议事堂可扩容</div>':(_g.ok?'<div class="xx-hintok">资财已足,可招</div>':`<div class="xx-hint">还需 <b>${_g.lack}</b> 资产(需 500)</div>`);})()}
-      </div>
-
-      <div class="xx-grid">
-        <button class="xx-btn" data-act="birth" ${FAMILY.canBirth()?'':'disabled'}>延 续 香 火</button>
-        <button class="xx-btn" data-act="yield">族 产 结 算</button>
-        <button class="xx-btn" data-act="call">求 援 友 盟</button>
-        <button class="xx-btn" data-act="attack">巡 视 领 地</button>
-      </div>
-      <div class="xx-dim" style="text-align:center">
-        繁衍需两名未婚族人 + 200 资产 · 领地越多,被围攻越频繁,战力要求越高</div>`;
-  },
-
-  showStoryBeat(b) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">${esc(b.name)}</div>
-      <div class="xx-sc-t">${esc(b.text)}</div>
-      ${b.reveal?`<div class="xx-sc-r">${esc(b.reveal)}</div>`:''}
-      ${b.last?`<div class="xx-sc-go">此线已至尽头。去「${esc(ARCS[b.arc].mob)}」处了结。</div>`:''}
-      <div class="xx-sc-x">知道了</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-    setTimeout(() => el.remove(), 9000);
-  },
-  // 初见妖:一条窄横幅,4.2 秒自己走(V0.94)
-  // 原来是整张叙事卡,走一圈图能弹 5 次以上,像连环弹窗骚扰。
-  // 现在只告知「你见到什么了 + 一句来历」,细节去图鉴里翻。
-  /** @param {string[]} [causal] 主线骨架给的因果句(只提示一次,重复遇见不再啰嗦) */
-  showLegend(l, causal) {
-    if (this._bn) this._bn.remove();
-    const el = document.createElement('div');
-    el.className = 'xx-banner';
-    el.innerHTML = `
-      <div class="xx-bn-img"><img src="${l.img}"></div>
-      <div class="xx-bn-txt">
-        <div class="xx-bn-n">初见 · ${esc(l.name)}</div>
-        <div class="xx-bn-l">${esc(l.lore)}</div>
-        ${causal && causal.length ? causal.map(c => `<div class="xx-bn-c">${esc(c)}</div>`).join('') : ''}
-        <div class="xx-bn-t">详情记在「修仙阁 → 支线 / 图鉴」</div>
-      </div>`;
-    this._bn = el;
-    NAGER.request({ level: NAG.MID, el, dur: 4200,
-      onClose: () => { if (this._bn === el) this._bn = null; } });
-  },
-
-  // ---------- 支线 ----------
-  vQuest() {
-    QUEST.autoTake();            // 见过妖就自动接,不要求玩家先去跑图
-    // V0.99:支线状态同步主线(encounter → intervene 这一阶靠它判定)
-    // 放在 autoTake 之后 —— 顺序反了就同步不到本轮新接的支线。
-    // QUEST.s 的形状是 { active:[key], done:{key:{...}}, choices:{} }
-    try {
-      for (const k of (QUEST.s.active || [])) SPINE.observeQuest(k, 'active');
-      for (const k of Object.keys(QUEST.s.done || {})) SPINE.observeQuest(k, 'done');
-    } catch (e) { console.warn('[spine]', e); }
-    const act = QUEST.activeList();
-    const done = QUEST.doneList();
-    const avail = QUEST.availableList();
-    return `
-      <div class="xx-card">
-        <div class="xx-label">眼 下 的 事</div>
-        <div class="xx-dim">见过传说妖,它的来历就变成你的事。办成了,会来找你要个说法。</div>
-      </div>
-
-      ${act.length ? act.map(q=>`
-        <div class="xx-card" style="border-color:${q.ready?'rgba(201,162,39,.6)':'rgba(232,220,196,.12)'}">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div class="xx-val" style="font-size:15px;color:var(--xx-gold)">${esc(q.title)}</div>
-            <div class="xx-dim">${q.ready?'可结案':Math.round(q.p*100)+'%'}</div>
-          </div>
-          <div class="xx-dim" style="margin-top:5px">${esc(q.desc)}</div>
-          ${q.ready
-            ? `<button class="xx-btn main" style="margin-top:10px" data-act="qdone" data-v="${q.key}">了 结 这 件 事</button>`
-            : `<div class="xx-bar" style="margin-top:9px"><i style="width:${q.p*100}%"></i></div>
-               <div class="xx-dim" style="margin-top:5px">${esc(q.tip)}</div>`}
-        </div>`).join('')
-        : this.empty('手 上 没 有 事',
-            '传说妖只在你亲眼见到它时才会现身。走远一点,别总待在村口。',
-            [['荒野(n1 / n2)','灯尸、当康出没一带'],
-             ['黑风岭(n5)','姥姥、剑骨'],
-             ['青岚秘境(n4)','白泽'],
-             ['古战场遗迹(n8)','青穹每回经过']])}
-
-      ${(() => {
-        const ready = STORY.readyList();
-        if (!ready.length) return '';
-        return `<div class="xx-card" style="border-color:rgba(181,52,42,.45)">
-          <div class="xx-label">看 完 了 · 等 你 选</div>
-          <div class="xx-dim" style="margin-bottom:9px">事到末尾了。选哪一条路,得你自己定。</div>
-          ${ready.map(r=>`<div style="margin-bottom:11px">
-            <div class="xx-val" style="font-size:14px;color:var(--xx-gold)">${esc(r.name)}</div>
-            <button class="xx-btn main" style="margin:8px 0 0" data-act="sfinal" data-v="${r.key}">了 结</button>
-          </div>`).join('')}</div>`;
-      })()}
-
-      ${(() => {
-        const act = STORY.activeList().filter(a=>!STORY.readyFinish(a.key));
-        if (!act.length) return '';
-        return `<div class="xx-card"><div class="xx-label">听 说 的 事</div>
-          <div class="xx-dim" style="margin-bottom:8px">还没走到头。去该去的地方看看。</div>
-          ${act.map(a=>`<div style="margin-bottom:8px">
-            <div class="xx-val" style="font-size:13px;color:var(--xx-paper)">${esc(a.name)}
-              <span class="xx-dim">(${a.beat+1}/${a.total})</span></div>
-            <div class="xx-dim" style="margin-top:2px">下一处:${esc(a.next?a.next.node:'')}</div>
-            <div class="xx-bar" style="margin-top:6px"><i style="width:${(a.beat/a.total)*100}%"></i></div>
-          </div>`).join('')}</div>`;
-      })()}
-
-      ${avail.length ? `
-        <div class="xx-card"><div class="xx-label">可 以 接 下</div>
-        ${avail.map(l=>`<div class="xx-mem">
-          <div class="a"><div class="n">${esc(l.quest.title)}</div>
-          <div class="t">${esc(l.quest.desc)}</div></div>
-          <div class="act"><button class="xx-mbtn" data-act="qtake" data-v="${l.key}">接 下</button></div>
-        </div>`).join('')}</div>` : ''}
-
-      ${done.length ? `
-        <div class="xx-card"><div class="xx-label">了 结 过 的</div>
-        ${done.map(d=>`<div style="margin-bottom:6px">
-          <div class="xx-dim" style="color:var(--xx-jade)">${esc(d.title)} ·
-            ${d.path===1?'其一':'其二'}</div></div>`).join('')}</div>` : ''}`;
-  },
-
-  showQuestReady(q) { toast(`「${q.title}」可结案了。往修仙阁 → 支线`); },
-  // 叙事线结案:二选一(墓里补完半句话走 askTombWords,这里管地表叙事线)
-  askStoryPath(k) {
-    const arc = ARCS[k];
-    const last = arc.beats[arc.beats.length-1];
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.dataset.nag = 'must';     // 必须决策,不占打扰预算
-    el.innerHTML = `<div class="xx-sc-n">${esc(arc.name)} · 了 结</div>
-      <div class="xx-sc-t">事到头了。剩下的,是你的选择。</div>
-      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px;font-size:13px;line-height:1.7"
-        data-p="1"><b style="color:var(--xx-gold)">${esc(last.epilogue)}</b><br>
-        <span class="xx-dim">${esc((ARC_REWARD[k]||[])[0] ? '道行 +' + (ARC_REWARD[k][0].dao||0) : '')}</span></div>
-      <div class="xx-sc-go" style="cursor:pointer;margin-top:10px;font-size:13px;line-height:1.7"
-        data-p="2"><b style="color:var(--xx-gold)">${esc(last.epilogue2)}</b><br>
-        <span class="xx-dim">${esc((ARC_REWARD[k]||[])[1] ? '道行 +' + (ARC_REWARD[k][1].dao||0) : '')}</span></div>
-      <div class="xx-sc-x">再想想</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
-      const path = +b.dataset.p;
-      el.remove();
-      // 先结案(记录结局/写日志/移出活跃),由 finish 内部发奖
-      const r = STORY.finish(k, path, (rw) => QUEST.grant(rw, path));
-      if (!r.ok) { toast(r.msg || '还不行'); this.render(); return; }
-      this.showStoryDone({ name:r.name, path, reward:r.reward, text:r.text });
-      this.render();
-    });
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-  },
-
-  // 结局结算卡
-  showStoryDone(r) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    const rw = r.reward && r.reward.text && r.reward.text.length ? r.reward.text : ['得了一份缘法。'];
-    el.innerHTML = `<div class="xx-sc-n">${esc(r.name)} · ${r.path===1?'其一':'其二'}</div>
-      <div class="xx-sc-t">${esc(r.text||'')}</div>
-      <div class="xx-sc-r" style="color:var(--xx-gold)">${rw.map(esc).join(' · ')}</div>
-      <div class="xx-sc-x">收下</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-    setTimeout(() => el.remove(), 9000);
-  },
-
-  // 双结局选择
-  askPath(k) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">${esc(LEGEND[k].quest.title)}</div>
-      <div class="xx-sc-t">${esc(LEGEND[k].quest.desc)}</div>
-      <div class="xx-sc-go" style="cursor:pointer" data-p="1">其一</div>
-      <div class="xx-sc-go" style="cursor:pointer" data-p="2">其二</div>
-      <div class="xx-sc-x">再想想</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
-      const r=QUEST.finish(k, +b.dataset.p);
-      el.remove();
-      if(r.ok) this.showQuestDone(r); else toast(r.msg||'还没办成');
-      this.render();
-    });
-    el.querySelector('.xx-sc-x').onclick=()=>el.remove();
-  },
-  // 特殊结局(白泽问答 / 剑骨观剑 等)
-  askSpecial(k, sp) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    el.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
-      <div class="xx-sc-t" style="font-size:16px">${esc(sp.q)}</div>
-      <div class="xx-sc-go" style="cursor:pointer;margin-top:14px" data-p="1">${esc(sp.a1)}</div>
-      <div class="xx-sc-go" style="cursor:pointer" data-p="2">${esc(sp.a2)}</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
-      const path = +b.dataset.p;
-      const r = QUEST.finish(k, path);
-      el.remove();
-      if (r.ok) {
-        const txt = path===1?sp.r1:sp.r2;
-        const e2 = document.createElement('div');
-        e2.className='xx-storycard';
-        e2.innerHTML = `<div class="xx-sc-n">${esc(sp.title)}</div>
-          <div class="xx-sc-t">${esc(txt)}</div>
-          <div class="xx-sc-r" style="color:var(--xx-gold)">${(r.reward.text||[]).map(esc).join(' · ')||'得了一份缘法。'}</div>
-          <div class="xx-sc-x">知道了</div>`;
-        document.getElementById('app').appendChild(e2);
-        e2.querySelector('.xx-sc-x').onclick=()=>e2.remove();
-        setTimeout(()=>e2.remove(),16000);
-      } else toast(r.msg||'还没办成');
-      this.render();
-    });
-  },
-  showQuestDone(res) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard';
-    el.innerHTML = `<div class="xx-sc-n">${esc(res.quest.title)} · ${res.path===1?'其一':'其二'}</div>
-      <div class="xx-sc-t">${esc(res.quest.desc)}</div>
-      <div class="xx-sc-r" style="color:var(--xx-gold)">
-        ${(res.reward.text||[]).map(esc).join(' · ') || '得了一份缘法。'}</div>
-      <div class="xx-sc-x">收下</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => el.remove();
-    setTimeout(() => el.remove(), 9000);
-  },
-
-  // ---------- 领地建造 ----------
-  vBuild() {
-    const t = BUILD.tier(), nx = BUILD.nextTier();
-    const inv = Object.keys(BUILDINGS).filter(b => Bag.count(b) > 0);
-    const E = BUILD.effects();
-    const rice = BUILD.rice();
-
-    let slots = '';
-    for (let i = 0; i < 6; i++) {
-      if (i >= t.slots) { slots += `<div class="bd-slot lock">🔒</div>`; continue; }
-      const inst = BUILD.s.placed[i];
-      if (!inst) { slots += `<div class="bd-slot empty" data-act="slot" data-v="${i}">＋</div>`; continue; }
-      const b = BUILDINGS[inst.bid];
-      const wn = inst.workers.length;
-      const fld = inst.bid === 'bld_field' ? BUILD.tickField(i) : null;
-      slots += `<div class="bd-slot" data-act="binfo" data-v="${i}" style="border-color:${b.col}66">
-        <div class="bd-slot-i">${b.icon}</div>
-        <div class="bd-slot-n">${b.name}</div>
-        <div class="bd-slot-w">${wn ? '值守 '+wn : '<span style="color:var(--xx-cinnabar)">待派人</span>'}</div>
-        ${fld && fld.ready ? '<div class="bd-slot-r">可收</div>'
-          : fld && fld.left != null ? `<div class="bd-slot-r">${fld.left}分</div>` : ''}
-      </div>`;
-    }
-
-    const pk = BUILD.canPromote();
-    const out = BUILD.tickAll();
-
-    return `
-      <div class="xx-card">
-        <div class="xx-label">领 地 等 级</div>
-        <div class="xx-big" style="color:${t.col}">${t.name} · LV${t.lv}</div>
-        <div class="xx-dim" style="margin-top:5px">${t.desc}</div>
-        <div class="xx-dim" style="margin-top:8px">${BUILD.summary()}</div>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">建 筑 效 果</div>
-        <div class="xx-dim">
-          护栏 +${E.ward}px${E.warn?' · 围攻预警':''} · 人口上限 +${E.popCap} ·
-          全族战力 +${E.atk}${E.fieldMul?` · 灵田 +${Math.round(E.fieldMul*100)}%`:''}${E.trade?' · 贸易已开':''}
-        </div>
-        ${['ward','popCap','atk','fieldMul'].every(k=>!E[k])&&!E.trade
-          ? '<div class="xx-dim" style="margin-top:6px">还没建有用的建筑。灵井、哨塔、议事堂、演武场、集市各有其用。</div>' : ''}
-      </div>
-
-      ${out.msg.length ? `<div class="xx-card"><div class="xx-label">本 轮 产 出</div>
-        <div class="xx-val" style="font-size:13px;color:var(--xx-gold)">${out.msg.join(' · ')}</div></div>` : ''}
-
-      <div class="xx-card">
-        <div class="xx-label">灵 米 (${rice} 斤)</div>
-        <div class="xx-dim" style="margin-bottom:9px">
-          ${RICE.d}生吞 +${RICE.eat.exp}修为/${RICE.eat.dao}道行 · 喂族人顶半日 · 卖 ${RICE.price}/斤</div>
-        <div class="xx-grid3">
-          <button class="xx-btn sm"
-            data-act="harvestall">收起全部</button>
-          <button class="xx-btn sm"
-            data-act="eat" data-v="1">生吞一斤</button>
-          <button class="xx-btn sm"
-            data-act="sell" data-v="10">卖10斤</button>
-        </div>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">建 造 空 间</div>
-        <div class="xx-dim" style="margin-bottom:9px">幻境之内,无怪,可随意放置。点空格取出建筑,点建筑派人。</div>
-        <div class="bd-grid">${slots}</div>
-        ${BUILD.s.placed.some(p=>p.bid==='bld_field')
-          ? '<div class="xx-dim" style="margin-top:9px">灵田:点空格下种 → 10 分钟后再点收获。灵井可加速产量。</div>' : ''}
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">可 用 建 材</div>
-        ${inv.length ? `<div class="bd-inv">${inv.map(b=>{
-          const d = BUILDINGS[b];
-          return `<button class="bd-inv-i" style="border-color:${d.col}66"
-            data-act="place" data-v="${b}">${d.icon}<br><span>${d.name}</span>
-            <em>×${Bag.count(b)}</em></button>`;
-        }).join('')}</div>`
-        : '<div class="xx-dim">没有建材。去打怪 —— 妖王掉灵田,魔修掉丹炉哨塔,老祖掉议事堂集市。</div>'}
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">人 手 安 置</div>
-        <div class="xx-dim" style="margin-bottom:8px">生产型最多 3 人(1人×1.0 / 2人×1.6 / 3人×2.1)</div>
-        <button class="xx-btn" data-act="autofill">一 键 满 编</button>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">矿 脉</div>
-        <div class="xx-val">${BUILD.s.land.length} 处领地</div>
-        <div class="xx-dim" style="margin-top:5px">去大地图点「占」纳入领地,每日出产源石。</div>
-        <button class="xx-btn" data-act="minenow">立 即 开 采</button>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">传 送 阵 法</div>
-        ${BUILD.canTeleport()
-          ? `<div class="xx-val">可用 · 每次 ${BUILD.teleportCost()} 道行</div>
-             <div class="xx-dim" style="margin-top:5px">去大地图点「传」前往已到之处。</div>`
-          : `<div class="xx-dim">需领地至「村落」LV2 以上,且有篝火。当前 ${t.name}。</div>`}
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">同 盟 契 约 (${BUILD.s.pacts.signed}/3)</div>
-        <div class="xx-dim" style="margin-bottom:8px">
-          缔结后受袭盟友驰援,围攻率 -${Math.round(BUILD.pactShield()*100)}%,集市互通。</div>
-        <div style="display:flex;gap:8px">
-          <button class="xx-btn" data-act="pact" style="flex:1"
-            ${BUILD.canPact()?'':'disabled'}>缔 结 同 盟</button>
-          <button class="xx-btn" data-act="refuse" style="flex:1">拒 绝</button>
-        </div>
-        ${(()=>{const _g=BUILD.pactGap();return _g.full?'<div class="xx-hint">契约已满(3/3)</div>':(_g.ok?'<div class="xx-hintok">道行已足,可缔约</div>':`<div class="xx-hint">还需 <b>${_g.lack}</b> 道行(需 ${_g.cost})</div>`);})()}
-      </div>
-
-      <button class="xx-btn main" data-act="promote" ${pk.ok?'':'disabled'}>
-        晋 升 为「${nx ? nx.name : '顶级'}」${pk.ok?'':`<div class="xx-dim" style="letter-spacing:0;margin-top:4px">${esc(pk.msg)}</div>`}
-      </button>`;
-  },
-
-  // ---------- 图鉴(怪物 + NPC)----------
-  vDex() {
-    // V0.98:三选一路线(kiss/cold/ghost)删了,「灵伴三形」随之消失。
-    // 这里只列与路线无关的 NPC。灵伴本人的来历走「传说妖谱」与年表。
-    const order = ['momocha','merchant','moying'];
-    return `
-      <div class="xx-card"><div class="xx-label">山 中 人</div>
-        <div class="xx-dim">路上遇见的,不是选项。</div></div>
-      ${order.map(k=>{
-        const n = NPCS[k];
-        if (!n) return '';
-        return `<div class="xx-dxx">
-          <img src="${n.img}" alt="">
-          <div class="xx-dxx-b">
-            <div class="xx-dxx-n">${esc(n.name)}<span>${esc(n.form)}</span></div>
-            <div class="xx-dxx-d">${esc(n.desc)}</div>
-            <div class="xx-dxx-b2">${esc(n.ability)}</div>
-            ${n.threat && n.threat!=='无' ? `<div class="xx-dxx-t">威胁:${esc(n.threat)}</div>` : ''}
-          </div>
-        </div>`;
-      }).join('')}
-      <div class="xx-card"><div class="xx-label">传 说 妖 谱 (${STORY.metList().length}/${LEGEND_LIST.length})</div>
-        <div class="xx-dim">每只都有来历。见过了,它的故事就展开了。</div></div>
-      ${LEGEND_LIST.map(l=>{
-        const seen = STORY.met(l.key);
-        return `<div class="xx-dxx ${seen?'':'unseen'}">
-          <img src="${l.img}" alt="">
-          <div class="xx-dxx-b">
-            <div class="xx-dxx-n">${esc(l.name)}<span>${['','','常','稀有','珍稀','传说'][l.rarity]}</span></div>
-            <div class="xx-dxx-d">${esc(seen?l.lore:'……未曾遇见。')}</div>
-            ${seen?`<div class="xx-dxx-b2">${esc(l.story)}</div>`:''}
-            ${seen?`<div class="xx-dxx-t">传闻:${esc(l.tell)}</div>`:''}
-            ${seen&&l.quest?`<div class="xx-dxx-b2" style="color:var(--xx-gold);margin-top:4px">
-              支线「${esc(l.quest.title)}」— ${esc(l.quest.desc)}</div>`:''}
-          </div></div>`;
-      }).join('')}
-      <div class="xx-card"><div class="xx-label">妖 物 图 谱</div>
-        <div class="xx-dim">${Object.keys(BESTIARY).length} 种已知。</div></div>
-      ${Object.entries(BESTIARY).map(([k,m])=>`
-        <div class="xx-dxx">
-          <img src="${m.img}" alt="">
-          <div class="xx-dxx-b">
-            <div class="xx-dxx-n">${esc(m.name)}<span>${esc(m.realm)}</span></div>
-            <div class="xx-dxx-d">${esc(m.desc)}</div>
-            <div class="xx-dxx-b2">气血 ${m.hp} · 伤害 ${m.dmg} · 修为 +${m.xp}</div>
-            <div class="xx-dxx-b2">掉落:${m.drops.map(d=>{
-              const it = BUILDINGS[d.id] || STONES[d.id] || SCROLLS[d.id] || {name:d.id};
-              return `${it.name} ${(d.p*100).toFixed(0)}%`;
-            }).join(' · ')}</div>
-          </div>
-        </div>`).join('')}`;
-  },
-
-  // ---------- 存档(种子 / 存档码)----------
-  vSys() {
-    const code = Profile.export();
-    return `
-      <div class="xx-card">
-        <div class="xx-label">世 界 种 子</div>
-        <div class="xx-big">${esc(Seed.cur)}</div>
-        <div class="xx-dim" style="margin-top:6px">
-          同一种子 = 同一个世界:奇遇、掉落、商人、怨灵、营地来客,全部一致。
-          换种子 = 换一世。存档只存进度,不存世界,所以很省。
-        </div>
-        <div class="xx-numrow" style="margin-top:12px">
-          <input id="xx-seed" value="${esc(Seed.cur)}" maxlength="12"
-            style="flex:1;background:rgba(0,0,0,.4);border:1px solid rgba(201,162,39,.4);
-            border-radius:3px;padding:10px;color:var(--xx-paper);font-size:15px;
-            font-family:inherit;text-align:center;outline:none;letter-spacing:2px">
-        </div>
-        <button class="xx-btn" data-act="setseed">换 一 世</button>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">存 档 码 (${Profile.size()} 字节)</div>
-        <div class="xx-dim" style="margin-bottom:10px">
-          整份存档压成一段字。复制存到备忘录,换设备粘贴回来就恢复。
-          清缓存也不怕。
-        </div>
-        <textarea id="xx-code" readonly style="width:100%;height:110px;background:rgba(0,0,0,.45);
-          border:1px solid rgba(201,162,39,.35);border-radius:3px;padding:9px;
-          color:var(--xx-paper);font-size:10px;font-family:monospace;outline:none;
-          resize:none;line-height:1.5">${esc(code)}</textarea>
-        <button class="xx-btn" data-act="copycode">复 制 存 档 码</button>
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">导 入 存 档</div>
-        <textarea id="xx-in" placeholder="粘贴存档码…" style="width:100%;height:80px;
-          background:rgba(0,0,0,.45);border:1px solid rgba(232,220,196,.25);border-radius:3px;
-          padding:9px;color:var(--xx-paper);font-size:10px;font-family:monospace;outline:none;
-          resize:none;line-height:1.5"></textarea>
-        <button class="xx-btn main" data-act="import">导 入 并 恢 复</button>
-      </div>
-
-      <div class="xx-dim" style="text-align:center;line-height:1.9">
-        境界 · 炼气${Cult.get().layer}层 / 道行 ${Cult.get().dao}<br>
-        灵伴 · ${esc(COMPANION.s.name || '未遇')}<br>
-        称号 · ${Cult.titles.list().length} 枚
-      </div>`;
-  },
-
-  // ---------- 集市(V0.99 · XX-META-001)----------
-  // owner 指出的大空缺:局后除了结算数字什么都没有,攒的钱只能开角色。
-  // 这里给三个去处:买东西、卖闲置、换一批货。
-  vMarket(s) {
-    if (!MARKET.loaded) MARKET.load();
-    const gold = MARKET.gold();
-    const stock = MARKET.stock();
-    const cards = stock.map((slot, i) => {
-      const it = MARKET_GOODS[slot.key];
-      if (!it) return '';
-      const afford = gold >= it.price;
-      return `<div class="xx-mk-card${slot.sold ? ' sold' : ''}">
-        <div class="xx-mk-n">${esc(it.name)}<span class="xx-dim"> ${it.tier} 阶</span></div>
-        <div class="xx-mk-d">${esc(it.desc)}</div>
-        <div class="xx-mk-b">
-          <span class="xx-gold">${it.price} 金</span>
-          <button class="xx-btn" data-act="mk-buy" data-v="${i}" ${(slot.sold || !afford) ? 'disabled' : ''}>
-            ${slot.sold ? '已售出' : afford ? '买 下' : `还差 ${it.price - gold}`}
-          </button>
-        </div>
-      </div>`;
-    }).join('');
-
-    // 行囊里可卖的源石(折价回收)
-    const sellable = ['stone_1','stone_2','stone_3','stone_4','stone_5','stone_6']
-      .filter(id => (Bag.count(id) || 0) > 0)
-      .map(id => {
-        const g = MARKET_GOODS[id];
-        const back = g ? Math.round(g.price * 0.5) : 20;
-        return `<div class="xx-mk-sell">
-          <span>${esc(STONES[id].name)} ×${Bag.count(id)}</span>
-          <button class="xx-btn" data-act="mk-sell" data-v="${id}">卖 1 颗 · ${back} 金</button>
-        </div>`;
-      }).join('');
-
-    return `
-      <div class="xx-card">
-        <div class="xx-label">集 市</div>
-        <div class="xx-dim">打来的妖物换成钱,钱换成下一局需要的东西。</div>
-        <div style="margin-top:7px"><span class="xx-gold" style="font-size:15px">${gold} 金</span></div>
-      </div>
-      <div class="xx-mk-grid">${cards || '<div class="xx-dim">货架空了,换一批。</div>'}</div>
-      <button class="xx-btn main" data-act="mk-refresh">换 一 批 货</button>
-      ${this.vCraft()}
-      ${sellable ? `<div class="xx-card" style="margin-top:12px">
-        <div class="xx-label">出 售</div>
-        <div class="xx-dim" style="margin-bottom:7px">行囊里的源石,折半收。囤太多不如换成别的。</div>
-        ${sellable}
-      </div>` : ''}
-      ${this.vTavern()}`;
-  },
-
-  // ---------- 合成(XX-META-005)----------
-  // 高阶源石原本只能靠 Boss 掉或花 1200 金买,和「打怪→源石→篝火」的主循环脱节。
-  // 这里让低阶源石 + 催化剂 → 高阶源石,把那条链闭上。
-  vCraft() {
-    const rows = CRAFT.recipes().map((r, i) => {
-      // XX-FIX-018:can() 现在也收名字解析器,和 do() 用同一套 ——
-      // 原来按钮上写的是「缺 stone_1 ×2」,而这张卡的标题写的是「碎灵石」。
-      const chk = CRAFT.can(r, Bag, id => (STONES[id] || GOODS[id] || {}).name || id);
-      const fromN = (STONES[r.from] || {}).name || r.from;
-      const toN = (STONES[r.to] || {}).name || r.to;
-      const catN = (GOODS[r.cat] || {}).name || r.cat;
-      return `<div class="xx-cf-row${chk.ok ? ' ok' : ''}">
-        <div class="xx-cf-t">${esc(fromN)} ×${r.n} + ${esc(catN)} ×${r.catN}
-          <span class="xx-gold">→ ${esc(toN)}</span></div>
-        <div class="xx-cf-d">${esc(r.d)}</div>
-        <div class="xx-cf-b">
-          <span class="xx-dim" style="font-size:10px">持有 ${chk.fromHave}/${r.n} · 催化 ${chk.catHave}/${r.catN}</span>
-          <button class="xx-btn" data-act="craft-do" data-v="${i}" ${chk.ok ? '' : 'disabled'}>
-            ${chk.ok ? '合 成' : esc(chk.miss)}
-          </button>
-        </div>
-      </div>`;
-    }).join('');
-    return `<div class="xx-card" style="margin-top:12px">
-      <div class="xx-label">合 成</div>
-      <div class="xx-dim" style="margin-bottom:8px">低阶源石熔成高阶。有损耗,但攒石头就有了用处。
-        太虚源石(6 级)不参与合成 —— 那是 boss 的东西。</div>
-      ${rows}
-    </div>`;
-  },
-
-  // ---------- 酒馆(XX-META-003)----------
-  // 同伴不是"攻击+10%"。他进局后会真的改变这一局:
-  //   · minAlive  —— 你不动,场面也不会冷清到只剩几只
-  //   · wardBonus —— 他帮你把篝火护栏撑大
-  //   · 其余属性 —— 落到 player.stats
-  vTavern() {
-    const leads = TAVERN.leads();
-    const act = TAVERN.active();
-    const mine = TAVERN.s.owned.map(id => MATES[id]).filter(Boolean);
-    return `
-      <div class="xx-card" style="margin-top:12px">
-        <div class="xx-label">酒 馆</div>
-        <div class="xx-dim">同行之约 ${leads} 张。线索越多,来的越可能是明白人 —— 但酒馆是看运气的,攒够也不一定称心。</div>
-        <div style="margin-top:9px">
-          <button class="xx-btn main" data-act="mk-recruit" ${leads < 1 ? 'disabled' : ''}>
-            ${leads < 1 ? '没有同行之约' : '招 揽 同 伴'}
-          </button>
-        </div>
-      </div>
-      ${act ? `<div class="xx-card">
-        <div class="xx-label">出 战</div>
-        <div class="xx-mk-n">${esc(act.name)}<span class="xx-dim"> ${act.tier} 阶</span></div>
-        <div class="xx-mk-d">${esc(act.bio)}</div>
-        <div class="xx-mk-d" style="color:var(--xx-gold);margin-top:5px">
-          ${act.mods.minAlive ? `保底怪量 +${act.mods.minAlive} · ` : ''}
-          ${act.mods.wardBonus ? `篝火护栏 +${act.mods.wardBonus} · ` : ''}
-          ${act.mods.might ? `攻击 ×${act.mods.might} · ` : ''}
-          ${act.mods.magnet ? `拾取 +${act.mods.magnet} · ` : ''}
-          ${act.mods.xpMult ? `经验 ×${act.mods.xpMult}` : ''}
-        </div>
-        <div style="margin-top:8px"><button class="xx-btn" data-act="mk-dismiss">让他歇着</button></div>
-      </div>` : ''}
-      ${mine.length > 1 ? `<div class="xx-card">
-        <div class="xx-label">你 带 过 的 人</div>
-        ${mine.map(m => `<div class="xx-mk-sell">
-          <span>${esc(m.name)}${m.id === (act||{}).id ? ' <em style="color:var(--xx-gold)">在场</em>' : ''}</span>
-          <button class="xx-btn" data-act="mk-mate" data-v="${m.id}">${m.id === (act||{}).id ? '已在场' : '带上'}</button>
-        </div>`).join('')}
-      </div>` : ''}
-      ${TAVERN.s.log.length ? `<div class="xx-card">
-        <div class="xx-label">招 揽 记 录</div>
-        ${TAVERN.s.log.slice(0,5).map(l => `<div class="xx-mk-d">${esc(l.name)}</div>`).join('')}
-      </div>` : ''}`;
-  },
-
-  // ---------- 行囊 ----------
-  vBag() {
-    const items = Bag.s.items || {};
-    const keys = Object.keys(items).filter(k => items[k] > 0);
-    let h = `<div class="xx-card">
-      <div class="xx-label">道 行</div><div class="xx-big">${Cult.get().dao}</div>
-      <div class="xx-dim" style="margin-top:5px">可用道行兑换源石与传承书 —— 比商人便宜,但不打折。</div>
-    </div>`;
-    h += this._vMutCard();
-    if (this._feedStone && !keys.includes(this._feedStone)) this._feedStone = null;
-    if (this._feedStone) h += this._vPartPicker();
-    if (!keys.length) return h + this.empty('空 空 如 也',
-      '源石用来生篝火,传承书用来补突破溢出。丹药得去秘境才有。',
-      [['荒野 · 打散妖','掉落源石,品质随机'],
-       ['秘境(n4)','丹药与高阶源石'],
-       ['险地 / 妖巢','道行与稀罕物件'],
-       ['突破失败','多余的修为自动折成传承书']]);
-    for (const k of keys) {
-      const it = STONES[k] || SCROLLS[k] || GOODS[k];
-      if (!it) continue;
-      const isStone = !!STONES[k];
-      const isScroll = !!SCROLLS[k];
-      h += `<div class="xx-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-          <div style="flex:1">
-            <div class="xx-label" style="color:${it.col}">${it.name} ×${items[k]}</div>
-            <div class="xx-val" style="font-size:13px">${isStone ? `燃烧 ${it.dur} 分钟` : (it.d || it.realm || '')}</div>
-            ${isStone ? `<div class="xx-dim" style="margin-top:4px">来源:${it.src}</div>` : ''}
-          </div>
-          ${!isStone && GOODS[k] ? `<button class="xx-btn" style="width:auto;margin:0;padding:8px 15px;font-size:13px"
-            data-act="usegood" data-v="${k}">使 用</button>` : ''}
-          ${isStone && this._sFeedable(k) ? `<button class="xx-btn" style="width:auto;margin:0;padding:8px 15px;font-size:13px"
-            data-act="feedpick" data-v="${k}">${this._feedBtnText()}</button>` : ''}
-        </div></div>`;
-    }
-    // 兑换区
-    h += `<div class="xx-label" style="margin:14px 0 6px">道 行 兑 换</div>`;
-    h += Object.entries(Bag.EXCHANGE).map(([sid, e]) => `
-      <div class="xx-card" style="padding:10px 12px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div class="xx-label" style="color:${STONES[sid].col}">${STONES[sid].name}</div>
-          <div class="xx-dim">${STONES[sid].dur} 分钟 + ${SCROLL_LIST.find(x=>x.exp<=(e.exp*1.2)&&x.exp>=e.exp*0.45)?.name||'传承书'}</div></div>
-          <button class="xx-btn" style="width:auto;margin:0;padding:7px 13px;font-size:12px"
-            data-act="exch" data-v="${sid}">${e.dao}</button>
-        </div></div>`).join('');
-    return h;
-  },
-
-  // ---------- 灵伴变异(XX-MUTATION-003/004)----------
-  // 载体是**真的把源石丢进漩涡**:石头会被扣掉、状态会永久变。
-  // 不是 45 秒计时器弹四个按钮 —— 那是 V0.98 删掉 kiss 路线的理由。
-  /** 当前能不能喂(未遇灵伴 / 已达真身上限 / 没选部位时不给「喂」) */
-  _sFeedable(stoneId) {
-    if (!COMPANION.born()) return false;
-    if (MUTATION.isDone(COMPANION.s.mut)) return false;   // 真身已定稿,再投没意义
-    if (!this._feedStone) return false;
-    if (this._feedStone !== stoneId) return false;
-    return !!this._feedPart;
-  },
-
-  /** 真身抉择待定时,按钮文案从「饲」变成「投进漩涡」 */
-  _feedBtnText() { return COMPANION.canChooseFinal() ? '投 进 漩 涡' : '饲'; },
-
-  _vMutCard() {
-    const m = COMPANION.s.mut;
-    const nm = esc(COMPANION.get());
-    if (!COMPANION.born()) {
-      return `<div class="xx-card"><div class="xx-label">灵 伴</div>
-        <div class="xx-dim" style="margin-top:5px">还没遇上她。走完开局仪式才会出现。</div></div>`;
-    }
-    const st = MUTATION.STAGES[m.stage];
-    const p = MUTATION.progress(m);
-    const left = COMPANION.toNextStage();
-    const fam = m.family ? MUTATION.FAMILIES[m.family] : null;
-    let line;
-    if (COMPANION.canChooseFinal()) {
-      line = `漩涡停了,${nm}跪坐在墨里,看不清脸。` +
-             `<br>再投一颗下去,你就再也收不回来了。`;
-    } else if (left > 0) {
-      line = `离「${MUTATION.STAGES[m.stage + 1].name}」还差 ${left} 次投喂。`;
-    } else {
-      line = '封印已经全开。';
-    }
-    return `<div class="xx-card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="xx-label" style="color:var(--xx-gold)">灵 伴 · ${nm}</div>
-        <div class="xx-dim">${fam ? fam.sigil + ' ' : ''}${st.name}</div>
-      </div>
-      <div class="xx-val" style="font-size:13px;margin-top:6px">${p.feeds} / ${p.total}</div>
-      <div class="xx-dim" style="margin-top:5px">${line}</div>
-      ${COMPANION.canChooseFinal() ? `<button class="xx-btn" style="width:auto;margin:9px 0 0;padding:7px 13px;font-size:12px"
-        data-act="feedstop">收 手</button>` : ''}
-    </div>`;
-  },
-
-  /** 部位选择器 —— 玩家唯一的手动权:决定这次先变哪儿 */
-  _vPartPicker() {
-    const m = COMPANION.s.mut;
-    const sid = this._feedStone;
-    const stone = STONES[sid];
-    if (!stone) return '';
-    return `<div class="xx-card">
-      <div class="xx-label">以 ${esc(stone.name)} 饲 ${esc(COMPANION.get())}</div>
-      <div class="xx-dim" style="margin-top:4px">选一处。喂得多、喂得专,这处才明显。</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-        ${MUTATION.PARTS.map(p => `<button class="xx-btn" style="width:auto;margin:0;padding:6px 11px;font-size:12px;
-          ${this._feedPart === p.key ? 'border-color:var(--xx-gold);color:var(--xx-gold)' : ''}"
-          data-act="feedpart" data-v="${p.key}">${p.name}<span class="xx-dim" style="margin-left:5px">${m.parts[p.key] || 0}</span></button>`).join('')}
-      </div>
-      <div class="xx-dim" style="margin-top:8px;font-size:11px">
-        ${(MUTATION.PARTS.find(p => p.key === this._feedPart) || {}).desc || '先选一处,再按下方的键。'}
-      </div>
-      ${this._feedPart ? `<button class="xx-btn main" style="margin-top:9px"
-        data-act="feeddo" data-v="${sid}" data-v2="${this._feedPart}">${this._feedBtnText()}</button>` : ''}
-    </div>`;
-  },
-
-  // ---------- 人物 ----------
-  // 得到坐骑:必须有明确反馈,不能静默发
-  showMountGet(m) {
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    const isRide = m.kind === 'ride';
-    el.innerHTML = `<div class="xx-sc-n">得 ${esc(m.name)}</div>
-      <div class="xx-sc-t">${esc(m.lore)}</div>
-      <div class="xx-sc-t" style="margin-top:9px;color:var(--xx-jade)">${esc(m.give)}</div>
-      <div class="xx-sc-r" style="color:var(--xx-gold)">
-        ${m.ward?`护栏 +${m.ward} `:''}${m.speed?`移速 +${m.speed}% `:''}
-        ${m.pickup?`拾取 ×${(1+m.pickup).toFixed(2)} `:''}${m.atk?`攻击 +${m.atk}%`:''}
-      </div>
-      <div class="xx-sc-t" style="margin-top:8px;font-size:12px">已${isRide?'骑上':'带上'}。往「修仙阁 → 人物」可换。</div>
-      <div class="xx-sc-x">收下</div>`;
-    document.getElementById('app').appendChild(el);
-    el.querySelector('.xx-sc-x').onclick = () => { el.remove(); this._nextPending(); };
-    setTimeout(() => { el.remove(); this._nextPending(); }, 18000);
-  },
-
-  // 全屏卡队列:一次只弹一张,关掉再弹下一张
-  _nextPending() {
-    if (this._busy) return;
-    const q = this._pendingMount;
-    if (!q || !q.length) return;
-    const m = q.shift();
-    this._busy = true;
-    const el = document.createElement('div');
-    el.className = 'xx-storycard legend';
-    const done = () => { el.remove(); this._busy = false; this._nextPending(); };
-    el.innerHTML = `<div class="xx-sc-n">得 ${esc(m.name)}</div>
-      <div class="xx-sc-t">${esc(m.lore)}</div>
-      <div class="xx-sc-t" style="margin-top:9px;color:var(--xx-jade)">${esc(m.give)}</div>
-      <div class="xx-sc-r" style="color:var(--xx-gold)">
-        ${m.ward?`护栏 +${m.ward} `:''}${m.speed?`移速 +${m.speed}% `:''}
-        ${m.pickup?`拾取 ×${(1+m.pickup).toFixed(2)} `:''}${m.atk?`攻击 +${m.atk}%`:''}
-      </div>
-      <div class="xx-sc-t" style="margin-top:8px;font-size:12px">已${m.kind==='ride'?'骑上':'带上'}。往「修仙阁 → 人物」可换。</div>
-      <div class="xx-sc-x">收下</div>`;
-    document.getElementById('app').appendChild(el);
-    NAGER.request({ level: NAG.MUST, el, dur: 11000, onClose: done });
-  },
-
-  // 统一空态:一句状态 + 去哪儿的线索(V0.95)
-  // 原来空页面只写「还没什么」,玩家不知道下一步该干嘛。
-  empty(title, desc, clues) {
-    return `<div class="xx-empty">
-      <div class="xx-empty-t">${esc(title)}</div>
-      <div class="xx-empty-d">${esc(desc)}</div>
-      ${(clues && clues.length) ? `
-        <div class="xx-empty-h">去 哪 儿</div>
-        ${clues.map((c,i)=>`<div class="xx-clue">
-          <span class="xx-clue-i">${i+1}</span>
-          <span><b style="color:var(--xx-gold)">${esc(c[0])}</b><br>
-          <span class="xx-clue-w">${esc(c[1])}</span></span>
-        </div>`).join('')}` : ''}
-    </div>`;
-  },
-
-  // 村庄:真有功能的地方(V0.96)
-  // 原来点进去只有一句「炊烟袅袅。歇一会儿。」—— 村庄是个空壳,
-  // 而 world.js 里落云镇还标着 shop:true,代码却从来没读过这个字段。
-  enterVillage(n) {
-    this.village = n.id;
-    this.render();
-    setTimeout(() => {
-      const body = document.getElementById('xx-body');
-      if (!body) return;
-      const el = document.createElement('div');
-      el.innerHTML = this.vVillage(n);
-      // 插到地图最前面
-      const first = body.querySelector('.xx-card, .xx-map');
-      if (first) body.insertBefore(el, first); else body.appendChild(el);
-      // 事件代理在 root 上,插入的内容照样能点
-    }, 0);
-    // 布告栏:告诉玩家这个村子是干什么的
-    setTimeout(() => {
-      const isTown = !!n.shop;
-      toast(isTown ? '落云镇 · 集市开市' : '青石村 · 炊烟起了');
-    }, 200);
-  },
-
-  // 村庄面板(挂在页面顶部)
-  vVillage(n) {
-    const s = Cult.get();
-    const isTown = !!n.shop;
-    const heal = (s.hp || 0) < (s.maxHp || 0);
-    return `<div class="xx-card" style="border-color:rgba(201,162,39,.4)">
-        <div class="xx-label">${esc(n.name || '村 落')}</div>
-        <div class="xx-val" style="font-size:14px;color:var(--xx-gold)">
-          ${isTown ? '集 市 开 市' : '炊 烟 袅 袅'}</div>
-        <div class="xx-dim" style="margin-top:6px;line-height:1.85">
-          ${isTown
-            ? '落云镇的集市每旬开一次。散修把用不上的东西拿来换,也有人在这儿收传说。'
-            : '青石村是最早落脚的地方。村口的老槐树下,总有人愿意跟你讲两句。'}</div>
-      </div>
-
-      <div class="xx-grid">
-        <div class="xx-card">
-          <div class="xx-label">歇 息</div>
-          <div class="xx-dim" style="font-size:12px;margin:5px 0 9px">
-            ${heal ? `气血 ${s.hp}/${s.maxHp} — 睡一觉就好了` : '气血已满,歇着也是歇着'}</div>
-          <button class="xx-btn" data-act="rest">睡 一 觉</button>
-        </div>
-        ${isTown ? `
-        <div class="xx-card">
-          <div class="xx-label">集 市</div>
-          <div class="xx-dim" style="font-size:12px;margin:5px 0 9px">
-            你有 ${s.dao} 道行。散商的货比仙人便宜,但他挑人。</div>
-          <button class="xx-btn" data-act="merchant">找 散 商</button>
-        </div>` : `
-        <div class="xx-card">
-          <div class="xx-label">村 口</div>
-          <div class="xx-dim" style="font-size:12px;margin:5px 0 9px">
-            青石村没有集市,但有别的 —— 猎户会带你进山。</div>
-          <button class="xx-btn" data-act="guide">问 路 人</button>
-        </div>`}
-      </div>
-
-      <div class="xx-card">
-        <div class="xx-label">村 中 所 见</div>
-        ${(isTown
-          ? [['卖符的', '「匿息符?一张不够,两张才稳。」'],
-             ['说书的', '他讲古战场那一段,每回都讲得不一样。'],
-             ['磨刀的', '他在等一个人。等了很久了。']]
-          : [['打铁的老汉', '他要的从来不是钱。'],
-             ['门口的小孩', '他数着天,说再过几天就能去捡灵石了。'],
-             ['收山货的', '他压价,但他认得每一味草。']]
-        ).map((c,i)=>`<div class="xx-clue" style="border:0;padding:6px 0">
-            <span class="xx-clue-i">${i+1}</span>
-            <span><b style="color:var(--xx-paper)">${esc(c[0])}</b><br>
-            <span class="xx-clue-w">${esc(c[1])}</span></span></div>`).join('')}
-      </div>`;
-  },
-
-  // ---------- 坐骑 / 宠物 ----------
-  vMount() {
-    const e = MOUNT.eff(), b = MOUNT.breakdown();
-    const ride = MOUNT.s.ride ? MOUNTS[MOUNT.s.ride] : null;
-    const pet  = MOUNT.s.pet  ? MOUNTS[MOUNT.s.pet]  : null;
-    const row = (label, base, add, unit) => `
-      <div style="display:flex;justify-content:space-between;align-items:baseline;
-        padding:5px 0;border-bottom:1px solid rgba(232,220,196,.07)">
-        <span class="xx-dim" style="font-size:12px">${label}</span>
-        <span style="font-size:13px">${base}<span style="color:var(--xx-jade)">${add}</span>
-          <span class="xx-dim" style="font-size:11px">${unit||''}</span></span>
-      </div>`;
-
-    const card = (m, slot) => {
-      const on = slot==='ride' ? MOUNT.s.ride===m.id : MOUNT.s.pet===m.id;
-      return `
-      <div style="border:1px solid rgba(232,220,196,.12);border-radius:3px;
-        padding:10px;margin-bottom:8px;${on?'border-color:rgba(201,162,39,.5);':''}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;color:var(--xx-gold);white-space:nowrap">${esc(m.name)}</div>
-            <div class="xx-dim" style="font-size:11px;margin-top:2px;white-space:nowrap">${esc(m.from)} · ${m.kind==='ride'?'坐骑':'随行'}</div>
-          </div>
-          <button class="xx-btn mini" data-act="mset" data-v="${m.id}" data-s="${slot}">${on?'卸 下':(slot==='ride'?'骑 上':'带 上')}</button>
-        </div>
-        <div class="xx-dim" style="font-size:12px;margin-top:7px;line-height:1.75">${esc(m.lore)}</div>
-        ${m.give?`<div class="xx-dim" style="font-size:11px;margin-top:4px;line-height:1.7;color:var(--xx-jade)">${esc(m.give)}</div>`:''}
-        <div style="font-size:11px;color:var(--xx-jade);margin-top:6px">
-          ${m.ward?`护栏 +${m.ward} `:''}${m.speed?`移速 +${m.speed}% `:''}${m.pickup?`拾取 ×${(1+m.pickup).toFixed(2)} `:''}${m.atk?`攻击 +${m.atk}%`:''}
-        </div>
-      </div>`;
-    };
-
-    const owned = MOUNT.s.have.map(id=>MOUNTS[id]).filter(Boolean);
-    const rides  = owned.filter(m=>m.kind==='ride');
-    const pets   = owned.filter(m=>m.kind==='pet');
-
-    const statBlock = (MOUNT.s.have.length ? `
-      <div class="xx-card">
-        <div class="xx-label">在 身 之 物</div>
-        ${row('篝火护栏', '70', b.ward?` +${b.ward}`:'', ' px')}
-        ${row('局内移速', '1.00', b.speed?` +${b.speed}%`:'', '')}
-        ${row('拾取范围', '1.00', b.pickup?` +${Math.round(b.pickup*100)}%`:'', '')}
-        ${b.atk?row('随行攻击','0',` +${b.atk}%`,''):''}
-        <div class="xx-dim" style="font-size:11px;margin-top:9px;line-height:1.7">
-          ${ride?`骑：${esc(ride.name)}`:'未骑乘'}${pet?`　带：${esc(pet.name)}`:(pets.length?'　（随行未带出）':'')}</div>
-      </div>` : '');
-
-    // 未获得的:直接写清楚在哪儿、怎么才能拿到。
-    // 不写清楚的话,玩家走一圈图什么都没拿到,却不知道差什么(V0.92 修)
-    const lack = MOUNT_LIST.filter(m => !MOUNT.has(m.id));
-    let lackHtml = '';
-    if (lack.length) {
-      // 近在咫尺:条件已满足一半的单独点出来,免得玩家瞎找
-      const near = lack.filter(m =>
-        (m.id === 'baize'      && STORY.met('baize')) ||
-        (m.id === 'qiao'       && STORY.met('qingqiong')) ||
-        (m.id === 'stonepuppy' && TOMB.known()));
-      lackHtml = `<div class="xx-card">
-        <div class="xx-label">还 没 得 到</div>
-        <div class="xx-dim" style="margin-bottom:9px;line-height:1.8">
-          坐骑不是买来的。它们只认一个特定的人,或者只在一个地方等。
-          走对地方才有,走错了再多次也没有。</div>
-        ${near.length ? `<div class="xx-dim" style="color:var(--xx-jade);
-          background:rgba(74,157,224,.08);padding:7px 9px;border-radius:2px;
-          margin-bottom:10px;font-size:12px;line-height:1.7">
-          快了 —— ${near.map(m=>esc(m.name.replace(/ /g,''))).join('、')}
-          那边你已经有眉目了,只差最后一步。</div>` : ''}
-        ${lack.map(m => `<div style="margin-bottom:9px;padding-left:9px;
-          border-left:2px solid rgba(201,162,39,.28)">
-          <div style="font-size:13px;color:var(--xx-gold)">${esc(m.name)}
-            <span class="xx-dim" style="font-size:11px">${m.kind==='ride'?'坐骑':'随行'}</span></div>
-          <div class="xx-dim" style="font-size:12px;line-height:1.7;margin-top:2px">${esc(m.how)}</div>
-        </div>`).join('')}
-      </div>`;
-    }
-
-    return `<div class="xx-card">
-        <div class="xx-label">坐 骑 与 随 行</div>
-        <div class="xx-dim" style="line-height:1.8">
-          坐骑拉开护栏、加移速;随行的会自己上去咬人。<br>
-          和灵伴不同 —— 灵伴陪你说话,它们只出力气。</div>
-      </div>`
-      + statBlock
-      + (rides.length ? `<div class="xx-card"><div class="xx-label">坐 骑</div>
-          ${rides.map(m=>card(m,'ride')).join('')}</div>` : '')
-      + (pets.length ? `<div class="xx-card"><div class="xx-label">随 行</div>
-          ${pets.map(m=>card(m,'pet')).join('')}</div>` : '')
-      + lackHtml;
-  },
-
-  vPeople() {
-    return this.vMount()
-      + Object.values(CHARACTERS).map(c => `
-      <div class="xx-ch">
-        <img src="${PORTRAIT[c.portrait] || PORTRAIT.hero}" alt="">
-        <div>
-          <h4>${esc(c.name)} <span class="xx-dim" style="font-size:11px">${esc(c.role)}</span></h4>
-          <div class="t">${esc(c.title)}</div>
-          <p>${esc(c.bio)}</p>
-          <p class="xx-gold" style="margin-top:5px">${esc(c.arc)}</p>
-        </div>
-      </div>`).join('')
-      + (STORY.s.log.length ? `
-        <div class="xx-card"><div class="xx-label">所 见 所 闻</div>
-        ${STORY.s.log.slice(0,7).map(e => `
-          <div style="margin-bottom:9px">
-            <div class="xx-val" style="font-size:12px;color:var(--xx-gold)">${esc(e.arc)}</div>
-            <div class="xx-dim" style="margin-top:2px">${esc(e.text)}</div>
-          </div>`).join('')}
-        </div>` : '')
-      + (STORY.doneList().length ? `
-        <div class="xx-card"><div class="xx-label">了 结</div>
-        ${STORY.doneList().map(e=>`<div style="margin-bottom:8px">
-          <div class="xx-val" style="font-size:12px;color:var(--xx-jade)">${esc(e.name)}</div>
-          <div class="xx-dim" style="margin-top:2px">${esc(e.epilogue||'')}</div>
-        </div>`).join('')}
-        </div>` : '')
-      + `<div class="xx-card"><div class="xx-label">世 界</div>
-        <div class="xx-val">${esc(LORE.title)} · ${esc(LORE.era)}</div>
-        <div class="xx-dim" style="margin-top:6px">${esc(LORE.intro)}</div></div>
-        ${LORE.rules.map(r => `<div class="xx-dim" style="padding:4px 0">· ${esc(r)}</div>`).join('')}`;
-  },
-
-  // ---------- 称号 ----------
-  vTitle() {
-    const got = Cult.titles.list();
-    return TITLES.map(t => {
-      const on = got.includes(t.id);
-      return `<div class="xx-title-i ${on ? 'on' : 'off'}">
-        <div class="xx-seal">${on ? '印' : '？'}</div>
-        <div style="flex:1">
-          <div style="color:${on ? 'var(--xx-gold)' : 'var(--xx-paper)'};letter-spacing:2px">${esc(t.name)}</div>
-          <div class="xx-dim">${on ? esc(t.desc) : esc(t.cond)}</div>
-        </div>
-      </div>`;
-    }).join('');
-  },
 };

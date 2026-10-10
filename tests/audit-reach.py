@@ -25,19 +25,34 @@ with sync_playwright() as p:
       // 找出 mount.js 导出对象的所有方法,看哪个在主循环里被调
       return {hasFn: typeof window.MOUNT_dbg};
     }""")
-    # 直接读源码判断
-    src=pg.evaluate("async()=>{const t=await (await fetch('/js/xiuxian/ui.js')).text();return t;}")
-    called = 'MOUNT.checkUnlocks()' in src
-    ok("checkUnlocks 在抵达节点流程里被调用", called)
-    # 全项目扫
-    hits=pg.evaluate("""async()=>{
-      const files=['/js/xiuxian/ui.js','/js/main.js','/js/xiuxian/quest.js','/js/xiuxian/story.js'];
-      const out=[];
-      for(const f of files){const t=await (await fetch(f)).text();
-        if(t.includes('checkUnlocks')) out.push(f);}
-      return out;
+    # 全项目扫。
+    # ⚠️ 原来硬编码 4 个路径,而且第一处检查连 ui.js 单文件都写死了 ——
+    # 浏览器里没法列目录,但**可以读 sw.js 的预缓存清单**,
+    # 那本来就是「这个 app 到底发了哪些 js」的唯一真源(离线能跑全靠它)。
+    # ui.js 拆成 js/xiuxian/ui/*.js 之后(checkUnlocks 跟着 arrive() 走),
+    # 硬编码列表会静默漏掉新的调用点文件,报出来的"实际调用点"会骗人。
+    #
+    # 用 r""" 而不是 """ :里面正则有 \/,非 raw 字符串会报 SyntaxWarning。
+    audit1=pg.evaluate(r"""async()=>{
+      const sw=await (await fetch('/sw.js')).text();
+      const files=[...new Set((sw.match(/'js\/[^']+\.js'/g)||[]).map(x=>x.slice(1,-1)))];
+      const hits=[]; let unreadable=0;
+      for(const f of files){try{
+        const t=await (await fetch('/'+f)).text();
+        if(t.includes('checkUnlocks')) hits.push(f);
+      }catch(e){ unreadable++; }   // 清单里有磁盘上没有的,lint-precache 会拦
+      }
+      return {hits, scanned: files.length, unreadable};
     }""")
-    warn(f"checkUnlocks 的实际调用点: {hits if hits else '无 —— 玩家永远拿不到坐骑'}", False)
+    # ⚠️ 这里原来写死 'js/xiuxian/ui.js' —— 一旦 arrive() 被搬进 ui/*.js,
+    # 这条会以"调用点不在 ui.js"为由报红,而实际接线是好的。
+    # 真正要验的是:发出去的 js 里**有**调用点。不是"在哪个文件"。
+    ok("checkUnlocks 在抵达节点流程里被调用", len(audit1['hits']) > 0,
+       f"扫了 {audit1['scanned']} 个文件,一个调用点都没有")
+    warn('预缓存清单里的 js 数量合理(不是空扫)',
+         audit1['scanned'] >= 30, f"只扫到 {audit1['scanned']} 个文件")
+    warn(f"checkUnlocks 的实际调用点: {audit1['hits'] if audit1['hits'] else '无 —— 玩家永远拿不到坐骑'}",
+         bool(audit1['hits']))
 
     print("【审计 2:MOUNT 模块本身有没有被加载】")
     loaded=pg.evaluate("async()=>{try{const m=await import('/js/xiuxian/mount.js');return !!m.MOUNT;}catch(e){return 'ERR:'+e.message}}")

@@ -8,6 +8,23 @@ PORT="${XX_TEST_PORT:-8894}"
 PY="${PYTHON:-python3}"
 pass=0; failed=0; failed_names=""
 
+# —— 前置检查 ——
+# playwright 缺失时**必须立刻停**,不能让它跑出一堆假红。
+# 浏览器测试不是"锦上添花":历史上「修仙阁白屏」「结局无限刷奖励」
+# 「去重误删方法」这几类事故,逻辑测试**全绿**,只有真跑浏览器才炸出来。
+# 所以"跑不了"要当失败上报,不能默默跳过。
+if ! $PY -c "import playwright" 2>/dev/null; then
+  echo "❌ playwright 没装,浏览器测试无法执行"
+  echo ""
+  echo "   安装:"
+  echo "     pip install playwright"
+  echo "     $PY -m playwright install chromium"
+  echo ""
+  echo "   注意:这套测试是唯一能抓「重复定义 / 定义了但没人调用」这类 bug 的手段,"
+  echo "   而那正是本项目反复出问题的地方。装不上就等于这套防线不存在。"
+  exit 1
+fi
+
 $PY -m http.server "$PORT" --bind 127.0.0.1 >/tmp/xx-test-server.log 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null' EXIT INT TERM
@@ -20,9 +37,11 @@ echo "本地服务器 http://127.0.0.1:$PORT 就绪"
 echo ""
 
 # audit-reach 是可达性审计:不注入状态,从入口走一遍,抓「定义了但玩家拿不到」
+# audit-loop 验证砍杀与修仙阁是同一个游戏(道行/源石真的互通)
+# 注意 audit-ui.py 故意不在这里:它只出截图给人看,没有 pass/fail 判据,不是门禁
 # 沙箱里后台进程容易被回收,结果直接落盘
 if [ -n "${XX_BR_LOG:-}" ]; then exec > >(tee -a "$XX_BR_LOG") 2>&1; fi
-for f in tests/t8*.py tests/t9*.py tests/audit-reach.py tests/full*.py; do
+for f in tests/t8*.py tests/t9*.py tests/audit-reach.py tests/audit-loop.py tests/full*.py; do
   [ -f "$f" ] || continue
   name=$(basename "$f" .py)
   echo "=== $name ==="

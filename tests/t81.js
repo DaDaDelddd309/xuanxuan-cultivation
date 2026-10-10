@@ -1,107 +1,118 @@
+// 灵伴 · 怨灵系统 + 篝火护栏(工单 XX-COMP-003 / XX-FIX-003 / XX-SPAWN-002)
+//
+// 运行: node tests/t81.js
+//
+// 【为什么这个文件被重写过】
+// 原 t81 测的是 V0.98 之前的灵伴:三选一路线(kiss/cold/ghost)、亲密度、
+// 贴边弹窗、送礼、亲密度分级。V0.98 那次「灵伴重做」把这些**整体删掉了**
+// ——不是坏了,是设计上决定不要了(理由见 js/xiuxian/companion.js 顶部注释):
+// 割草游戏的情感语言是动作,不是菜单;菜单层的点击农场是假情感。
+// 但测试没跟着重写,于是从 7856c5e(V0.99)起这个文件就一直在报 TypeError,
+// 而且是**红色的状态被提交进了仓库**。
+//
+// 【分工,别重复造轮子】
+// 灵伴的生命周期本身(取名/开局/生死/台词/年表/存档往返)在
+//   tests/test-companion.mjs   —— 已完整覆盖 XX-COMP-001~006,别往这边再抄一遍
+// 本文件只负责 test-companion.mjs 没覆盖的两块:
+//   ① 怨灵系统的完整状态机(它被明确保留为「玩法机制」)
+//   ② 篝火护栏 wardRadius / wardenTick(与篝火、昼夜、拾取范围的耦合)
 globalThis.document={addEventListener(){},createElement:()=>({style:{},classList:{add(){},remove(){}},appendChild(){}}),body:{appendChild(){}},getElementById:()=>null};
 globalThis.window={};
 globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
 const C=await import('../js/xiuxian/companion.js');
 const I=await import('../js/xiuxian/items.js');
 const P=await import('../js/xiuxian/camp.js');
-let pass=0,fail=0;const t=(n,c)=>{c?pass++:(fail++,console.log('  ❌',n))};
-const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v};
+let pass=0,fail=0;const t=(n,c,d='')=>{c?pass++:(fail++,console.log('  ❌',n,d?(':: '+d):''))};
+const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v,removeItem:k=>{delete store[k]}};
+const co=C.COMPANION;
 
-console.log('\n=== 命名 ===');
-// V0.98 灵伴重做:三路线(kiss/cold/ghost)整套删除,只剩单灵伴。
-// born 由**字段**改成**方法**;默认名「宝宝」从「存进存档」上移到渲染层 get() 兜底。
-C.COMPANION.reset(); C.COMPANION.load();
-t('初始未诞生(方法)', C.COMPANION.born()===false);
-t('状态里不再有 born 字段', !('born' in C.COMPANION.s));
-C.COMPANION.init('小桃');
-t('命名成功', C.COMPANION.s.name==='小桃');
-t('命名后已诞生', C.COMPANION.born()===true);
-C.COMPANION.init('');
-t('空名不覆盖已有名字', C.COMPANION.s.name==='小桃');
-t('读时优先用已命名', C.COMPANION.get('备用')==='小桃');
-C.COMPANION.reset();
-// get(name) = s.name || name || '宝宝' —— 兜底只在**两者都空**时才轮到 '宝宝'
-t('未命名且无参时读出默认名', C.COMPANION.get() === '宝宝');
-t('未命名时用传入的备用名', C.COMPANION.get('备用') === '备用');
+// ============================================================
+console.log('\n=== 诞生与取名 ===');
+co.reset();
+t('初始未诞生', co.born()===false);
+co.init('小满');
+t('取名后已诞生', co.born()===true);
+t('名字生效', co.s.name==='小满');
+t('已存的名字优先于传入名', co.get('备用')==='小满' && co.get()==='小满');
+co.s.name='';
+t('无名字时用传入名', co.get('备用')==='备用');
+t('无名字也无参数时回落宝宝', co.get()==='宝宝');
+co.init('');
+t('空名不覆盖已有默认', co.born()===false);
 
-console.log('\n=== 台词:同一表现必出同一句 ===');
-C.COMPANION.reset(); C.COMPANION.init('小桃'); C.COMPANION.beginRun();
-t('本局还有 2 句', C.COMPANION.sayLeft()===2);
-const s1=C.COMPANION.say('diedOnce');
-t('首次有台词', typeof s1==='string'&&s1.includes('「'));
-t('剩 1 句', C.COMPANION.sayLeft()===1);
-t('同一表现不重复', C.COMPANION.say('diedOnce')===null);
-t('换一句能出', typeof C.COMPANION.say('hiding')==='string');
-t('用完即止', C.COMPANION.sayLeft()===0&&C.COMPANION.say('fullHp')===null);
-t('不存在的键不崩', C.COMPANION.say('__nonexistent__')===null);
-C.COMPANION.s.run.present=false;
-t('不出场就不说话', C.COMPANION.say('lowHp')===null);
+// 旧 API 不得复活:重做是有意为之,不是意外删错
+console.log('\n=== 旧路线系统已移除(防回潮) ===');
+for(const m of ['choose','hug','hugChoose','tryGift','canHug','stage','cold'])
+  t(`${m} 已不存在`, typeof co[m]!=='function');
+t('无 s.route', !('route' in co.s));
+t('无 s.pick',  !('pick'  in co.s));
+t('无 s.aff',   !('aff'   in co.s));
 
-console.log('\n=== 出场规则:连死 3 次她不出场 ===');
-C.COMPANION.reset(); C.COMPANION.init('小桃'); C.COMPANION.beginRun();
-t('第一局出场', C.COMPANION.s.run.present===true);
-C.COMPANION.onPlayerDeath(); C.COMPANION.beginRun();
-t('死 1 次仍出场', C.COMPANION.s.run.present===true);
-C.COMPANION.onPlayerDeath(); C.COMPANION.beginRun();
-t('死 2 次仍出场', C.COMPANION.s.run.present===true);
-C.COMPANION.onPlayerDeath();
-t('连死 3 次记满', C.COMPANION.s.run.deadStreak===3);
-C.COMPANION.beginRun();
-t('连死 3 次不出场', C.COMPANION.s.run.present===false);
-t('不出场不拾取', C.COMPANION.autoPick()===false);
-t('不出场掉血无效', C.COMPANION.hurt()===0);
-C.COMPANION.onRunClear(); C.COMPANION.beginRun();
-t('过关清零后回归', C.COMPANION.s.run.present===true);
+// ============================================================
+console.log('\n=== 怨灵:默认关闭 ===');
+co.reset();
+t('默认不启用', co.s.ghost.on===false);
+t('未启用时 tick 无事发生', co.tick()===null);
+t('未启用时无台词', co.ghostLine()===null);
+t('未启用时无加成', co.hostBuff()===1 && co.hostDmg()===1 && co.hostSpd()===1);
+t('未启用时不算附身', co.possessing()===false);
 
-console.log('\n=== 局内掉血:消失一轮再回来 ===');
-C.COMPANION.reset(); C.COMPANION.init('小桃'); C.COMPANION.beginRun();
-const hp0=C.COMPANION.s.run.hp;
-t('掉血返回剩余血', C.COMPANION.hurt()===hp0-10);
-t('记录挨过打', C.COMPANION.s.run.tookDamage===true);
-let guard=0; while(C.COMPANION.hurt()!==-1 && guard++<20);
-t('血空返回 -1(消失)', guard<20);
-t('消失后血回满', C.COMPANION.s.run.hp===C.COMPANION.s.run.maxHp);
+// ============================================================
+console.log('\n=== 怨灵:附身循环 ===');
+co.s.ghost.on=true; co.s.ghost.cd=0;
+const ev=co.tick();
+t('到点触发附身', ev&&ev.event==='possess', `实际 ${JSON.stringify(ev)}`);
+t('进了附身态', co.s.ghost.phase==='possessing');
+t('附身有宿主', typeof ev.host==='string'&&ev.host.length>0);
+t('次数累加', co.s.ghost.count===1);
+t('附身中有一句台词', co.ghostLine()==='「借你的剑用一用。」');
+t('附身给宿主加成', co.hostBuff()===1.28 && co.hostDmg()===1.18 && co.hostSpd()===1.08);
+t('possessing() 为真', co.possessing()===true);
+t('附身中倒计时为 0', co.reviveCountdown()===0);
+t('未到期不再触发', co.tick()===null);
 
-console.log('\n=== 拾取 ===');
-C.COMPANION.reset(); C.COMPANION.init('小桃'); C.COMPANION.beginRun();
-t('捡 1 颗', C.COMPANION.onPick()===1);
-t('再捡 3 颗', C.COMPANION.onPick(3)===4);
-t('出场时可拾取', C.COMPANION.autoPick()===true);
-const pr=C.COMPANION.pickRadius();
-t('拾取半径在合理区间', pr>30&&pr<60);
-t('玩家血低时她后退', C.COMPANION.shouldRetreat(0.2)===true&&C.COMPANION.shouldRetreat(0.8)===false);
+// ============================================================
+console.log('\n=== 怨灵:打散与冷却 ===');
+const sc=co.scatter();
+t('打散成功', !!sc);
+t('回到 idle', co.s.ghost.phase==='idle');
+t('预告下一宿主', typeof sc.msg==='string'&&sc.msg.includes('宿主'));
+const cd=co.reviveCountdown();
+t('冷却约 210 秒', cd>200&&cd<=210, `实际 ${cd}`);
+t('冷却中不再附身', co.tick()===null);
+t('散了就无加成', co.hostBuff()===1 && co.possessing()===false);
+t('散了就没台词', co.ghostLine()===null);
 
-console.log('\n=== 怨灵:附身/打散/复活 ===');
-// V0.98 后 ghost 状态精简为 {on,phase,host,cd,scatterAt,nextHost,count},
-// 旧的 poss / killed / reviveAt 字段已删除。reviveCountdown 是**方法**不是属性。
-C.COMPANION.reset(); C.COMPANION.init('小魅'); C.COMPANION.s.ghost.on=true;
-C.COMPANION.s.ghost.phase='possessing';
-const sc=C.COMPANION.scatter();
-t('打散成功', sc&&sc.event==='revive');
-t('打散后回 idle', C.COMPANION.s.ghost.phase==='idle');
-t('预告下一宿主', typeof C.COMPANION.s.ghost.nextHost==='string'&&C.COMPANION.s.ghost.nextHost.length>0);
-t('有冷却倒计时(方法)', C.COMPANION.reviveCountdown()>0);
-t('不是永久死亡', C.COMPANION.s.ghost.cd>Date.now());
-t('打散后 idle 不给加成', C.COMPANION.hostBuff()===1&&C.COMPANION.possessing()===false);
-C.COMPANION.s.ghost.phase='possessing';
-t('附身中加成生效', C.COMPANION.hostBuff()===1||C.COMPANION.hostBuff()!==1);
-t('附身中有台词', typeof C.COMPANION.ghostLine()==='string');
+// 到点自动再附身
+co.s.ghost.cd=Date.now()-1;
+const ev2=co.tick();
+t('冷却结束自动再附身', ev2&&ev2.event==='possess');
+t('次数累加到 2', co.s.ghost.count===2);
 
-console.log('\n=== 篝火:护栏半径随昼夜伸缩 ===');
-// V0.99(XX-SPAWN-002)护栏不再是固定值:夜里放大、白天收小,
-// 让「什么时候生火」成为真决策。算法在 director.js 的 computeWard()。
-// 旧的 s.warden 状态已删除,测试不再引用。
-I.Bag.reset(); I.Bag.add('stone_1',3);
-P.CAMP.reset(); P.CAMP.light('n0');
-t('火点着', P.CAMP.burning()===true);
-const rDay=C.COMPANION.wardRadius();
-t('火旺时有护栏', rDay>0);
-t('同相位半径稳定', C.COMPANION.wardRadius()===rDay);
+// ============================================================
+console.log('\n=== 篝火护栏 ===');
+P.CAMP.reset(); I.Bag.reset();
+t('无火时护栏为 0', co.wardRadius()===0);
+I.Bag.add('stone_1',3);
+const lit=P.CAMP.light('n0');
+t('火点着', lit.ok===true && P.CAMP.burning()===true);
+const w1=co.wardRadius(20);
+t('有火时护栏>0', w1>0, `实际 ${w1}`);
+t('护栏不低于硬下限', co.wardRadius(9999)>=48);
+P.CAMP.s.totalSec=99999; P.CAMP.save();
+const w5=co.wardRadius(20);
+t('篝火升阶护栏更大', w5>w1, `lv1=${w1} lv5=${w5}`);
+t('升阶后仍>0', w5>0);
+
+// ============================================================
+console.log('\n=== 怨灵被篝火驱散 ===');
+co.s.ghost.on=true; co.s.ghost.cd=0; co.tick();
+t('附身中', co.s.ghost.phase==='possessing');
+t('火旺时 wardenTick 返回怨灵状态', co.wardenTick()!==null);
 P.CAMP.douse();
-t('熄火后无护栏', C.COMPANION.wardRadius()===0);
-t('熄火后 wardenTick 无事可做', C.COMPANION.wardenTick()===null||C.COMPANION.s.ghost.on===false);
-I.Bag.add('stone_1',3); P.CAMP.light('n0');
-t('重新点火护栏恢复', C.COMPANION.wardRadius()>0);
-t('拾取半径撑大护栏', C.COMPANION.wardRadius(200)>=C.COMPANION.wardRadius(0));
+t('熄火后护栏归零', co.wardRadius()===0);
+t('熄火后 wardenTick 不再干预', co.wardenTick()===null);
+t('熄火不影响怨灵本体', co.s.ghost.phase==='possessing'&&co.hostBuff()===1.28);
 
 console.log(`\n${'='.repeat(44)}\n通过 ${pass} / 失败 ${fail}\n${'='.repeat(44)}`);
+if(fail) process.exit(1);

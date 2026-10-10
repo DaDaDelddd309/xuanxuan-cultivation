@@ -1,18 +1,28 @@
-import { PAL } from '../core/palette.js';
 // ===== 大世界地图 · 骑马与砍杀式探索 =====
 // 设计:开放节点地图。玩家在节点间移动(赶路),抵达节点触发遭遇。
 // 节点类型:村庄(安全,突破/悟道/炼丹)、野地(小怪)、精英(强敌,可能切回合制)、
 //           秘境(丹药/材料)、Boss(必定回合制剧情)。
 // 契约:纯数据 + 纯函数。渲染由 ui/world 模块负责。
+//
+// V0.97:地图本体改由 worldgen.js 按种子生成(工单 XX-S4-001)。
+//   · 原先这里是 11 个节点的硬编码表,换种子地图纹丝不动 —— 假随机。
+//   · 现在由 worldgen 保证不变量:全连通 / 秘境≤4步 / Boss非死角 / 青石村固定起点。
+//
+// ★ 对外接口一字未改,ui.js 等调用方零改动:
+//   NODE_TYPES / ENEMY_POOL / buildEdges / WORLD
+//   nodeById / neighbors / homeNode / rollEnemy / travel / pathBetween
+
+import { generate, GRID, DENSITY, MAX_SECRET_DEPTH } from './worldgen.js';
+import { getMaster, setMaster } from './seed.js';
 
 export const NODE_TYPES = {
   village: { name:'村庄',  col:'#8a7a5a', safe:true,  desc:'炊烟袅袅,可休整突破、悟道' },
   field:   { name:'荒野',  col:'#7a8a5a', safe:false, desc:'散妖游荡,小试锋芒' },
-  elite:   { name:'险地',  col:'#c86a4a', safe:false, desc:'有强敌蛰伏,可能触发回合', 
+  elite:   { name:'险地',  col:'#c86a4a', safe:false, desc:'有强敌蛰伏,可能触发回合',
              turnBased:true },
-  secret:  { name:'秘境',  col:PAL.qi, safe:false, desc:'藏宝之地,盛产丹药', 
+  secret:  { name:'秘境',  col:'#4a9de0', safe:false, desc:'藏宝之地,盛产丹药',
              dropsPill:true },
-  boss:    { name:'妖巢',  col:PAL.crit, safe:false, desc:'大能坐镇,必逢回合',
+  boss:    { name:'妖巢',  col:'#8a3ac8', safe:false, desc:'大能坐镇,必逢回合',
              turnBased:true, boss:true },
 };
 
@@ -23,45 +33,78 @@ export const ENEMY_POOL = {
   boss:   [ {k:'devil',r:1.0} ],
 };
 
-// 秘境出产哪种丹
-export const SECRET_PILL = {
-  secret1: 'pill_zhuji', secret2: 'pill_jindan',
-  secret3: 'pill_yuanying', secret4: 'pill_huashen',
-};
+// 【2026-10-10 删除】这里原来有个 SECRET_PILL:
+//     secret1: 'pill_zhuji', secret2: 'pill_jindan', ... 
+// 它是 V0.77 硬编码 11 节点时代的遗产 —— 当时节点字段叫 secret1..secret4,
+// 需要一张表把字段名翻译成丹药 id。世界改成 worldgen 生成之后,
+// worldgen 直接把 pill 写成真实丹药 id(pill_zhuji 等),这张表没人消费了,
+// 而且它的键与实现**对不上**:SECRET_PILL[n.pill] 永远是 undefined。
+//
+// 更糟的是 tests/test-world-compat.mjs 曾用它做断言,而那条断言因为
+// `|| !!n.pill` 短路恒真 —— 测试在验证一个不存在的东西。
+// 现已改为对照 realms.js 的 PILLS 验「丹药 id 真实存在」。
+// 丹药池的单一真源是 worldgen.js 的 SECRET_PILL_POOL。
 
-// 手工设计一张主地图(网格坐标,保证连通)
-const MAP = [
-  { id:'n0',  x:1, y:1, type:'village', name:'青石村', home:true },
-  { id:'n1',  x:2, y:1, type:'field' },
-  { id:'n2',  x:3, y:1, type:'field' },
-  { id:'n3',  x:2, y:2, type:'field' },
-  { id:'n4',  x:3, y:2, type:'secret', pill:'pill_zhuji', name:'青岚秘境' },
-  { id:'n5',  x:4, y:2, type:'elite', name:'黑风岭' },
-  { id:'n6',  x:4, y:1, type:'field' },
-  { id:'n7',  x:3, y:3, type:'elite' },
-  { id:'n8',  x:4, y:3, type:'boss', name:'古战场遗迹' },
-  { id:'n9',  x:2, y:3, type:'village', name:'落云镇', shop:true },
-  { id:'n10', x:1, y:2, type:'field' },
-];
+// —— 生成当前世界 ——
+// 不用模块级常量:WORLD 的节点需要能随换种子重建(V0.97 的核心需求)。
+// 用可变绑定 + 访问器,既保住 `import { WORLD }` 的用法,又支持换世重生。
+let _world = buildWorld(getMaster());
 
-// 边:相邻(曼哈顿距离1)
-export function buildEdges() {
+function buildWorld(masterSeed) {
+  const { nodes, edges, attempts, fallback } = generate(masterSeed);
+  // 边的形状必须是 [idA, idB] 字符串 —— neighbors()/pathBetween() 依赖这一点
+  const idEdges = [];
+  for (let i = 0; i < nodes.length; i++)
+    for (let j = i + 1; j < nodes.length; j++)
+      if (Math.abs(nodes[i].x - nodes[j].x) + Math.abs(nodes[i].y - nodes[j].y) === 1)
+        idEdges.push([nodes[i].id, nodes[j].id]);
+  return { nodes, edges: idEdges, grid: GRID, attempts, fallback };
+}
+
+/**
+ * 边的导出(WORLD.edges 就是它算出来的)。
+ * @param {Array} [nodes] 缺省用当前世界节点
+ */
+export function buildEdges(nodes) {
+  const list = nodes || _world.nodes;
   const E = [];
-  for (let i=0;i<MAP.length;i++) for (let j=i+1;j<MAP.length;j++) {
-    const a=MAP[i], b=MAP[j];
-    if (Math.abs(a.x-b.x)+Math.abs(a.y-b.y) === 1) E.push([a.id,b.id]);
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i], b = list[j];
+    if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1) E.push([a.id, b.id]);
   }
   return E;
 }
 
-export const WORLD = { nodes: MAP, edges: buildEdges(), grid: 6 };
-
-export function nodeById(id) { return WORLD.nodes.find(n=>n.id===id); }
-export function neighbors(id) {
-  return WORLD.edges.filter(([a,b]) => a===id || b===id)
-    .map(([a,b]) => a===id?b:a);
+/** 换种子后重建世界。ui.js 的「换一世」会调它。 */
+export function regenerate(seed) {
+  if (seed !== undefined) setMaster(seed);
+  _world = buildWorld(getMaster());
+  return _world;
 }
-export function homeNode() { return WORLD.nodes.find(n=>n.home).id; }
+
+/** 活的世界对象(不可直接 import WORLD —— 它是换世前的快照) */
+export const WORLD = new Proxy({}, {
+  get(_, k) { return _world[k]; },
+  ownKeys() { return Reflect.ownKeys(_world); },
+  getOwnPropertyDescriptor(_, k) {
+    return { value: _world[k], enumerable: true, configurable: true };
+  },
+});
+
+/** 生成元信息(调试面板/工单验收用) */
+export const WORLD_INFO = {
+  get seed() { return getMaster(); },
+  get attempts() { return _world.attempts; },
+  get fallback() { return _world.fallback; },
+  get nodeCount() { return _world.nodes.length; },
+};
+
+export function nodeById(id) { return _world.nodes.find(n => n.id === id); }
+export function neighbors(id) {
+  return _world.edges.filter(([a, b]) => a === id || b === id)
+    .map(([a, b]) => a === id ? b : a);
+}
+export function homeNode() { return _world.nodes.find(n => n.home).id; }
 
 // 按玩家境界决定「能打多强的怪」
 export function rollEnemy(nodeId, realmId) {
@@ -79,19 +122,24 @@ export function rollEnemy(nodeId, realmId) {
 export function travel(fromId, toId) {
   if (fromId === toId) return null;
   if (!neighbors(fromId).includes(toId)) return null;
-  return { from:fromId, to:toId, cost:1 };
+  return { from: fromId, to: toId, cost: 1 };
 }
 
 // BFS 最短路(供小地图提示)
 export function pathBetween(fromId, toId) {
-  if (fromId===toId) return [fromId];
-  const prev={}, q=[fromId]; prev[fromId]=null;
-  while(q.length){
-    const cur=q.shift();
-    for(const nb of neighbors(cur)){
-      if(nb in prev) continue;
-      prev[nb]=cur;
-      if(nb===toId){ const path=[toId]; let p=toId; while(prev[p]!==null){p=prev[p];path.unshift(p);} return path; }
+  if (fromId === toId) return [fromId];
+  const prev = {}, q = [fromId]; prev[fromId] = null;
+  while (q.length) {
+    const cur = q.shift();
+    for (const nb of neighbors(cur)) {
+      if (nb in prev) continue;
+      prev[nb] = cur;
+      if (nb === toId) {
+        const path = [toId];
+        let p = toId;
+        while (prev[p] !== null) { p = prev[p]; path.unshift(p); }
+        return path;
+      }
       q.push(nb);
     }
   }

@@ -207,18 +207,43 @@ console.log('\n[9] 机制不被看穿:不向外泄露阈值');
   ok('没有 status() 这种"告诉玩家为什么"的接口', !/\bstatus\s*\(\s*\)\s*\{/.test(src));
   ok('没有把内部状态挂到 window', !/window\.__director|window\.__pressure|window\.__spawnMode/.test(src));
   // 界面文案:全仓扫玩家可能读到的字符串
-  // 只扫**字符串字面量** —— 玩家读得到的是界面文案,不是源码注释。
-  // ui.js 里本来就有"挂机收益"这种词(篝火离线结算,和刷怪机制无关),
-  // 全词匹配会把它误判成泄露。
-  const lits = ['js/main.js','js/xiuxian/ui.js','js/ui/hud.js','js/game/spawner.js']
-    .map(f => readFileSync(ROOT + '/' + f, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '')
-      .match(/(['\"`])[^'\"`]*[\u4e00-\u9fa5][^'\"`]*\1/g) || [])
-    .flat().join('\n');
+  //
+  // ⚠️ 这块改过两次,两次都是因为「绿灯掩盖了未验证」:
+  //
+  // ①「全仓扫」以前是假的。列表硬编码成 4 个文件(js/main.js、xiuxian/ui.js、
+  //    ui/hud.js、game/spawner.js),而 js/ 下有 40+ 个。
+  //    写 ui/hud.js 的人没被扫到,新拆出来的 ui/*.js 也不会被扫到 ——
+  //    注释写得再准,没覆盖到的地方就是没有断言。→ 改成真按目录遍历。
+  //
+  // ②改了①之后这条真的变红了,但**两个红都是工具的问题,不是泄露**:
+  //    · js/game/pickups.js 里的「// V0.99:捡宝石 = 加生成压力」是**注释**。
+  //      原来的剥离器 .replace(/^\s*\/\/.*$/gm,'') 在原始文本上跑,
+  //      不认识字符串,于是一段多行字符串后面那行的注释被当成了"玩家看得到的文案"。
+  //    · js/xiuxian/mount.js 的「它守了千年守不动了」是**坐骑 lore**,玩家可见但
+  //      跟刷怪机制毫无关系 —— 被过松的 `不动了` 命中。
+  //    → 字符串提取改用 lib-uimod 的 literals()(复用 codeMask 的正确切分);
+  //      `不动了` 收窄成主语锚定的写法,保住原意(抓的是「妖不动了」)又不误伤 lore。
+  const { readdirSync } = await import('fs');
+  const { literals } = await import('./lib-uimod.mjs');
+  const UI_SCAN = (() => {
+    const out = [];
+    (function walk(d) {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = d + '/' + e.name;
+        if (e.isDirectory()) { if (e.name !== 'vendor' && e.name !== 'node_modules') walk(p); }
+        else if (e.name.endsWith('.js')) out.push(p);
+      }
+    })(ROOT + '/js');
+    return out;
+  })();
+  ok('文案扫描真的覆盖了整个 js/ 目录', UI_SCAN.length >= 40, `实际扫了 ${UI_SCAN.length} 个文件`);
+  const lits = UI_SCAN.flatMap(f => literals(readFileSync(f, 'utf8'))).join('\n');
+  ok('确实扫到了中文界面文案(不是空扫)', /[\u4e00-\u9fa5]/.test(lits));
+  // 收窄理由见 ②:坐骑 lore「它守了千年守不动了」是合法的玩家可见文字。
+  const LEAK = /妖物正在散去|妖物散去|妖不动了|妖物不动了|怪不动了|生成压力|压力泄|不再刷怪|停止刷怪/;
   ok('界面文案里没有解释刷怪机制的句子',
-     !/妖物正在散去|妖物散去|不动了|生成压力|压力泄/.test(lits),
-     lits.match(/[^\n]*(?:散去|压力泄)[^\n]*/g) || '');
+     !LEAK.test(lits),
+     lits.match(/[^\n]*(?:散去|压力泄|不再刷怪|停止刷怪)[^\n]*/g) || '');
 }
 
 console.log('\n[10] 拾取范围技能不会让场面失控(主人提的那个坑)');

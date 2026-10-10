@@ -15,7 +15,7 @@
 //   这就是「修完就裸奔」的典型形态 —— 修复没留下可执行的验证。
 //
 // 本 lint 把那 5 处断言变成**会红的门禁**,让修复不再裸奔。
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv, join } from 'path';
 
@@ -30,28 +30,45 @@ const build = read('js/xiuxian/build.js');
 const ui = read('js/xiuxian/ui.js');
 const css = existsSync(join(ROOT, 'css/xiuxian.css')) ? read('css/xiuxian.css') : '';
 
+// XX-AUDIT-005(ui.js 拆分)之后,修仙阁的页面渲染搬进了 ui/ 子目录,
+// 这些提示也跟着走了 —— 但本 lint 原本只读 ui.js,于是**拆完即报红**。
+// 那是假红:提示一直都在 ui/build.js 和 ui/fam.js 里,只是不在 ui.js 了。
+//
+// 教训(与 lint-methods 同一个坑):**lint 的检查范围必须跟着重构走**,
+// 否则「搬走了」和「删掉了」在它眼里长得一模一样 —— 前者误报,后者漏报。
+// 这里改成扫整个修仙阁源码树:既容忍搬家,也不放过真删除。
+const UI_SRC = ['js/xiuxian/ui.js', 'js/xiuxian/ui/', 'js/xiuxian/']
+  .flatMap(p => (p.endsWith('/')
+    ? (existsSync(join(ROOT, p)) ? readdirSync(join(ROOT, p)).map(f => p + f) : [])
+    : [p]))
+  .filter(p => p.endsWith('.js') && existsSync(join(ROOT, p)))
+  .map(p => read(p))
+  .join('\n');
+
 console.log('\n[1] 缺口查询函数存在(REACH-AUDIT 的修复本体)');
 t('family.js 导出 raiseGap()', /raiseGap\s*\(/.test(family));
 t('build.js 导出 pactGap()', /pactGap\s*\(/.test(build));
 
 console.log('=== [2] 招族人缺口提示 ===');
 {
-  t('ui.js 调用 BUILD 的缺口查询', /raiseGap\s*\(/.test(ui) || /FAMILY[^\n]*raiseGap/.test(ui),
+  t('修仙阁调用 FAMILY 的缺口查询', /raiseGap\s*\(/.test(UI_SRC) || /FAMILY[^\n]*raiseGap/.test(UI_SRC),
     '招人按钮旁应有「还差多少财力」');
-  t('ui.js 有「还差/还需」类可见文本', /还[需差]|不足/.test(ui));
+  t('修仙阁有「还差/还需」类可见文本', /还[需差]|不足/.test(UI_SRC));
 }
 
 console.log('=== [3] 缔同盟缺口提示 ===');
 {
-  t('ui.js 调用 BUILD.pactGap()', /pactGap\s*\(/.test(ui));
-  t('提示含「道行」字样', /道行/.test(ui));
+  t('修仙阁调用 BUILD.pactGap()', /pactGap\s*\(/.test(UI_SRC));
+  t('提示含「道行」字样', /道行/.test(UI_SRC));
 }
 
 console.log('=== [4] 幂等:同盟提示不得出现两份 ===');
 {
-  // 历史上 s4() 无幂等判断,重跑会重复插入(实测 ui.js:1561 被插了第二份)
-  const pactHints = (ui.match(/BUILD\.pactGap\(\)/g) || []).length;
-  t('pactGap 提示只出现一次', pactHints === 1, `实测 ${pactHints} 次,>1 说明 apply_hints.py 被重复跑过`);
+  // 历史上 s4() 无幂等判断,重跑会重复插入(实测 ui.js:1561 被插了第二份)。
+  // 搬家之后这个风险**变大了**而不是变小:同一段提示可能被写进 ui.js 和
+  // ui/build.js 两处,而只扫 ui.js 就看不见。所以扫全树。
+  const pactHints = (UI_SRC.match(/BUILD\.pactGap\(\)/g) || []).length;
+  t('pactGap 提示只出现一次', pactHints === 1, `实测 ${pactHints} 次,>1 说明 apply_hints.py 被重复跑过或提示被复制到两个文件`);
 }
 
 console.log('=== [5] 提示样式已定义 ===');

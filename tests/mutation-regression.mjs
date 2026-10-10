@@ -8,7 +8,7 @@
 //   剧情专属    「有没有眼睛/几只眼」只能由剧情改,随机改不了
 //   真身抉择    伸手 → 族由历史最高品阶确定性决定 + 跳过化形;收回 → 维持随机
 //   老档兼容    V0.99 之前的老存档没有 mut 字段,load() 必须补默认值而不是炸
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv } from 'path';
 const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
@@ -25,7 +25,16 @@ globalThis.document = {
   createElement: () => ({ style: {}, classList: { add() {}, remove() {} }, appendChild() {} }),
   body: { appendChild() {} }, getElementById: () => null,
 };
-globalThis.window = {};
+// §11 要真跑 vBag(),会拉进 bag.js 整条依赖链(illust/nag/clock…),
+// 它们在**模块加载时**就调 window.addEventListener,所以 shim 必须比别处完整。
+globalThis.window = {
+  addEventListener() {}, removeEventListener() {},
+  innerWidth: 1024, innerHeight: 768,
+  devicePixelRatio: 1, location: { href: 'http://localhost/' },
+};
+globalThis.requestAnimationFrame = fn => { try { fn(0); } catch {} };
+globalThis.cancelAnimationFrame = () => {};
+globalThis.matchMedia = () => ({ matches:false, addEventListener(){}, removeEventListener(){} });
 
 const { MUTATION } = await import('../js/xiuxian/mutation.js');
 const { COMPANION } = await import('../js/xiuxian/companion.js');
@@ -297,16 +306,24 @@ function census(tier, n, seed) {
 // ————————————————— 10. 接线契约(AGENTS.md §0A 三问) —————————————————
 // 只测 mutation.js 等于自嗨:玩家可能根本走不到。这里断言 UI 真的调得到。
 {
+  // XX-AUDIT-005(ui.js 拆分)之后,行囊页的实现搬进了 js/xiuxian/ui/bag.js,
+  // 但本断言原本只读 ui.js —— 于是「实现搬走了」和「实现被删了」在它眼里一样。
+  // 扫整个修仙阁源码树:搬家不误报,真删除照样抓。
+  const uiSrc = readdirSync(ROOT + '/js/xiuxian/ui')
+    .filter(f => f.endsWith('.js'))
+    .map(f => readFileSync(ROOT + '/js/xiuxian/ui/' + f, 'utf8'))
+    .join('\n');
   const ui = readFileSync(ROOT + '/js/xiuxian/ui.js', 'utf8');
-  ok('ui.js 引入 MUTATION', /import\s*\{[^}]*MUTATION[^}]*\}\s*from\s*'\.\/mutation\.js'/.test(ui));
-  ok('ui.js 有 选石 动作', ui.includes("case 'feedpick'"));
-  ok('ui.js 有 选部位 动作', ui.includes("case 'feedpart'"));
-  ok('ui.js 有 投喂 动作', ui.includes("case 'feeddo'"));
-  ok('ui.js 有 收手 动作', ui.includes("case 'feedstop'"));
-  ok('投喂真的调用 COMPANION.feed', /COMPANION\.feed\(stone\.tier,\s*v2\)/.test(ui));
-  ok('抉择真的调用 COMPANION.chooseFinal', /COMPANION\.chooseFinal\((true|false)\)/.test(ui));
-  ok('投喂真的扣源石(消耗型动作)', /Bag\.take\(v,\s*1\)/.test(ui));
-  ok('行囊渲染真的调了进度卡', /this\._vMutCard\(\)/.test(ui));
+  const hall = ui + '\n' + uiSrc;
+  ok('ui.js 引入 MUTATION', /import\s*\{[^}]*MUTATION[^}]*\}\s*from\s*'[^']*mutation\.js'/.test(hall));
+  ok('ui.js 有 选石 动作', hall.includes("case 'feedpick'"));
+  ok('ui.js 有 选部位 动作', hall.includes("case 'feedpart'"));
+  ok('ui.js 有 投喂 动作', hall.includes("case 'feeddo'"));
+  ok('ui.js 有 收手 动作', hall.includes("case 'feedstop'"));
+  ok('投喂真的调用 COMPANION.feed', /COMPANION\.feed\(stone\.tier,\s*v2\)/.test(hall));
+  ok('抉择真的调用 COMPANION.chooseFinal', /COMPANION\.chooseFinal\((true|false)\)/.test(hall));
+  ok('投喂真的扣源石(消耗型动作)', /Bag\.take\(v,\s*1\)/.test(hall));
+  ok('行囊渲染真的调了进度卡', /_vMutCard\(\)/.test(hall) && /_vMutCard/.test(ui), '既要有转发壳,也要有实现');
 
   // 谁调用 COMPANION.feed —— 必须有非测试调用点
   const comp = readFileSync(ROOT + '/js/xiuxian/companion.js', 'utf8');
@@ -317,6 +334,68 @@ function census(tier, n, seed) {
   MUTATION.resolveFinal(done, false);
   ok('定稿后 isDone=true', MUTATION.isDone(done));
   ok('未定稿时 isDone=false', !MUTATION.isDone(MUTATION.defaultMut()));
+}
+
+// ————————————————— 11. 入口可达性(抓 XX-AUDIT-005 合并事故) —————————————————
+// ⚠️ 上面 §10 全绿而功能仍然不可达,2026-10-10 就真实发生过:
+//    Z8 侧把 ui.js 拆分后合并,四个 act 分支全在、_vMutCard 在、_vPartPicker 在、
+//    git merge 干净、所有测试全绿 —— 但**源石卡上的「饲」按钮没了**。
+//    于是 _feedStone 设不上 → 部位选择器不渲染 → **投喂整条链断在第一环**。
+//    只断言「handler 存在」抓不住这种,所以这里直接跑渲染验产物。
+{
+  const bag = await import('../js/xiuxian/ui/bag.js');
+  const items = await import('../js/xiuxian/items.js');
+
+  items.Bag.reset();
+  items.Bag.add('stone_1', 3);
+  COMPANION.reset();
+  COMPANION.init('宝宝');
+
+  // vBag 内部走的是 `hall._vMutCard()` 这种**转发壳**(Z8 拆分后 ui.js 的 Hall
+  // 对象持有这些方法),所以夹具必须把 bag.js 导出的实现接到 hall 上 ——
+  // 这也顺带验了 ui.js 的转发壳与 bag.js 的实现没脱节。
+  // ⚠️ 绑定方式必须**照抄 ui.js 的转发壳**:
+  //    ui.js:979-981 写的是 `_vPartPicker() { return _vPartPickerImpl(this); }`
+  //    ——把 hall 作为**参数**传进去。
+  //    早先夹具直接把 `bag._vPartPicker` 挂上去,当方法调用时 hall 参数是 undefined,
+  //    于是报 `Cannot read properties of undefined`。
+  //    顺带记一条隐患:_vMutCard 的签名也吃 hall 参数,但它**没用到**,
+  //    所以「传错了」在那一个函数上不会暴露 —— 这类错误只有走到才炸。
+  const mkHall = extra => ({
+    _feedStone: null, _feedPart: null, empty: () => '',
+    _vMutCard()   { return bag._vMutCard(this); },
+    _vPartPicker(){ return bag._vPartPicker(this); },
+    _feedBtnText(){ return bag._feedBtnText(this); },
+    _sFeedable(id){ return bag._sFeedable(this, id); },
+    ...extra,
+  });
+
+  let html = bag.vBag(mkHall());
+  ok('行囊渲染得出 HTML', typeof html === 'string' && html.length > 0);
+  ok('源石在列表里', html.includes('碎灵石'));
+  // 关键回归:「饲」按钮是**选石的第一步**,所以它在任何一步都必须先出现。
+  // 曾经写成「必须已选部位才显示」,于是按钮永远渲染不出来、整条链不可达,
+  // 而当时所有测试全绿 —— 只断言 handler 存在,没验入口渲染。
+  ok('一进行囊就能看到「饲」按钮 ★', html.includes('data-act="feedpick"'),
+     '死锁回归:按钮是选石的第一步,不能以选没选部位为前提');
+  ok('进度卡已经在了', html.includes('灵 伴'));
+
+  html = bag.vBag(mkHall({ _feedStone: 'stone_1' }));
+  ok('选石后出现「饲」按钮 ★', html.includes('data-act="feedpick"'), html.slice(0, 300));
+
+  html = bag.vBag(mkHall({ _feedStone: 'stone_1', _feedPart: 'ear' }));
+  ok('选部位后出现部位选择器', html.includes('data-act="feedpart"'));
+  ok('选部位后出现投喂键 ★', html.includes('data-act="feeddo"'), html.slice(0, 300));
+  ok('投喂键带上部位参数', /data-act="feeddo"[^>]*data-v2="ear"/.test(html));
+
+  const m = COMPANION.s.mut; m.feeds = 10; m.stage = 4;
+  MUTATION.resolveFinal(m, true);
+  html = bag.vBag(mkHall({ _feedStone: 'stone_1', _feedPart: 'ear' }));
+  ok('真身定稿后入口收口',
+     !html.includes('data-act="feedpick"') && !html.includes('data-act="feeddo"'),
+     html.slice(0, 300));
+
+  COMPANION.reset();
 }
 
 console.log(`\n灵伴变异体系: ${pass} 通过, ${fail} 失败`);

@@ -119,10 +119,15 @@ console.log('\n[6] 存档往返');
 
 console.log('\n[7] 升星入口已接进界面');
 {
-  const ui = readFileSync(ROOT + '/js/xiuxian/ui.js', 'utf8');
-  ok('ui.js 引入了 ARTSTAR', /from '\.\/artstar\.js'/.test(ui));
-  ok('有 art-star 动作', /case 'art-star'/.test(ui));
-  ok('卡片上显示星数', /★'.*repeat\(star\)|repeat\(star\)/.test(ui));
+  // ⚠️ XX-AUDIT-005:三个锚点会随拆分分散到不同文件 ——
+  // import 可能落到 ui/artstar.js,`case 'art-star'` 在 act(),星数模板在 vArts()。
+  // 原来只读 ui.js 一整块,拆完就是"代码不在那儿了",而报错信息会指向
+  // 「升星入口没接进界面」—— 让人去修本来正确的逻辑。分别定位到方法体。
+  const { blob, methodBody } = await import('./lib-uimod.mjs');
+  const ui = blob();
+  ok('UI 层引入了 ARTSTAR', /from '\.\.\/artstar\.js'/.test(ui) || /from '\.\/artstar\.js'/.test(ui));
+  ok('act() 里有 art-star 动作', /case 'art-star'/.test(methodBody('act')));
+  ok('vArts() 卡片上显示星数', /'★'\.repeat\(star\)|★'\.repeat\(star\)|repeat\(star\)/.test(methodBody('vArts')));
   const css = readFileSync(ROOT + '/css/xiuxian.css', 'utf8');
   ok('有星星样式', /\.xx-art .xx-tag\.star/.test(css));
   ok('有升星按钮样式', /\.xx-art-up/.test(css));

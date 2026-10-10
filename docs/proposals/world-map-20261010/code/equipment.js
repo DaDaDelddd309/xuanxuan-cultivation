@@ -229,7 +229,7 @@ export const LEGEND_GEAR = {
   hongyi: {
     defId:'gear_hongyi', slot:'robe', tier:4,
     name:'红嫁衣', desc:'针脚很拙。她本来不用会这个。',
-    art:'assets/portrait/legend/hongyi.jpg',
+    art:'assets/legend/hongyi.jpg',
     fixed:{ autoHeal: 0.02 },
     flavor:'她想走。她只是不知道往哪儿走。',
   },
@@ -237,7 +237,7 @@ export const LEGEND_GEAR = {
   laolao: {
     defId:'gear_laolao', slot:'charm', tier:4,
     name:'碎愿牌', desc:'字丑是因为她不识字。',
-    art:'assets/portrait/legend/laolao.jpg',
+    art:'assets/legend/laolao.jpg',
     fixed:{ lifesteal: 0.04 },
     flavor:'愿上写的名字,没有一个活着兑现。',
   },
@@ -245,7 +245,7 @@ export const LEGEND_GEAR = {
   baize: {
     defId:'gear_baize', slot:'relic', tier:4,
     name:'白泽之问', desc:'它不评判答案。它只记着。',
-    art:'assets/portrait/legend/baize.jpg',
+    art:'assets/legend/baize.jpg',
     fixed:{ skillUp: 1 },
     flavor:'「你修这道,是为了什么?」',
   },
@@ -253,7 +253,7 @@ export const LEGEND_GEAR = {
   dangkang: {
     defId:'gear_dangkang', slot:'weapon', tier:3,
     name:'当康角', desc:'它往山里的方向走,不停。',
-    art:'assets/portrait/legend/dangkang.jpg',
+    art:'assets/legend/dangkang.jpg',
     fixed:{ area: 0.15 },
     flavor:'它不是跑,它是领路。',
   },
@@ -261,7 +261,7 @@ export const LEGEND_GEAR = {
   qingqiong: {
     defId:'gear_qingqiong', slot:'weapon', tier:4,
     name:'青穹之翼', desc:'回头的人活不下来。',
-    art:'assets/portrait/legend/qingqiong.jpg',
+    art:'assets/legend/qingqiong.jpg',
     fixed:{ crit: 0.12, speed: 0.12 },
     flavor:'它说了三个字:「因为你。」',
   },
@@ -269,7 +269,7 @@ export const LEGEND_GEAR = {
   jiangu: {
     defId:'gear_jiangu', slot:'weapon', tier:4,
     name:'第三百零一柄', desc:'多出来的那一柄,没有主人的名字。',
-    art:'assets/portrait/legend/jiangu.jpg',
+    art:'assets/legend/jiangu.jpg',
     fixed:{ might: 0.25, styleShift: 1 },
     flavor:'他对你鞠了一躬,然后继续演。',
   },
@@ -277,7 +277,7 @@ export const LEGEND_GEAR = {
   shijiang: {
     defId:'gear_shijiang', slot:'armor_placeholder', tier:4,
     name:'半句碑文', desc:'此生不悔,奈何无人共。',
-    art:'assets/portrait/legend/shijiang.jpg',
+    art:'assets/legend/shijiang.jpg',
     fixed:{ shield: 25, armor: 3 },
     flavor:'碰了,就得补完。',
     slot:'relic',
@@ -286,7 +286,7 @@ export const LEGEND_GEAR = {
   dengshi: {
     defId:'gear_dengshi', slot:'charm', tier:3,
     name:'引路灯', desc:'灯不回头。',
-    art:'assets/portrait/legend/dengshi.jpg',
+    art:'assets/legend/dengshi.jpg',
     fixed:{ reflect: 0.08, autoHeal: 0.01 },
     flavor:'你走你的,它照你的。',
   },
@@ -462,11 +462,11 @@ export function gemEffects(gear) {
  * @type {Object<string,{name:string, slot:string, art:string, note:string}>}
  */
 export const COSMETICS = {
-  cos_hongyi:  { name:'红嫁衣', slot:'robe',   art:'assets/portrait/legend/hongyi.jpg', note:'见阿禾' },
-  cos_laolao:  { name:'姥姥的褂',slot:'robe',   art:'assets/portrait/legend/laolao.jpg', note:'打了很多补丁' },
-  cos_baize:   { name:'白泽角',  slot:'relic',  art:'assets/portrait/legend/baize.jpg',  note:'它不评判你' },
-  cos_qingqiong:{name:'青翎',    slot:'weapon', art:'assets/portrait/legend/qingqiong.jpg',note:'回头那次的' },
-  cos_jiangu:   { name:'断剑鞘',  slot:'weapon', art:'assets/portrait/legend/jiangu.jpg',  note:'第三百零一柄' },
+  cos_hongyi:  { name:'红嫁衣', slot:'robe',   art:'assets/legend/hongyi.jpg', note:'见阿禾' },
+  cos_laolao:  { name:'姥姥的褂',slot:'robe',   art:'assets/legend/laolao.jpg', note:'打了很多补丁' },
+  cos_baize:   { name:'白泽角',  slot:'relic',  art:'assets/legend/baize.jpg',  note:'它不评判你' },
+  cos_qingqiong:{name:'青翎',    slot:'weapon', art:'assets/legend/qingqiong.jpg',note:'回头那次的' },
+  cos_jiangu:   { name:'断剑鞘',  slot:'weapon', art:'assets/legend/jiangu.jpg',  note:'第三百零一柄' },
 };
 
 // ═══════════════════════════════════════════════════════════════

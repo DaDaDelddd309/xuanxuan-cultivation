@@ -19,6 +19,7 @@ install();
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv, join, relative } from 'path';
+import { precacheList } from './lib-swlist.mjs';   // 单一真源:sw.js 清单解析
 const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
 
 let pass = 0, fail = 0; const failed = [];
@@ -68,8 +69,13 @@ console.log('\n[2] HTML 里的资源引用必须存在');
 console.log('\n[3] 预缓存清单里的文件必须存在');
 {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
-  for (const m of sw.matchAll(/'([^']+\.(?:js|css|html|webmanifest|png|jpg|webp|mp3))'/g)) {
-    ok(`sw.js → ${m[1]}`, existsSync(join(ROOT, m[1])));
+  // 2026-10-10:改用共享的 precacheList()。
+  // 原来这里自己扫 /'([^']+…)'/g,**注释里提到的路径也被当成清单项**,
+  // 于是 sw.js 里写一句"此文件已移除"之类的说明就会假红。
+  // lint-precache.mjs 曾有同一份拷贝 —— 两份改一份漏一份,已收敛到 lib-swlist.mjs。
+  for (const rel of precacheList(sw)) {
+    if (!/\.(?:js|css|html|webmanifest|png|jpg|webp|mp3)$/.test(rel)) continue;
+    ok(`sw.js → ${rel}`, existsSync(join(ROOT, rel)));
   }
 }
 

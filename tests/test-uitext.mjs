@@ -43,8 +43,13 @@ const CODE_SMELLS = [
 // 明显不是给人看的占位
 const PLACEHOLDERS = [/\bundefined\b/, /\bNaN\b/, /\[object Object\]/, /\bnull\b/, /\bInfinity\b/];
 
+// ⚠️ XX-AUDIT-005:'js/xiuxian/ui.js' 硬写在列表里,拆分后新增的
+// js/xiuxian/ui/*.js 一份都进不了检查 —— 文案检查会静默少覆盖一大片。
+// 改成动态取整个 UI 层。
+const { uiFiles } = await import('./lib-uimod.mjs');
 const UI_FILES = [
-  'js/xiuxian/ui.js', 'js/xiuxian/chronicle.js', 'js/xiuxian/clock.js',
+  ...uiFiles(),
+  'js/xiuxian/chronicle.js', 'js/xiuxian/clock.js',
   'js/xiuxian/market.js', 'js/xiuxian/tavern.js', 'js/xiuxian/artstar.js',
   'js/xiuxian/craft.js', 'js/xiuxian/companion.js', 'js/xiuxian/companion-actor.js',
   'js/xiuxian/bond.js', 'js/xiuxian/ritual.js', 'js/xiuxian/bestiary.js',

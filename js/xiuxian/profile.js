@@ -6,9 +6,13 @@
 //
 // 种子:所有随机(奇遇、掉落、商人、怨灵、营地来客)都走 PRNG。
 // 同一种子 → 同一世界。存档只存种子 + 进度,天然压缩。
+//
+// 2026-10-10:种子的**真源**是 seed.js(键 xx_seed_v081 由它持有),
+// 本文件只做局外 RNG 的持有者。两边曾各写各的同一个键,互不知情。
+
+import { setMaster, getMaster, DEFAULT_SEED } from './seed.js';
 
 const KEY = 'xx_profile_v081';
-const SEED_KEY = 'xx_seed_v081';
 const LEGACY = {
   cultivation: 'xx_cultivation_v077',
   nemesis:    'xx_nemesis_v077',
@@ -39,17 +43,24 @@ function hashStr(str) {
   return h >>> 0;
 }
 
+// —— 种子 ——
+//
+// 2026-10-10:这里原来自己 normalize、自己写 localStorage,
+// seed.js 那边也有一套。两套都往同一个键 xx_seed_v081 写,
+// 但互不知情 —— 于是 profile 换了种子、seed.js 的地图生成器还攥着旧的。
+// 现在 profile 只做「局外 RNG 的持有者」,种子的真源统一交给 seed.js,
+// 两边不可能再各说各话。
 export const Seed = {
-  cur: '青石村',
+  cur: DEFAULT_SEED,
   _rng: null,
   get() {
-    try { const s = localStorage.getItem(SEED_KEY); if (s) this.cur = s; } catch {}
+    this.cur = getMaster();
     this._rng = mulberry32(hashStr(this.cur));
     return this.cur;
   },
   set(s) {
-    this.cur = (s || '').trim() || '青石村';
-    try { localStorage.setItem(SEED_KEY, this.cur); } catch {}
+    // setMaster 内部已做 trim / 空值回退 / 写 localStorage,并同步 seed.js 内存态
+    this.cur = setMaster(s);
     this._rng = mulberry32(hashStr(this.cur));
     return this.cur;
   },
@@ -68,7 +79,7 @@ export const Seed = {
 };
 
 const EMPTY = {
-  v: 1, seed: '青石村',
+  v: 1, seed: DEFAULT_SEED,
   cult: null, nemesis: null, titles: null,
   bag: null, camp: null, day: null, merch: null, companion: null,
   // ⚠️ 这里原来有 `base: null`。已移除(XX-AUDIT-006 批 2)。
@@ -87,7 +98,7 @@ export const Profile = {
     try { const r = localStorage.getItem(KEY); if (r) d = JSON.parse(r); } catch {}
     if (d && d.v >= 1) { this.data = { ...EMPTY, ...d }; }
     else { this.data = this.migrate(); }
-    Seed.set(this.data.seed || '青石村');
+    Seed.set(this.data.seed || DEFAULT_SEED);
     return this.data;
   },
 
@@ -104,7 +115,7 @@ export const Profile = {
     d.merch = read(LEGACY.merch);
     d.companion = read(LEGACY.companion);
     d.base = read(LEGACY.base);
-    if (d.cult) d.seed = '青石村';
+    if (d.cult) d.seed = DEFAULT_SEED;
     this.data = d;
     this.flush();
     return d;
@@ -164,7 +175,7 @@ export const Profile = {
       const d = JSON.parse(json);
       if (!d || !d.cult) return { ok:false, msg:'存档码无效' };
       this.data = { ...EMPTY, ...d };
-      Seed.set(this.data.seed || '青石村');
+      Seed.set(this.data.seed || DEFAULT_SEED);
       this.flush();
       return { ok:true, msg:'导入成功' };
     } catch (e) { return { ok:false, msg:'存档码损坏' }; }

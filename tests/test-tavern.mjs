@@ -145,9 +145,20 @@ console.log('\n[9] 同伴已接进局内(结构检查)');
   ok('开局把 mods 灌给 Director', /Director\.setMateMods\(TAVERN\.mods\(\)\)/.test(main));
   ok('属性 mods 落到 player.stats', /p0\.stats\.might/.test(main) && /p0\.stats\.magnet/.test(main));
   ok('护栏吃了同伴加成', /wardRadius\(pr, TAVERN\.mods\(\)\.wardBonus/.test(main));
-  const ui = readFileSync(ROOT + '/js/xiuxian/ui.js', 'utf8');
-  ok('修仙阁有酒馆入口', /vTavern\(\)/.test(ui));
-  ok('集市页包含酒馆', /this\.vTavern\(\)/.test(ui));
+  // ⚠️ XX-AUDIT-005:酒馆视图已搬到 ui/meta.js。
+  // 原来两条都读 ui.js 全文,拆完第一条会因为"实现不在那儿了"变红。
+  const { methodBody, methodBodies } = await import('./lib-uimod.mjs');
+  // ⚠️ 这里还踩了一次:断言写成 `/vTavern\(\)/`,而拆出去的实现签名是
+  // `export function vTavern(hall)` —— 多了个形参,正则就匹配不上了。
+  // 拆完后壳在 ui.js 里是 `vTavern() {...}`,实现带 hall 形参,两者写法不同。
+  // 所以这里只验"实现存在且非空",不去猜它的签名长什么样。
+  ok('修仙阁有酒馆视图', methodBodies('vTavern').length > 0);
+  ok('酒馆视图实现是导出的顶层函数(不是 ui.js 里的转发壳)',
+     methodBodies('vTavern').some(b => /^\s*export\s+function\s+vTavern\s*\(/.test(b)),
+     '只剩壳 = 实现没搬成功');
+  // 同 test-craft:拆出 ui/meta.js 后接收者从 this. 变成 hall.,
+  // 写死 this. 会在拆分当天误报。验的是"集市页调用了酒馆视图"本身。
+  ok('集市页包含酒馆', /[A-Za-z_$][\w$]*\.vTavern\(\)/.test(methodBody('vMarket')));
 }
 
 console.log(`\ntest-tavern: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);

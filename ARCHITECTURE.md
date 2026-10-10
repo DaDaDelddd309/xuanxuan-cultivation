@@ -31,13 +31,29 @@ rouge-offline/
 │   ├── game/               # 玩家、地图、敌人、武器、刷怪、Boss、拾取、升级
 │   ├── ui/                 # HUD、图鉴、屏幕、摇杆
 │   ├── pix/                # 像素图数据(纯数据,无逻辑)
-│   └── xiuxian/            # ← 修仙层,21 个模块
+│   └── xiuxian/            # ← 修仙层,39 个模块(2026-10-10 实测)
 └── assets/
     ├── portrait/           # 人物立绘(AI 生成)
     ├── mob/                # 通用怪立绘
     ├── legend/             # 传说妖立绘
     ├── bg/                 # 回合制场景背景
-    └── bgm/                # (已弃用,改用 WebAudio 合成)
+    └── bgm/                # ⚠️ 在用,不是弃用目录(2026-10-10 更正)
+                           #   回合制专属 BGM: nemesis.mp3 / overlord.mp3(共 780K)
+                           #   由 assets.js 加载并按 PRIO 表排队,见本文件第 208 行
+                           #   原文这里写「已弃用,改用 WebAudio 合成」是错的。
+```
+
+### ⚠️ 本仓库有**两套音频系统并存**,别混为一谈
+
+| 层 | 实现 | 用在哪 | 是否打包音频文件 |
+|---|---|---|---|
+| 原版/UI 层 | `js/core/audio.js` | 程序化音效、BGM 八步循环 | **否**,全 WebAudio 实时合成 |
+| 修仙层 | `assets/bgm/*.mp3` | 回合制专属 BGM(nemesis / overlord) | **是**,780K mp3 |
+
+所以「音效是 WebAudio 合成」这句话对**音效**成立,
+但推不出「项目不打包任何音频文件」—— 回合制那两首是真实文件。
+
+> 照着旧注释去清理 `assets/bgm/` 会直接打断回合制 BGM。
 ```
 
 ---
@@ -216,18 +232,23 @@ ES module 的导出是**只读绑定**,不能赋值。必须从源头加钩子�
 ## 十、验证方法
 
 ```bash
+# 0) 一次性跑全套(推荐,别逐个手敲)
+bash tests/run-all.sh      # 逻辑测试 + e2e + 20 个 lint,任一失败即退出非 0
+bash tests/run-browser.sh  # 浏览器回归(需要 playwright,见下)
+
 # 1) 逻辑测试(不需要浏览器)
-node scripts/t80.mjs   # 源石/篝火/道具
-node scripts/t81.mjs   # 灵伴/怨灵
-node scripts/t82.mjs   # 仪式/家族/存档种子
-node scripts/t83.mjs   # 领地建造
-node scripts/t84.mjs   # 么么茶/掉落/护栏
-node scripts/t85.mjs   # 灵米闭环/建筑效果/契约
-node scripts/t86.mjs   # 传说妖/叙事/昼夜
+#    注意:目录是 tests/ 不是 scripts/;t80–t83 是 .js 不是 .mjs
+node tests/t80.js   # 源石/篝火/道具/昼夜
+node tests/t81.js   # 灵伴/怨灵/篝火护栏
+node tests/t82.js   # 仪式/家族/存档种子/万年历
+node tests/t83.js   # 领地建造/NPC 图鉴
+node tests/t84.mjs   # 么么茶/掉落/护栏
+node tests/t85.mjs   # 灵米闭环/建筑效果/契约
+node tests/t86.mjs   # 传说妖/叙事/昼夜
 
 # 2) 浏览器回归(移动端视口 412x915)
-python3 scripts/full79.py   # 全量
-python3 scripts/t86.py      # 叙事专项
+python3 tests/full79.py   # 全量
+python3 tests/t86.py      # 叙事专项
 
 # 3) import 符号校验(防「导入了不存在的导出」)
 见 AGENTS.md

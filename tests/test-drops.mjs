@@ -57,14 +57,31 @@ console.log('\n[1] Boss 必掉源石');
 
 console.log('\n[2] 精英概率掉落(不是必掉)');
 {
-  const s = dropFrom({ xp: 4, elite: true }, 400);
-  const rate = s.length / 400;
-  ok('精英会掉', s.length > 0, `${s.length}/400`);
-  ok('但不是必掉(是概率)', s.length < 400, `${rate.toFixed(3)}`);
-  // ⚠️ 原来写死 0.15~0.45 —— 那是「精英必掉大半」的旧假设。
-  // owner 实机反馈掉率过高,已把 STONE_DROP.elite 降到 0.05。
-  // 这里跟着改,并把**递增关系**也断言上(普通 < 精英 < Boss 是硬要求)。
-  ok('精英掉率在 0.03~0.12 之间', rate > 0.03 && rate < 0.12, `${rate.toFixed(3)}`);
+  // ⚠️ 2026-10-10 修 flaky。
+  //   原来这里用 400 次随机采样去估计 0.05 的掉率,断言 `rate > 0.03`。
+  //   统计上:p=0.05 n=400 → 期望 20 次、标准差 4.36,
+  //   越到 12 次以下(z = -1.72)的概率约 **4%** ——
+  //   也就是**每跑 25 次就红一次**。实测连跑 5 次就撞上了。
+  //
+  //   flaky 测试比不测更坏:它会让人习惯性忽略这一条,
+  //   于是真出问题时先怀疑「又 flaky 了」而不是「它红了」。
+  //
+  //   现在两层:
+  //   ① 直接断言**配置常量** —— 确定、零方差,且它才是真源
+  //   ② 采样断言只验证「配置真的生效了」,样本放大到方差可忽略
+  const src = readFileSync(_rv(ROOT, 'js/game/pickups.js'), 'utf8');
+  const m = src.match(/STONE_DROP\s*=\s*\{[^}]*\}/);
+  ok('STONE_DROP 是可断言的常量', !!m, `未匹配到定义`);
+  const eliteRate = m ? Number((m[0].match(/elite:\s*([\d.]+)/) || [])[1]) : NaN;
+  ok('精英掉率配置值 = 0.05', eliteRate === 0.05, `实际 ${eliteRate}`);
+
+  const TRIALS = 20000;                       // 方差:σ≈30.8,3σ≈92,远宽于容差
+  const s = dropFrom({ xp: 4, elite: true }, TRIALS);
+  const rate = s.length / TRIALS;
+  ok('精英会掉', s.length > 0, `${s.length}/${TRIALS}`);
+  ok('但不是必掉(是概率)', s.length < TRIALS, `${rate.toFixed(4)}`);
+  // 采样只用来证明「配置生效」,容差放宽到 ±3σ,不可能偶然越界
+  ok(`精英掉率贴近配置值(±3σ)`, Math.abs(rate - 0.05) < 0.015, `${rate.toFixed(4)}`);
   ok('精英掉的是低一档源石', s.every(x => x.id === 'stone_2'), [...new Set(s.map(x=>x.id))].join(','));
 }
 
