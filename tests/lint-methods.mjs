@@ -66,6 +66,44 @@ const THIS_RE=/(?<![.\w$])(this)\.(\w+)\s*\(/g;
 const P1=/export\s+function\s+\w+\s*\(([^)]*)/g;
 const P2=/export\s+const\s+\w+\s*=\s*(?:async\s*)?\(([^)]*)/g;
 
+// —— 语言内建方法:不参与「必须在本项目的 Hall 上定义过」的判定 ——
+//
+// XX-WORLD-004 新建 ui/map.js 时撞上的假阳性:该 lint 对 ui/ 下的文件把
+// **导出函数的首形参**当成 hall,而 regionLayer(nodes, posOf, s, isNight)
+// 的首参叫 nodes。于是 `nodes.filter(...)` 被读成 `hall.filter(...)`,
+// 报「调用了 this.filter() 但没定义」。
+//
+// 根因不是写错,是他把「首形参 = hall」当成了无条件的约定。
+// 实际上大量导出函数根本不收 hall(named helper / 纯函数),首参就是普通参数。
+// 真按那个约定走,`.filter/.map/.forEach/.slice/.join/.includes/.at`
+// 这些满地都是的内建方法会全部变成假阳性 —— 假阳性淹没信号的那种 lint
+// 等于没有 lint(本文件开头第 14 行已经吃过一次这个教训)。
+//
+// 所以这里显式排除语言内建方法名。Hall 的方法全是项目自定义的
+// (render / toast / arrive / get / set …),与内建名零重叠 —— 排除它们
+// 不会放过任何一个真正的 Hall 调用。下方有断言钉住这个前提。
+const BUILTIN=new Set([
+  // Array
+  'at','concat','copyWithin','entries','every','fill','filter','find','findIndex','findLast',
+  'findLastIndex','flat','flatMap','forEach','includes','indexOf','join','keys','lastIndexOf',
+  'map','pop','push','reduce','reduceRight','reverse','shift','slice','some','sort','splice',
+  'toReversed','toSorted','toSpliced','toString','unshift','values','with',
+  // String
+  'charAt','charCodeAt','codePointAt','concat','endsWith','includes','indexOf','lastIndexOf',
+  'localeCompare','match','matchAll','normalize','padEnd','padStart','repeat','replace',
+  'replaceAll','search','slice','split','startsWith','substring','substr','toLowerCase',
+  'toUpperCase','trim','trimEnd','trimStart',
+  // Number / Object / Function / JSON / Math(部分同名)
+  'toFixed','toPrecision','hasOwnProperty','valueOf','call','apply','bind','stringify','parse',
+  'has','get','set','random','round','floor','ceil','abs','min','max','pow','sqrt','log',
+  'assign','freeze','keys','fromEntries','isArray','now',
+]);
+// 前提:内建名不能和 Hall 的方法重名,否则排除会放过真调用。
+for(const b of BUILTIN){
+  if(defined.has(b)) console.log(`  ⚠️ 内建名 ${b} 同时也是 Hall 方法,已从内建集移除以免漏检`);
+}
+const BUILTIN_SAFE=new Set([...BUILTIN].filter(b=>!defined.has(b)));
+
 /** 这个文件里,哪些标识符可以当作「自己」 */
 function selfNames(file) {
   const set=new Set(['this']);
@@ -90,6 +128,7 @@ for (const f of files) {
   const called=new Set([...src.matchAll(re)].map(m=>m[2]));
   for (const c of called) {
     checked++;
+    if (BUILTIN_SAFE.has(c)) continue;      // 语言内建,不是 Hall 方法
     if (!defined.has(c)) {
       console.log(`  ❌ ${rel(f)}: 调用了 this.${c}() 但没定义`);
       bad++;

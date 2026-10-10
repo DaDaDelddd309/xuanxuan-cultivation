@@ -230,7 +230,8 @@ export const LEGACY_IDS = Object.freeze(
  * 玩家看到的还是原来那张 11 格地图,一个像素都不变。
  */
 export const FEATURE_FLAGS = {
-  regions:    false,  // 阶段 1:区域着色 + 区域危险度
+  regions:    true,   // 阶段 1(XX-WORLD-004 已落地):区域着色 + 区域危险度。
+                      // 几何按当前种子现算(见 regions.js regionRects),无静态坐标。
   roads:      false,  // 阶段 2:Dijkstra 赶路 + 距离/耗时
   encounters: false,  // 阶段 2:路上遭遇
   blockades:  false,  // 阶段 3:封锁

@@ -59,12 +59,35 @@ console.log('\n[1] 拆出去的每个方法,Hall 上必须还有同名壳');
 {
   const { Hall } = await import(ROOT + '/js/xiuxian/ui.js');
   ok('ui/ 目录已建立(有页面被拆出)', viewFiles.length > 0, `${viewFiles.length} 个视图文件`);
-  const moved = [];
+
+  // ⚠️ XX-WORLD-004 撞出来的边界:`ui/` 下不只有 Hall 视图方法,还有**纯辅助函数**
+  //   与**数据表**。ui/map.js 的 regionLayer(nodes, posOf, s, isNight) 是渲染辅助,
+  //   ui.js 里直接 `regionLayer(...)` 调用,本来就不该在 Hall 上有壳;
+  //   原来的判定是「凡 export function 一律要求同名壳」,于是它报红。
+  //
+  //   判据取自项目拆法本身:视图方法的实现侧签名是 `vXxx(hall, s)` ——
+  //   **首参是 hall**。实测 13 个既有视图模块(arts/bag/build/dexsys/fam/gear/
+  //   meta/realm/story/title/tomb …)首参无一例外全是 hall,
+  //   而 portrait.js 只有数据、一个 export function 都没有。
+  //   所以「首参是不是 hall」不是猜的,是从现有代码量出来的。
+  //
+  //   辅助函数那边的风险(误用 this.)由 §3 统一兜住:§3 扫的是**整个 ui/ 目录**,
+  //   不分方法还是辅助函数,任何裸 this. 一样会红。
+  const moved = [];      // 首参是 hall → 必须在 Hall 上有同名壳
+  const helpers = [];    // 首参不是 hall → 纯辅助/数据,不该有壳
   for (const f of viewFiles) {
     const src = readFileSync(UIDIR + '/' + f, 'utf8');
-    for (const m of src.matchAll(/^export\s+function\s+(\w+)\s*\(/gm)) moved.push([m[1], f]);
+    for (const m of src.matchAll(/^export\s+function\s+(\w+)\s*\(\s*([A-Za-z_$][\w$]*)/gm)) {
+      (m[2] === 'hall' ? moved : helpers).push([m[1], f]);
+    }
   }
   ok('至少搬走了一个方法', moved.length > 0);
+
+  // 防「放宽成零」:这条契约正是本文件存在的意义,一旦 moved 清空,
+  // 上面所有 Hall 壳断言都变成空转,和没检查一样。钉一个下限。
+  ok(`Hall 视图方法数量没有塌缩(实测 ${moved.length} 个,应为 13 个模块的方法集)`,
+    moved.length >= 40, `只剩 ${moved.length} 个 —— 首参判据写错了?`);
+
   for (const [name, file] of moved) {
     ok(`Hall.${name} 还在(${file})`, typeof Hall[name] === 'function', `类型 ${typeof Hall[name]}`);
   }
@@ -72,6 +95,12 @@ console.log('\n[1] 拆出去的每个方法,Hall 上必须还有同名壳');
   for (const [name] of moved) {
     const s = String(Hall[name]);
     ok(`Hall.${name} 是转发壳(不含实现体)`, s.length < 120, `壳有 ${s.length} 字符,像是把实现搬进了壳里`);
+  }
+  // 辅助函数:反向确认它们**真的**不在 Hall 上。若哪天有人给辅助函数也加了壳,
+  // 说明用法变了(比如改成方法式渲染),这条会提醒回来重新判断。
+  for (const [name, file] of helpers) {
+    ok(`辅助函数 ${name} 不在 Hall 上(${file})`, typeof Hall[name] === 'undefined',
+      `Hall.${name} 类型 ${typeof Hall[name]} —— 若已改成 Hall 方法,请同步改 §1 的判据`);
   }
 }
 
