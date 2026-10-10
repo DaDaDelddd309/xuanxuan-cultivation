@@ -10,10 +10,10 @@ import { Player, CHARACTERS } from './game/player.js?v=17';
 import { initMap } from './game/map.js?v=17';
 import { initParticles } from './game/particles.js?v=17';
 import { initCombat, combatState } from './game/enemies.js?v=17';
-import { initSpawner, setEndless } from './game/spawner.js?v=17';
+import { initSpawner, setEndless, setRunTune } from './game/spawner.js?v=18';
 import * as Enemies from './game/enemies.js?v=17';
 import { initBoss } from './game/boss.js?v=17';
-import { initPickups } from './game/pickups.js?v=17';
+import { initPickups, setLootTune } from './game/pickups.js?v=18';
 import { rollChoices, applyChoice , runArtSync } from './game/upgrades.js?v=17';
 // 装备数据层(XX-EQUIP-002/003)。这里只导入**读档用得到**的部分 ——
 // loadoutBonus/GEAR 由 XX-EQUIP-004 接进结算时才真正参与计算,
@@ -338,7 +338,9 @@ function startRun(charId) {
   lastChar = charId;
   engine.reset();
   resetEmber();          // 上一局的余烬不能漏进这一局
-  Director.setMateMods(TAVERN.mods());   // 同伴(XX-META-003):他改变这一局的规则,不是纯数值
+  Director.setMateMods(TAVERN.mods());
+  setRunTune(getRunMod().spawn);
+  setLootTune(getRunMod().loot);   // 同伴(XX-META-003):他改变这一局的规则,不是纯数值
   const p = new Player(charId);
   p.weapons.push(makeWeapon(p.char.weapon));
   // 装备加成(XX-EQUIP-003 接存档 → XX-EQUIP-004 接战斗的桥):
@@ -457,6 +459,9 @@ import { REALMS, addExp } from './xiuxian/realms.js';
 // 和 ui.js 里那份同名不同容 —— 改一处忘一处就会画错人。
 // 现在统一从 ui/portrait.js 取(那份文件很轻,不会把整个 ui 拉进主循环)。
 import { PORTRAIT, bossPortrait } from './xiuxian/ui/portrait.js';
+// 本局局外倾向(XX-LINK-001 接线):修仙阁抵达节点时 ui.js 已 setActive(),
+// 这里把它交给局内 spawner/pickups —— 至此「从哪个节点出发」才真的决定这一局。
+import { getRunMod } from './xiuxian/runcfg.js';
 import { Duel } from './xiuxian/duel.js';
 import { Hall } from './xiuxian/ui.js';
 import { Bag, DAY } from './xiuxian/items.js';

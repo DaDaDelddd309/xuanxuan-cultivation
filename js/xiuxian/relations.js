@@ -6,7 +6,7 @@
 //  · 称号由行为触发,带隐藏条件
 
 import { SAVE_KEYS } from './save-keys.js';
-import { Bus } from '../core/engine.js';
+import { Bus } from '../core/engine.js?v=17';
 
 const NK = SAVE_KEYS.nemesis;
 

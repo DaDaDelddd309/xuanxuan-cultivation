@@ -1,6 +1,6 @@
 // ===== 立绘 / 场景 / BGM 加载器 =====
 // 懒加载:用时才加载,首屏不受影响。BGM 遵守优先级调度。
-import { Bus } from '../core/engine.js';
+import { Bus } from '../core/engine.js?v=17';
 
 const A = {
   portrait: {

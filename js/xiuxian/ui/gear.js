@@ -12,8 +12,8 @@
 //    本文件再 import ui.js 就成环。
 // ⚠️ 每个 export function 必须在 Hall 上有**同名转发壳**(test-ui-split 强制),
 //    所以下面叫 doGearOn/doGearOff 就得壳也叫这两个,不能一个叫 doEquip 一个叫 On。
-import { Save } from '../../core/save.js';
-import { GEAR, GEAR_IDS, gearBonus, AFFIXES } from '../../game/gear.js';
+import { Save } from '../../core/save.js?v=17';
+import { GEAR, GEAR_IDS, gearBonus, AFFIXES } from '../../game/gear.js?v=17';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 

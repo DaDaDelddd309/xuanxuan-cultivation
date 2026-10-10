@@ -19,7 +19,19 @@ globalThis.window = {};
 globalThis.Audio = function(){ this.play=()=>Promise.resolve(); this.pause=()=>{}; };
 
 import * as C from '../js/game/collatz.js';
-import * as S from '../js/game/spawner.js';
+// ⚠️ 这个 `?v=18` **不是装饰,去掉它这份测试会红**(2026-10-11 实测)。
+//
+// 本文件下面会 `await import('../js/ui/hud.js')` 去验证计时器后缀,
+// 而 hud.js 内部是按 `../game/spawner.js?v=18` 加载 spawner 的。
+// 这里若写成无戳,ESM 就按 URL 建两份模块记录 —— `S.setCollatzTrajectory()`
+// 写的那份,`HUD` 读的是**另一份**,后缀整个消失,渲染成「48:40」。
+//
+// 这跟本仓踩过的那个产品 bug 是**同一个**,只是搬到了测试里:
+//   `import './spawner.js'` 和 `import './spawner.js?v=18'`
+//   在浏览器和 Node 里都是两个模块实例,模块级 `let` 各存各的。
+// 戳必须跟生产一致 —— 改这里之前先确认 js/main.js 现在用的是哪个戳。
+// lint-module-identity 现在也扫 tests/ 目录了(产品侧 ❌ / 测试侧 ⚠️)。
+import * as S from '../js/game/spawner.js?v=18';
 
 let pass = 0, fail = 0;
 const failed = [];
@@ -255,6 +267,63 @@ console.log('\n[7] 机制必须**落到界面上**,否则玩家看不见就等�
      `基准 ${baseTier}`);
   ok('未激活时 bias 是空串', S.collatzBias() === '');
   console.log(`     生产引用:${EXPORTS.map(n => `${n}=${srcs.filter(({ s }) => s.includes(n + '(') || s.includes(n + ' as ')).length}`).join(' ')}`);
+}
+
+// ---- HUD 奇偶信号的可读性(XX-MATH-001b)----
+// 为什么测这个:「每 20 秒翻一次、规律性偏强」被怀疑是缺陷。实测过,结论是
+// **不该改**,理由写在 TICKETS 里(奇数步恒为 1 步是 3n+1 的数学事实,
+// 拉长它等于对算法撒谎;而标签连续 ≥3 分钟的只占 0.1%)。
+//
+// 但「信号会不会退化成整局一个常量标签」是**另一回事** —— 那是真的失效:
+// HUD 上挂个永远不变的「收敛」,等于装饰。这条性质没有测试盯着,所以补上。
+//
+// 全部走**生产路径** spawner.collatzParityAt,不直接调 collatz.js 的导出 ——
+// 「导出了但生产引用为 0 的代码 = 没写」,测一个没人调用的导出等于自娱自乐。
+{
+  const SEC = 20;
+  let bothSeen = 0, eligible = 0;
+  let worstHold = 0, worstSeed = -1;
+  const holds = [];
+
+  S.setCollatzTrajectory(null);
+  ok('未激活时 HUD 不加后缀(不能误报一个不存在的信号)', S.collatzParityAt(100) === '',
+     `实际 ${JSON.stringify(S.collatzParityAt(100))}`);
+
+  for (let i = 0; i < 200; i++) {
+    const r = C.runSeedFor('parity-' + i);
+    S.setCollatzTrajectory(r.traj);
+    const n = Math.min(r.traj.steps, 400);
+    const seq = [];
+    for (let k = 0; k <= n; k++) seq.push(S.collatzParityAt(k * SEC));
+
+    if (r.traj.steps >= 10) {                       // 太短的局不参与「两种都见过」
+      eligible++;
+      if (seq.includes('odd') && seq.includes('even')) bothSeen++;
+    }
+    let hold = 1, run = 1;
+    for (let k = 1; k < seq.length; k++) {
+      run = seq[k] === seq[k - 1] ? run + 1 : 1;
+      if (run > hold) hold = run;
+    }
+    holds.push(hold);
+    if (hold > worstHold) { worstHold = hold; worstSeed = i; }
+  }
+
+  // 实测 198/198 全部见到两种标签。取 100% 是有依据的:Collatz 序列里
+  // 奇偶必然交替,只要局够长就不可能只出一种。
+  ok('每一局都能同时看到「爆发」和「收敛」(信号不是常量装饰)',
+     eligible > 0 && bothSeen === eligible, `${bothSeen}/${eligible}`);
+
+  // 实测最长连续 10 步(3.3 分钟),p90=6。留到 12 步当红线:
+  // 越过说明收敛段被拉得没有上限,玩家会盯着一个不动的标签。
+  ok('标签连续时长有上界(不会整局不变)', worstHold <= 12,
+     `最长 ${worstHold} 步 @seed ${worstSeed}`);
+
+  holds.sort((a, b) => a - b);
+  ok('多数局在 6 步(2 分钟)内至少翻一次', holds[Math.floor(holds.length * 0.9)] <= 6,
+     `p90=${holds[Math.floor(holds.length * 0.9)]} p50=${holds[Math.floor(holds.length * 0.5)]} max=${holds[holds.length - 1]}`);
+
+  S.setCollatzTrajectory(null);
 }
 
 console.log(`\n通过 ${pass} / 失败 ${fail}`);

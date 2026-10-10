@@ -9,18 +9,41 @@ import { Director } from './director.js';   // V0.99:捡宝石 = 加生成压力
 // mob 0.004(万分之四)原本就在万级,保留;elite 0.30(30%)偏高,降到 0.05。
 const STONE_DROP = { elite: 0.05, mob: 0.004 };  // Boss 必掉,不走概率
 
+// —— 局外倾向注入(XX-LINK-001) loot 侧 ——————————————————
+// 和 spawner.js 的 runTune 同一个模式:模块级变量 + setter,**不 import 局外**,
+// 保持 game/ 不反向依赖 xiuxian/(runcfg 那条单向门禁靠这个成立)。
+//
+// 语义:「相对倍率」,和局内原有概率/数量**相乘**,不做替换。
+// ⚠️ 未决(village):NODE_TUNING.village.loot = { gemBias:0, coinBias:0 }。
+//    0 不是倍率是绝对零,而 gem 是**必掉的经验宝石** —— 按倍率实现会让
+//    村庄局完全拿不到经验、无法升级。这与「平稳开局」的注释意图冲突,
+//    且 test-runcfg.mjs 已把 village:gem0 钉住。**已如实实现,待 owner 裁定**:
+//    若确认「村庄确实不掉落」,应改的是 NODE_TUNING 的取值,而不是这里。
+const LOOT_TUNE_DEFAULT = { gemBias: 1, coinBias: 1, meatBias: 1, chestBias: 1 };
+let lootTune = { ...LOOT_TUNE_DEFAULT };
+
+export function setLootTune(t) {
+  lootTune = { ...LOOT_TUNE_DEFAULT, ...(t || {}) };
+  return lootTune;
+}
+export function getLootTune() { return lootTune; }
+
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 
 export function initPickups(g) {
   // 敌人死亡掉落:宝石/金币 + 肉(回血)+ 精英与 Boss 必掉宝箱
   Bus.on('enemy-death', e => {
     const tier = e.xp >= 5 ? 'gem_r' : e.xp >= 2 ? 'gem_g' : 'gem_b';
-    g.addPickup({ kind: 'gem', x: e.x, y: e.y, sprite: tier, xp: e.xp, r: 8, t: Math.random() * 7 });
-    if (Math.random() < e.coinP) g.addPickup({ kind: 'coin', x: e.x + 8, y: e.y, sprite: 'coin', gold: 3, r: 8, t: 0 });
-    if (Math.random() < (e.elite ? 0.45 : 0.018))
+    // gem:经验量 ×gemBias(秘境 2.0 = 经验翻倍;村庄 0 = 见上方未决说明)
+    g.addPickup({ kind: 'gem', x: e.x, y: e.y, sprite: tier, xp: e.xp * lootTune.gemBias, r: 8, t: Math.random() * 7 });
+    // coin:掉率 ×coinBias(险地 1.2 = 铜钱更常见)
+    if (Math.random() < e.coinP * lootTune.coinBias) g.addPickup({ kind: 'coin', x: e.x + 8, y: e.y, sprite: 'coin', gold: 3, r: 8, t: 0 });
+    // meat:掉率 ×meatBias(秘境 0.7 = 补给更少)
+    if (Math.random() < (e.elite ? 0.45 : 0.018) * lootTune.meatBias)
       g.addPickup({ kind: 'meat', x: e.x - 10, y: e.y + 6, sprite: 'meat', heal: 25, r: 9, t: Math.random() * 7 });
     if (e.elite || e.boss) {
-      const nChest = e.boss ? 2 : 1;
+      // chest:数量 ×chestBias,向上取整且至少 1 个(倍率不该把 Boss 的宝箱吃掉)
+      const nChest = Math.max(1, Math.round((e.boss ? 2 : 1) * lootTune.chestBias));
       for (let i = 0; i < nChest; i++)
         g.addPickup({ kind: 'chest', x: e.x + (i - (nChest - 1) / 2) * 26, y: e.y + 10, sprite: 'chest', r: 12, t: 0 });
     }

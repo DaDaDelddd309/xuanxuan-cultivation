@@ -3,7 +3,7 @@
 // 切换时有过渡。夜里怪物更强,篝火更重要。
 
 import { DAY } from './items.js';
-import { SFX } from '../core/audio.js';
+import { SFX } from '../core/audio.js?v=17';
 import { CHRONICLE } from './chronicle.js';
 
 export const PHASES = {
