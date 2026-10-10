@@ -23,7 +23,12 @@ export const NODE_TUNING = {
     label: '村庄',
     // 出发于村庄 = 从家出发,一切照常
     spawn:  { eliteRate: 0,   hordeRate: 1.0, hpMult: 1.0, dmgMult: 1.0 },
-    loot:   { gemBias: 0, coinBias: 0, meatBias: 1.0, chestBias: 1.0 },
+    // gemBias/coinBias 是**相对倍率**:1 = 与局内原有曲线相同。
+    // 这里原写 0,是笔误 —— 0 意味着「整局经验与铜钱为 0」,
+    // 而青石村是固定起点(worldgen),于是从村庄出发的第一局无法升级。
+    // 已上线于 xuanxuan-v099s / build 20261011-0120。
+    // 「关闭」语义在这套代码里用别的键表达,例如 spawn.eliteRate: 0 = 不刷精英。
+    loot:   { gemBias: 1.0, coinBias: 1.0, meatBias: 1.0, chestBias: 1.0 },
     turnBased: 0,
     note: '从村庄出发 · 平稳开局',
   },

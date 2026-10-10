@@ -1,5 +1,5 @@
 {
-  "version": "xuanxuan-v099u",
+  "version": "xuanxuan-v099v",
   "build": "20261011-0200",
   "count": 179,
   "files": {
@@ -137,7 +137,7 @@
     "js/xiuxian/realms.js": "51cebba436d8",
     "js/xiuxian/relations.js": "717c2a3422b1",
     "js/xiuxian/ritual.js": "5c0f4d22f4b5",
-    "js/xiuxian/runcfg.js": "a709fb446681",
+    "js/xiuxian/runcfg.js": "cac5f1f7338f",
     "js/xiuxian/save-keys.js": "d19eb467bf43",
     "js/xiuxian/seed.js": "4c6c952c0b35",
     "js/xiuxian/spine.js": "d4e797da797a",
@@ -170,9 +170,9 @@
     "knip.json": "41145b6f0a5c",
     "manifest.webmanifest": "60162ce41f9e",
     "package-lock.json": "6fb5c19e9431",
-    "package.json": "90d15e526b7d",
+    "package.json": "7a11dcc56bd0",
     "probe.html": "c2d3540d9ecd",
-    "sw.js": "ed19240f7f4d",
+    "sw.js": "270b95428087",
     "tests/t80.js": "52b2899fe00e",
     "tests/t81.js": "768d6590be87",
     "tests/t82.js": "65d78d179576",
