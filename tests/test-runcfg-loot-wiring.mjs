@@ -12,7 +12,7 @@
 //    等待 owner 裁定(改 NODE_TUNING 取值,而不是改这里)。
 
 import { NODE_TUNING, DEFAULT_TUNING } from '../js/xiuxian/runcfg.js';
-import { setLootTune, getLootTune, initPickups } from '../js/game/pickups.js';
+import { setLootTune, getLootTune, initPickups } from '../js/game/pickups.js?v=18';
 const { Bus } = await import('../js/core/engine.js?v=17');
 
 let pass = 0, fail = 0;

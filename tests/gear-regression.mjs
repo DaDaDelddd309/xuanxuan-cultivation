@@ -15,7 +15,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv, join } from 'path';
 import { SLOTS, SLOT_KEYS, AFFIXES, AFFIX_BONUS, AFFIX_KEYS, GEAR, GEAR_IDS,
-         GEAR_POWER, validateGear, gearBonus, loadoutBonus, emptyLoadout } from '../js/game/gear.js';
+         GEAR_POWER, validateGear, gearBonus, loadoutBonus, emptyLoadout } from '../js/game/gear.js?v=17';
 
 const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
 let pass = 0, fail = 0;

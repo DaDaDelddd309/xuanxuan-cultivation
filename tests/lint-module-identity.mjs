@@ -36,6 +36,17 @@ const files = [];
     else if (/\.js$/.test(f)) files.push(p);
   }
 })(_rv(ROOT, 'js'));
+// tests/ 也要扫。实测踩过:门禁与被测代码**错得一致**时,两边都是无戳 import,
+// Node 解析到同一个 URL、共享一份实例,于是「机制落到界面上」这类门禁全绿 ——
+// 而浏览器里 main.js?v=18 与源码无戳是两份实例,功能静默失效。
+// 只扫 js/ 抓不到这种,因为出问题的恰恰是 tests/ 侧没跟上。
+(function walk(d) {
+  for (const f of readdirSync(d)) {
+    const p = _rv(d, f);
+    if (statSync(p).isDirectory()) { if (!/node_modules|__pycache__/.test(f)) walk(p); }
+    else if (/\.(?:js|mjs)$/.test(f)) files.push(p);
+  }
+})(_rv(ROOT, 'tests'));
 
 /** 抽出一个源文件里所有「真的是 import 进来的相对路径」 */
 function relImports(src) {

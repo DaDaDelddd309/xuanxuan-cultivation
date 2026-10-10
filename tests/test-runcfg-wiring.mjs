@@ -14,7 +14,7 @@
 // （比如只断言倍率 > 0）会让断线也能全绿。必须证明拿掉接线它就红。
 
 import { NODE_TUNING, DEFAULT_TUNING } from '../js/xiuxian/runcfg.js';
-import { setRunTune, getRunTune, spawnOptsFor, spawnHpMultAt } from '../js/game/spawner.js';
+import { setRunTune, getRunTune, spawnOptsFor, spawnHpMultAt } from '../js/game/spawner.js?v=18';
 
 let pass = 0, fail = 0;
 const t = (name, cond, detail = '') => {

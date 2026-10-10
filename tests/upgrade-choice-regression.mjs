@@ -15,8 +15,8 @@
 //   · 永远返回 3 张
 //
 // 退出码:0 = 通过;非 0 = 不通过
-import { rollChoices, PASSIVES } from '../js/game/upgrades.js';
-import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS } from '../js/game/weapons.js';
+import { rollChoices, PASSIVES } from '../js/game/upgrades.js?v=17';
+import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS } from '../js/game/weapons.js?v=17';
 
 let pass = 0, fail = 0;
 const t = (n, c, d = '') => {
