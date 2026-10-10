@@ -115,17 +115,29 @@ console.log('\n[4] chestBias 作用于 Boss 宝箱数,且不把宝箱吃掉');
   t('chestBias=0.2 → 仍保底 1 个（倍率不吃掉 Boss 箱）', low === 1, String(low));
 }
 
-console.log('\n[5] 未决矛盾留档:village 的 gemBias=0 会让经验归零');
+// [5] 原来这一组是「未决矛盾留档」——它把 gemBias=0 这个**bug 状态**钉住了,
+//     断言「村庄局经验确实是 0」。2026-10-11 该值判定为笔误并修正后,
+//     钉子自然崩了。改成断言**修复后**的行为,并自带反向注入证明断言有牙。
+console.log('\n[5] village 是固定起点,倍率必须是 1（0 = 整局无法升级）');
 {
   const v = cfgFor('village');
-  t('NODE_TUNING.village.loot.gemBias 确实为 0', v.loot.gemBias === 0, String(v.loot.gemBias));
-  t('且 coinBias 也为 0', v.loot.coinBias === 0, String(v.loot.coinBias));
+  t('NODE_TUNING.village.loot.gemBias = 1', v.loot.gemBias === 1, String(v.loot.gemBias));
+  t('且 coinBias = 1', v.loot.coinBias === 1, String(v.loot.coinBias));
   setLootTune(v.loot);
   const r = killBatch(300, MOB);
-  t('实测：村庄局 300 只怪 → 经验 0（无法升级）', r.gemXp === 0, String(r.gemXp));
-  console.log('  ℹ️  这与「从村庄出发·平稳开局」的注释意图冲突，且 test-runcfg 已把');
-  console.log('     village:gem0 钉住。若 owner 判定村庄应当能正常升级，');
-  console.log('     该改的是 NODE_TUNING.village.loot 的取值，不是本文件或接线代码。');
+  t('实测：村庄局 300 只怪 → 经验 > 0（能升级）', r.gemXp > 0, String(r.gemXp));
+  t('且铜钱掉落数 > 0（killBatch 返回的是 by.coin 计数,不是金额）',
+    (r.by.coin || 0) > 0, JSON.stringify(r.by));
+  t('村庄的产出低于秘境（倍率确实起作用,不是恒为 1）', r.gemXp < 4800, String(r.gemXp));
+
+  // 反向注入:若 gemBias 回到 0,经验必须归零 —— 证明上面那条不是恒真
+  setLootTune({ ...v.loot, gemBias: 0, coinBias: 0 });
+  const bad = killBatch(300, MOB);
+  t('注入 gemBias=0 → 经验确实归零（故上面那条有牙）', bad.gemXp === 0, String(bad.gemXp));
+  setLootTune(v.loot);
+  console.log('  ℹ️  这条曾以「未决矛盾留档」的形式存在,钉的是 bug 状态。');
+  console.log('     判定依据:runcfg 开头「数值是相对倍率」、village 自己的 note「一切照常」、');
+  console.log('     兄弟节点 field 四项全 1 —— 且 0×1.5(mineBonus)=0,矿脉加成盖不住。');
 }
 
 console.log('\n[6] 局内四种节点掉落画像应互不相同（真·一个游戏）');
