@@ -104,23 +104,45 @@ sv up sshd    # 交给 runit 托管（推荐）
 **症状**：`git push` 卡 130 秒后 `Failed to connect to github.com port 443`，
 反复重试无果；但同一时刻 `ssh.github.com:443`、清华镜像、npm 镜像全都通。
 
-**不是断网，是按 IP 过滤**：DNS 把 `github.com` 解析到 `20.205.243.166`，
-这个 IP 连不通；而**同子网相邻的 `20.205.243.160`（即 `ssh.github.com`）、`.168`，
-以及 `20.27.177.113`、`140.82.113.4` 都可达**。是那一个 IP 的问题，不是 GitHub 的问题。
+**先说结论:这是间歇性的网络故障,不是「某个 IP 被封」** —— 这个判断我改过一次,
+记录下来是因为**第一次的结论是错的**,而且很容易再错一次。
 
-```sh
-# 先找一个可达的 GitHub IP
-for ip in 20.27.177.113 140.82.113.4 20.205.243.160 20.205.243.168; do
-  timeout 6 sh -c "cat </dev/null >/dev/tcp/$ip/443" 2>/dev/null && echo "OK $ip"
-done
+第一次的实测(20:38 前后)是:DNS 把 `github.com` 解析到 `20.205.243.166`,
+这个 IP 连不通,而 `.160` / `.168` / `20.27.177.113` / `140.82.113.4` 都通,
+于是我下了结论「只有 `.166` 这一个 IP 被挡,其余可用」,并把 `curloptResolve`
+写进了下面。
 
-# 再用它推送（curloptResolve 只改解析，Host 与 TLS SNI 仍是 github.com）
-git -c "http.curloptResolve=github.com:443:20.27.177.113" push origin HEAD:main
+**两个半小时后(23:0x)完全反过来了**:
+
+```
+                    第一次(20:38)      第二次(23:05)
+20.205.243.166      FAIL               OK     ← 第一次被挡的那个,这次通了
+20.27.177.113       OK                 FAIL   ← 第一次用的那个,这次超时
+140.82.113.4        OK                 FAIL
+140.82.114.4        OK                 OK
 ```
 
-这些 IP 用 `curl --resolve github.com:443:<ip>` 验证过：
-`info/refs?service=git-upload-pack` 返回 **HTTP 200**，`ssl_verify_result=0`
-（证书校验通过，因为 SNI 仍是 `github.com`）。
+⇒ 故障在**不同 IP 之间漂移**,没有固定黑名单。任何一次的单点探测结论都只对
+当时成立。**别把某一组 IP 写进文档当长期方案** —— 下次大概率是另一组。
+
+### 正确的做法:探测 + 重试,而不是记住某几个 IP
+
+```sh
+# 1. 探一批,挑此刻真通的
+for ip in 20.205.243.166 20.205.243.160 20.27.177.113 140.82.113.4 140.82.114.4; do
+  timeout 6 sh -c "cat </dev/null > /dev/tcp/$ip/443" 2>/dev/null && echo "OK $ip"
+done
+
+# 2. 先试默认解析(有时它自己就通了 —— 20:38 挡的是 .166,23:05 直接推就成功)
+git push origin HEAD:main
+
+# 3. 还不行再挑一个刚探到的通的 IP 覆盖
+git -c "http.curloptResolve=github.com:443:<刚探到的IP>" push origin HEAD:main
+```
+
+用 `curl --resolve github.com:443:<ip>` 验证过这些 IP 确实服务 github.com:
+`info/refs?service=git-upload-pack` 返回 **HTTP 200**,`ssl_verify_result=0`
+(SNI 仍是 `github.com`,证书校验通过)。
 
 ⚠️ **不要改 `/etc/hosts`**：那是全局解析改动，会影响 Termux 里所有程序；
 `curloptResolve` 只作用于这一次 git 调用。
