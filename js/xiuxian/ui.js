@@ -31,7 +31,7 @@ import { runConfigFor, setActive, clearActive } from './runcfg.js';   // 2026-10
 import { resetWorldScope } from './newlife.js';   // XX-PLAY-012:换世时重置节点作用域
 // XX-MATH-001:局内难度曲线的 Collatz 调制。方向是 修仙阁 → 砍杀,
 // js/game/* 不反向依赖 js/xiuxian/*,由 lint-deps 的 Tarjan 复核,不会成环。
-import { setCollatzTrajectory } from '../game/spawner.js';
+import { setCollatzTrajectory } from '../game/spawner.js?v=18';
 import { runSeedFor } from '../game/collatz.js';
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';

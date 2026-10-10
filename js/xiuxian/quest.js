@@ -9,8 +9,8 @@ import { Cult } from './index.js';
 import { Bag, STONES, SCROLLS, GOODS } from './items.js';
 import { BUILDINGS } from './bestiary.js';   // 触发建材注册(Bag 白名单)
 import { TOMB } from './tomb.js';            // 石将支线在墓里结案
-import { Save } from '../core/save.js';     // 装备掉落落档(XX-EQUIP-005)
-import { gearFromSource, GEAR } from '../game/gear.js';   // 「结案对象 → 装备」反查
+import { Save } from '../core/save.js?v=17';     // 装备掉落落档(XX-EQUIP-005)
+import { gearFromSource, GEAR } from '../game/gear.js?v=17';   // 「结案对象 → 装备」反查
 
 const K = SAVE_KEYS.quest;
 
