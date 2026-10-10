@@ -122,6 +122,29 @@ console.log('\n=== [6] 装备挂载位尚未偷跑 ===');
      '检测到已填写 —— 若确实做完了 XX-EQUIP-002,请连同 gear-regression 一起更新本条');
 }
 
+console.log('\n=== [7] 装备显示名不得混入拉丁字母 ===');
+{
+  // 2026-10-10 外部审计报出:8 件传说装备里有 2 件写成 `dang kang 环` / `jian gu 刃`,
+  // 另外 6 件是纯中文(红嫁衣/姥姥的簪/白泽之爪…)。玩家在装备栏会看到拼音。
+  // 全站扫过只有这 2 处,但 `lint-gear-table` 原来只查 key 边界与挂载位,不查名字。
+  //
+  // ⚠️ 只拦**显示名 name**,绝不拦 id / from / slot:
+  //   `from:'dangkang'` 是 gearFromSource 的反查键、必须保持拉丁,
+  //   一并拦掉等于把 XX-EQUIP-005 的整条掉落链打断。
+  const src = read('js/game/gear.js');
+  const names = [...src.matchAll(/name:\s*'([^']+)'/g)].map(m => m[1]);
+  ok('gear.js 里取得到装备名', names.length > 0, `取到 ${names.length} 个`);
+  const latin = names.filter(n => /[A-Za-z]/.test(n));
+  ok('没有混入拉丁字母的装备名', latin.length === 0,
+     `混拉丁: ${latin.join(', ')} —— 显示名必须是纯中文`);
+
+  // 顺带钉住:`from` 必须还是拉丁的(id 语义),防止有人「顺手汉化」把掉落链打断
+  const froms = [...src.matchAll(/from:\s*'([^']+)'/g)].map(m => m[1]);
+  const badFrom = froms.filter(f => !/^[a-z_]+$/.test(f));
+  ok('from 保持拉丁 id(gearFromSource 的反查键,不可汉化)', badFrom.length === 0,
+     `异常: ${badFrom.join(', ')}`);
+}
+
 if (fail === 0) {
   console.log('\n✅ 装备对照表门禁通过:三批 key 边界清晰,引用全部对得上真实文件');
   process.exit(0);

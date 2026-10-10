@@ -111,7 +111,7 @@ export const GEAR = {
     affixes: { area: 2, chain: 2, might: 2 },
   },
   dangkang_ring: {
-    name: 'dang kang 环', slot: 'hand', rarity: 3, from: 'dangkang',
+    name: '当康环', slot: 'hand', rarity: 3, from: 'dangkang',
     desc: '取名者早已不记得自己取的是什么名。',
     affixes: { thorns: 2, armor: 2, hp: 2 },
   },
@@ -121,7 +121,7 @@ export const GEAR = {
     affixes: { speed: 2, dashCd: 2, critDmg: 1 },
   },
   jiangu_blade: {
-    name: 'jian gu 刃', slot: 'hand', rarity: 3, from: 'jiangu',
+    name: '剑孤刃', slot: 'hand', rarity: 3, from: 'jiangu',
     desc: '剑不该有名字。有了名字,就有人会叫它回来。',
     affixes: { knockback: 2, might: 2, pierce: 1 },
   },
