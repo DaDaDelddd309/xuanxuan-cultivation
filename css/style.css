@@ -800,7 +800,13 @@ button { font-family: inherit; }
   left:50%;top:50%;transform:translate(-50%,-50%);
   border-radius:50%;border:1px solid rgba(201,162,39,.16);
   background:radial-gradient(circle,rgba(201,162,39,.045) 0%,transparent 70%)}
-.hud-ward b{position:absolute;left:50%;top:-20px;transform:translateX(-50%);
+/* XX-PLAY-004:标签原来写 top:-20px,那是相对**圆圈上边缘**的。
+   圆圈跟着护栏半径缩放(昼夜/投入/坐骑),所以文字跟着半径上下飘 ——
+   半径 830 时它跑到玩家上方 830px,直接挡画面甚至出屏。
+   改成锚在**玩家身上**:圆圈以玩家为中心、尺寸 = 半径×2,所以玩家的位置
+   就是这个 div 的 50%。calc(50% - 40px) = 玩家上方固定 40px,与半径无关。
+   left:50% 同理本来就是锚玩家(横向没坏,坏的只有纵向)。 */
+.hud-ward b{position:absolute;left:50%;top:calc(50% - 40px);transform:translateX(-50%);
   font:10px/1 "Songti SC",serif;letter-spacing:3px;color:rgba(201,162,39,.5);
   white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9)}
 .hud-ward i{position:absolute;inset:-2px;border-radius:50%;

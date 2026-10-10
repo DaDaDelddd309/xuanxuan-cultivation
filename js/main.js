@@ -260,7 +260,10 @@ function toTurnBased(bossName) {
           key: boss.type || 'boss_unknown',
           name: boss.name,
           title: '妖  ·  本  局',
-          img: PORTRAIT.foe,
+          // XX-PLAY-008:立绘跟 boss 类型走。原来写死 PORTRAIT.foe(墨影)——
+          //   台词对了、脸还是墨影的:打石像守卫时屏幕上站着墨影。
+          //   bossPortrait() 有专属图就用专属,没有才退回通用反派图。
+          img: bossPortrait(boss.type),
           realmIdx: Math.max(0, REALMS.findIndex(r => r.id === Cult.get().realm)) + 1,
           stronger: true, isNemesis: false,
         },
@@ -453,7 +456,7 @@ import { REALMS, addExp } from './xiuxian/realms.js';
 // ⚠️ 2026-10-10(XX-AUDIT-005):原来这里另有一份只含 hero/foe 的 PORTRAIT,
 // 和 ui.js 里那份同名不同容 —— 改一处忘一处就会画错人。
 // 现在统一从 ui/portrait.js 取(那份文件很轻,不会把整个 ui 拉进主循环)。
-import { PORTRAIT } from './xiuxian/ui/portrait.js';
+import { PORTRAIT, bossPortrait } from './xiuxian/ui/portrait.js';
 import { Duel } from './xiuxian/duel.js';
 import { Hall } from './xiuxian/ui.js';
 import { Bag, DAY } from './xiuxian/items.js';

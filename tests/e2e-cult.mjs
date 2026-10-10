@@ -187,18 +187,32 @@ console.log('\n[8] 灵伴在局内:真的动、真的捡');
   const { Cult } = await import('../js/xiuxian/index.js');
   guard('回到境界页', () => { Hall.tab = 'realm'; Hall.render(); });
   const want = Cult.killYield(Cult.get(), Cult.MEDITATE_AS_KILLS);
-  ok('吐纳的期望产出本身为正(否则这条断言没有意义)', want.dao > 0 && want.exp > 0,
+
+  // XX-MEDITATE-FREEZE(owner 2026-10-10):吐纳冻结后,这条从「必须给道行」
+  // 改成「必须**一点都不得给**」。
+  // 原来这里断言 after-before === want.dao,冻结后必然红 —— 那不是回归,
+  // 是断言本身过期了。真正要防的是「冻结了还偷偷发产出」,
+  // 所以下面改成对着**零**断言,而不是删掉。
+  //
+  // 公式仍然要在:冻结不等于删除,killYield 是解冻后的唯一产出路径,
+  // 它坏了没人会发现。
+  ok('吐纳的产出公式本身为正(冻结≠删除,解冻后靠它)', want.dao > 0 && want.exp > 0,
      `dao=${want.dao} exp=${want.exp}`);
-  const before = Cult.get().dao;
-  guard('点一次吐纳', () => Hall.act('meditate'));
-  const after = Cult.get().dao;
-  ok('吐纳给了道行', after - before === want.dao,
-     `+${after - before}(公式期望 +${want.dao})`);
-  ok('吐纳没把道行扣成负数', after >= 0, `dao=${after}`);
+
+  ok('吐纳处于冻结态', Cult.MEDITATE_FROZEN === true, `= ${Cult.MEDITATE_FROZEN}`);
+
+  const beforeDao = Cult.get().dao;
+  const beforeExp = Cult.get().exp;
+  guard('点一次吐纳(应无产出)', () => Hall.act('meditate'));
+  ok('冻结后吐纳不发道行', Cult.get().dao === beforeDao,
+     `+${Cult.get().dao - beforeDao}(应 +0)`);
+  ok('冻结后吐纳不发修为', Cult.get().exp === beforeExp,
+     `+${Cult.get().exp - beforeExp}(应 +0)`);
+
   const again0 = Cult.get().dao;
-  guard('再点一次吐纳', () => Hall.act('meditate'));
-  ok('第二次也给道行(不是只有第一次)', Cult.get().dao - again0 === want.dao,
-     `+${Cult.get().dao - again0}(期望 +${want.dao})`);
+  guard('再点一次吐纳(应仍无产出)', () => Hall.act('meditate'));
+  ok('第二次点也发不出道行', Cult.get().dao === again0,
+     `+${Cult.get().dao - again0}(应 +0)`);
 }
 
 console.log(`\ne2e-cult: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);

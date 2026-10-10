@@ -16,6 +16,7 @@
 import { getRealm, maxLayerOf, layerCost, canBreakthrough, realmTitle, PILLS } from '../realms.js';
 import { REALMS } from '../realms.js';
 import { CHRONICLE } from '../chronicle.js';
+import { Cult } from '../index.js';
 import { pct, esc } from './dom.js';
 
 // ---------- 境界 ----------
@@ -52,7 +53,8 @@ export function vRealm(hall, s) {
         <div class="xx-card" style="grid-column:1/-1"><div class="xx-label">年 表</div>
           <div class="xx-dim">${esc(CHRONICLE.stamp())}</div></div>
       </div>
-      <button class="xx-btn" data-act="meditate">吐 纳 修 炼</button>
+      ${Cult.MEDITATE_FROZEN ? '' : `<button class="xx-btn" data-act="meditate">吐 纳 修 炼</button>`}
+      ${Cult.MEDITATE_FROZEN ? `<div class="xx-dim" style="letter-spacing:0;text-align:center;margin:-2px 0 8px">吐纳已冻结 —— 修为只由砍杀产出</div>` : ''}
       <button class="xx-btn main" data-act="break" ${chk.ok ? '' : 'disabled'}>
         ${chk.needPill ? `服 ${PILLS[chk.needPill]?.name || '丹'} 突 破` : '突 破'}
         ${chk.ok ? '' : `<div class="xx-dim" style="letter-spacing:0;margin-top:4px">${esc(chk.msg || '')}</div>`}

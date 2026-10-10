@@ -34,3 +34,39 @@ export const PORTRAIT = {
   nvxia: 'assets/portrait/villain-nvxia.jpg',
   yaohou: 'assets/portrait/villain-yaohou.jpg',
 };
+
+/**
+ * 回合制 boss 立绘(XX-PLAY-008)。
+ *
+ * 背景:石像守卫 / 无常尊者是 **roguelike 层**的 boss(js/game/enemies.js),
+ * 它们从来没有专属立绘。main.js 一直拿 PORTRAIT.foe(= 墨影的脸)顶着,
+ * 于是打石像守卫时屏幕上站着墨影 —— XX-PLAY-005 修好了台词,脸还是错的。
+ *
+ * 仓库里本来就有**语义对得上**的图,而且都是零冲突的闲置资产
+ * (实测 yaohou / shemie / nvxia 三张除本映射表外**零引用**,
+ *   修仙阁轮换表只有 moying/heifeng/shougu/youfang 四个 key):
+ *   石像守卫 → assets/mob/golem.jpg
+ *     (图鉴里「山门执事」「炼骨傀」用的就是它;已看图确认:岩石躯体 +
+ *      金色裂纹 + 无面罩,**就是石像守卫本人**)
+ *   无常尊者 → assets/portrait/villain-yaohou.jpg
+ *     (戴冠坐凤椅的正统「尊者」像,747×1000。已看图确认。
+ *      这张图原属「妖后」,但妖后从未被分派过,复用不产生张冠李戴)
+ *
+ * ⚠️ 两张图的清晰度不同,这是**有意的取舍**,不是没留意:
+ *    · golem.jpg 是 418×560,而反派立绘是 747×1000。
+ *      宽高比几乎一致(0.746 vs 0.747),`img{width:100%}` 不会让布局跳变;
+ *      但 290px 宽的头像槽里密度只有 1.4×(立绘 2.6×)——
+ *      **石像守卫在高 DPI 手机上会比原来略糊**。
+ *      语义对 > 略糊。要两全就补一张 747×1000 的石像守卫专属图,
+ *      补完把下面这一行换掉即可,其它地方不用动。
+ *    · 无常尊者用的是 747×1000,不糊。
+ */
+export const BOSS_PORTRAIT = {
+  boss_golem:    'assets/mob/golem.jpg',
+  boss_overlord: 'assets/portrait/villain-yaohou.jpg',
+};
+
+/** boss 取立绘:有专属就用专属,没有就退回通用反派图(不静默给错的脸)。 */
+export function bossPortrait(type) {
+  return BOSS_PORTRAIT[type] || PORTRAIT.foe;
+}

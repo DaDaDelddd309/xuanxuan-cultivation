@@ -258,6 +258,13 @@ export const Hall = {
         break;
       case 'back': this.close(); break;
       case 'meditate': {
+        // XX-MEDITATE-FREEZE:入口冻结了,处理器也必须挡。
+        // 只藏按钮不够 —— 存档/旧页面里残留 data-act="meditate" 时还能点进来,
+        // 那就等于没冻结。逻辑整段留着,改 MEDITATE_FROZEN 就能解冻。
+        if (Cult.MEDITATE_FROZEN) {
+          toast('吐纳已冻结 —— 修为只由砍杀产出');
+          break;
+        }
         // addExp 返回的是 {levels, broke},不是数字。
         // 之前直接 `${g}` 插值 → 吐纳 [object Object] 点修为(每次点必现)。
         // 产出走 Cult.killYield —— 与砍杀**同一条公式**(XX-NET-004)。

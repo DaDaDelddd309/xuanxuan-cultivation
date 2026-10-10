@@ -301,7 +301,16 @@ console.log('\n[12] 护栏 ↔ 拾取:一条可投入的成长线');
   //   技能的拾取范围比护栏小,就可以安逸挂机了」
   //
   // 所以要验的是**两个方向都能达成**:
-  const BIG_PICKUP = 800, LOW_PICKUP = 120;
+  // ⚠️ 这两个基准原来是 800 / 4000,那是**照着不存在的数字调的**。
+  //    拾取半径(magnet)的真实构成:
+  //      60 基础 (player.js:128 `magnet: 60 + charBonus + b.magnetFlat`)
+  //    + 30 游侠角色 (player.js:31)
+  //    + 125 磁石满级 25×5 (upgrades.js:35, maxLv 5)
+  //    + 55 酒馆拾荒者 (tavern.js:35)
+  //    = 270 满配;再叠坐骑拾取加成约 300。
+  //    800 从来没到过 —— 照它调出来的 LV5 护栏 830 比整个视口还大(XX-PLAY-004)。
+  //    现在按真实值取基准:LOW=典型(升 2 级磁石),BIG=满配(270)。
+  const BIG_PICKUP = 270, LOW_PICKUP = 120;
 
   // 方向 A:拾取撑大、篝火没投 → 护栏跟不上 → 护栏外沿有可捡的(有代价)
   const poorCamp = computeWard({ campLv: 1, phase: 'day', pickup: BIG_PICKUP });
@@ -326,9 +335,18 @@ console.log('\n[12] 护栏 ↔ 拾取:一条可投入的成长线');
   ok('5 级比 1 级明显更大', prev > computeWard({ campLv:1, phase:'day', pickup:LOW_PICKUP }) * 1.5);
 
   // 护栏不能形同虚设(太小),也不能无限大(没取舍)
-  const tiny = computeWard({ campLv: 1, phase: 'day', pickup: 4000 });
-  ok('再大的拾取,护栏也不至于形同虚设', tiny >= 4000 * 0.5, `ward=${tiny} pickup=4000`);
-  ok('但也没有无限大到没有取舍', tiny <= 4000 * 2.7, `ward=${tiny}`);
+  // 用真实满配的 1.5 倍当「再离谱的大拾取」,验证下限生效、又没有 runaway。
+  const OVER = 400;
+  const tiny = computeWard({ campLv: 1, phase: 'day', pickup: OVER });
+  ok('再大的拾取,护栏也不至于形同虚设', tiny >= OVER * 0.5, `ward=${tiny} pickup=${OVER}`);
+  ok('但也没有无限大到没有取舍', tiny <= OVER * 2.7, `ward=${tiny}`);
+
+  // XX-PLAY-004:护栏必须「看得见」—— 5 级白天的圆要能落在一屏之内,
+  // 否则圈边永远在视口外,玩家看到的是一堵墙而不是火圈。
+  const lv5day = computeWard({ campLv: 5, phase: 'day', pickup: 0 });
+  ok('5 级白天护栏不超过 300(一屏看得见圆环)', lv5day <= 300, `ward=${lv5day}`);
+  const lv1day = computeWard({ campLv: 1, phase: 'day', pickup: 0 });
+  ok('护栏比旧值 830 明显收敛', lv5day < 400, `旧 LV5=830 → 现 ${lv5day}`);
 
   // 挂机判定要真的可用
   ok('1 级不算能挂机', canIdleCamp(1, LOW_PICKUP) === false);
