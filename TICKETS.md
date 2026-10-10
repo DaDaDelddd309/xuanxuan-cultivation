@@ -2423,6 +2423,9 @@ vRealm(s) { return vRealm(this, s); }
 
 ## XX-AUDIT-007 P1-2 死导出分诊完成（171 个导出全过） ✅ 已落地（report-only）
 
+> 🟡 **桌面侧补充 2026-10-11**：基线由 **17 条 → 30 条**（+13 条 XX-WORLD 阶段脚手架）。
+> 新增候选归零，全量 `npm run check` rc=0。详见本节末尾「2026-10-11 增量」。
+
 ### 分诊结果
 
 `js/xiuxian/` 39 文件 → **171 个导出**，按「外部引用 → 内部引用」判定：
@@ -2512,6 +2515,37 @@ export function rollEnemy(nodeId, realmId){} // @planned ROADMAP#2
 2. A3a 的 15 个补 `@planned` 注释
 3. A3b 的 6 个**一次删一条**，每条后跑 `npm run check`
 4. **禁止批量删** —— 上次就是这么炸的
+
+### 2026-10-11 增量（桌面侧）：基线 17 → 30
+
+跑 `node tests/lint-deadexport.mjs --list` 冒出 **13 个新增候选**，全部集中在
+`js/xiuxian/world/`（`network.js` / `nodes.js` / `regions.js`）。
+
+**结论：一个都不能删。**
+
+它们由 `XX-WORLD-001`（阶段 0 纯数据落地）与 `XX-WORLD-004`（阶段 1）于 2026-10-10 引入。
+`nodes.js` 里有一张分阶段阀门表 `FEATURE_FLAGS`，原话：
+
+> 这是控制体量的主阀门 —— 全部系统默认关闭，每个阶段只翻一个。
+> 这样任何一个阶段都能单独发布、单独回滚，而代码库始终是完整可运行的。
+
+当前 `regions: true`，`roads` / `encounters` / `blockades` / `extraction` / `newNodes` 全 `false`
+——**后续阶段的出口天然零引用**。`npm run check` 里有一条断言直接印证：
+「大世界数据层通过：三个 verify 全绿、**开关按阶段逐个开**」。
+
+也排除了扫描漏判的可能：13 个导出连**字符串字面量引用**都没有（排除动态访问后复验）。
+
+**处置**：13 条连同阶段号与工单号写入基线，并在头部加了一条判据：
+
+> 判「真死」之前先读 `js/xiuxian/world/nodes.js` 的 `FEATURE_FLAGS`，别只数 grep 命中。
+
+**这里有个必须记下的教训**：本工单原分类表把 A3a 定义为「真死但有文档计划 → 标 `@planned`，不删」。
+若当初按「13 个候选未分类 = 待清理」去删，**拆掉的就是 XX-WORLD-005/006 的地基**——
+而 `JOINT-DEV-PLAN.md` §三 把这两张工单明确派给桌面侧。
+`nodeGlyph` 的注释写着「ui.js:834 的硬编码表由这个取代」，替换动作就在 XX-WORLD-005 里。
+
+**当前口径**：203 个源文件 / 441 条导出 / 433 个唯一名字，
+候选 30 条**全在基线内，新增候选 0**，`npm run check` rc=0（1813 行零失败）。
 
 
 ---
@@ -3382,7 +3416,9 @@ owner 同意改名。已改 `js/game/director.js`、`tests/test-director.mjs`、
 
 ---
 
-## XX-AUDIT-025 · `story.js:48` 黑风岭错挂 n7 ⬜ 待 owner 拍板
+## XX-AUDIT-025 · `story.js:48` 黑风岭错挂 n7 ✅ 已修（桌面侧 2026-10-11）
+
+> 🟡 **桌面侧认领 2026-10-11** → ✅ 已修，同日提交。开工依据见本节末尾。
 
 **大世界地图方案复核时发现的真缺陷，独立于地图重构，建议单独发版。**
 
@@ -3394,12 +3430,84 @@ world.js:39  { id:'n5', x:4, y:2, type:'elite', name:'黑风岭' }
 同一条线 `at:2` / `at:3` 都用 `n5`，**只有 `at:1` 挂在 `n7`**（n7 是无名险地）。
 玩家要在无名险地触发「黑风岭」这一幕，n9→n7→n5 是绕路。
 
-旁证：`quest.js:16` 的 `where:['n5','n7']` 把两者并列 ——
-说明「n7 可能指黑风岭」这个误解**已经进了第二处**，不止一处。
-
 **修法**：`story.js` 的 node 值 `n7 → n5`，不动 `world.js`。
-**为什么不并进地图重构**：它会改变「玩家是否已 met 过这个节点」的判定，
-属玩家可见行为变更，应单独发版 + 写 CHANGELOG。
+
+---
+
+### ✅ 2026-10-11 桌面侧完工 —— 并且**推翻了本工单的两条前提**
+
+#### 订正一：「属玩家可见行为变更，应单独发版」——**不成立**
+
+这条前提写在 XX-WORLD-007 / XX-PLAY-006 **之前**。那两张工单给 `_advance()`
+加了**两级判定**（`story.js:252-259`）：
+
+```js
+let matched = b.node !== undefined && b.node === nodeId;      // ① id 相等
+if (matched && b.nodeType) matched = this._nodeTypeOk(nodeId, b.nodeType);  // 再过类型关
+if (!matched && b.nodeType && this._typeMatches(...)) matched = true;       // ② 回落到按类型
+```
+
+id 不相等会**自动回落到按 `nodeType` 匹配**。而 `n5` 与 `n7` 同为 `elite`，
+实测玩家站在这两个位置**都能推进**，只是走的分支不同：
+
+```
+现状 node:n7   在 n5 → 推进(类型兜底)    在 n7 → 推进(id分支)
+修正 node:n5   在 n5 → 推进(id分支)      在 n7 → 推进(类型兜底)
+```
+
+**现网行为本来就正确。** 这是**数据一致性**修复，不是玩家可见 bug，故**未单独升版**，
+按 `WORKING-TOGETHER.md` 规则 5 记入 `DECISIONS.md`。
+
+> 但仍然要改：错的 id 是雷。一旦有人收紧 `_nodeTypeOk` 或去掉类型兜底，
+> 它立刻变成「文本说黑风岭、玩家却卡在无名险地」的真 bug。
+
+#### 订正二：「`quest.js:16` 的 `where:['n5','n7']`」——**已不存在**
+
+那是 XX-PLAY-011 之前的写法。该工单把支线锚点整体改成了按类型，
+现在 `quest.js:36` 是 `laolao: { type:'visit', types:['elite'], need:2, tip:'黑风岭一带的险地…' }`，
+**全文件零节点 id 引用**（`world-reach-guard.mjs` §3 有防回退断言钉死这一点）。
+
+所以「这个误解已经进了第二处」——**不成立**，误解只有 `story.js` 这一处。
+
+#### 黑风岭 = n5 的九个独立来源（改前逐条核实）
+
+| 证据 | 出处 |
+|---|---|
+| `{ id:'n5', name:'黑风岭', type:'elite' }` | `js/xiuxian/world/nodes.js` |
+| `nodes:['n5','n7'], // 黑风岭(n5)+ 无名险地(n7)` | `js/xiuxian/world/regions.js` |
+| 「往东是黑风岭(n5)，姥姥在那儿」 | `js/xiuxian/ui.js` |
+| 「狼裔雪在黑风岭(n5)」 | `js/xiuxian/mount.js` |
+| `['黑风岭(n5)','姥姥、剑骨']` | `js/xiuxian/ui/story.js` |
+| `tip:'黑风岭一带的险地'`（并列，非等同） | `js/xiuxian/quest.js` |
+| 同线 `at:2` / `at:3` 均锚 `n5` | `js/xiuxian/story.js` |
+| 「laolao 的 beat2/beat3 本来就设计成同一处（同一个黑风岭）」 | `js/xiuxian/story.js` 注释 |
+| `story.js:184` 明确记录了这条设计意图 | 同上 |
+
+#### 连带改动
+
+- **`tests/world-reach-guard.mjs` 覆盖度下限 `7 → 6`**：`n7` 此前在 `story.js` 里只出现这一处，
+  改完它退出引用集（story.js 引用由 7 个降为 6 个）。护栏是**如实反映引用关系**——
+  没有剧情再指向 `n7`，就不必为它单独保证可达。
+  「必须覆盖 boss 与 secret」那条核心断言**原样保留**，覆盖面真没变窄仍由它证明。
+- **`js/xiuxian/world/nodes.js` 的 `KNOWN_ISSUES.storyN7Mislabelled`** 标记为已修并留档
+  （按项目惯例「已修留档、别重犯」，不删除）。
+- **`version.json`** 已用 `node tests/make-manifest.mjs --write` 重新生成（175 个文件）。
+
+#### 验收
+
+`npm run check` **rc=0**，1813 行日志**零失败**：
+
+```
+✅ 剧情锚点护栏通过:换种子后剧情不再指向错误地点
+✅ 大世界数据层通过:三个 verify 全绿、开关按阶段逐个开、world.js 未改
+✅ 剧情可达性护栏通过:6 个被引用节点全部可达(封路也不影响)
+```
+
+#### 开工事由（`WORKING-TOGETHER.md` 规则 2 补充）
+
+本条在 `JOINT-DEV-PLAN.md` §四 里已派给「桌面侧」，且状态长期挂在「待 owner 拍板」。
+桌面侧按规则 1 先 `git fetch`（确认 z8 未认领本条），随即开工修掉。
+
 
 ---
 
