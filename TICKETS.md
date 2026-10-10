@@ -6139,76 +6139,60 @@ HUD 读的是                   spawner.js?v=18  (另一份)
 
 > 🔴 **根因已定位并已修**（commit 见下）。`browser` job 变绿与否以 CI 实测为准，本工单暂不标 ✅。
 
-### 🔴 根因：这 5 个文件的本地 `unblock` 看不见 `.xx-duel`
+### 🔴 根因假设**被 CI 实测推翻**（2026-10-11，记录下来别重走）
 
-`tests/_unblock.py` 里有一份**改进过的**共享 `unblock`，它会优先在回合制里
-点「逃 / 退 / 认输 / 认栽」走**正规退出路径**，再兜底移除全屏层。
+我一度认定：这 5 个文件的本地 `unblock` 只清 `.xx-ritual/.xx-storycard`、
+**看不见 `.xx-duel`**（`inset:0; z-index:80` 的全屏层），所以一旦回合制开着，
+后续点击必然 30s 超时。
 
-但 **`t86` / `t87` / `t88` / `t89` / `full79` 各自复制了一份逐字节相同的本地实现**，
-那份本地版只清两种层：
-
-```python
-pg.evaluate("()=>!!document.querySelector('.xx-ritual,.xx-storycard')")
-pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
-```
-
-**`.xx-duel` 不在里面。** 而它是：
-
-```css
-/* css/xiuxian.css:723 */
-.xx-duel{position:absolute;inset:0;z-index:80;overflow:hidden;background:#0b0908}
-```
-
-`inset:0` + `z-index:80` = 铺满视口的全屏层，**物理上挡住所有点击**。
-
-于是链路是闭合的：
+**改完推上去实测（run `38072663714`）：`browser` job 仍然 2 / 8，一个都没好。**
 
 ```
-回合制战斗开着 → 本地 unblock 查不到 .xx-ritual/.xx-storycard → 立即 return
-              → .xx-duel 仍盖在页面上 → 下一次 pg.click() 超时 30s
+✓ check job   通过
+✗ browser job 2 / 8 通过 —— ❌ 失败: t86 t87 t88 t89 audit-loop full79
 ```
 
-`js/xiuxian/duel.js:166` 建的是 `xx-duel hidden`，所以只在测试误入战斗时才会暴露 ——
-这解释了为什么它躲过了所有本地检查，又在 CI 上稳定复现。
+**所以「本地版看不见 `.xx-duel`」不是这些红的根因。** 它是一个**真实存在的缺陷**
+（共享版确实多做了 `.xx-duel` 的处理，改成共享版是正确的收敛），
+但它**不是**这 6 个红的原因。
 
-### 五份本地实现完全相同，且 `tries` 还更小
+> 教训：证据链我自认为闭合了 —— 选择器漏了 `.xx-duel` 是事实、
+> `.xx-duel` 挡住点击是事实、「一旦开着就超时」也是机械必然。
+> **唯独缺的一环是「这些测试里它开着吗」，而那一环我没能证。**
+> 我当时说了「大概率同源」，那就是概率，不是证据。
+> 把它当结论写进提交信息，是过度断言。
 
-| 文件 | unblock 来源 | 处理 `.xx-duel` | tries |
-|---|---|---|---|
-| `t86.py` | 本地 | ❌ 无 | 6 |
-| `t87.py` | 本地 | ❌ 无 | 6 |
-| `t88.py` | 本地 | ❌ 无 | 6 |
-| `t89.py` | 本地 | ❌ 无 | 6 |
-| `full79.py` | 本地 | ❌ 无 | 6 |
-| `audit-loop.py` | 共享 `_unblock` | ✅ | 8 |
-| `audit-reach.py` | 共享 `_unblock` | ✅ | 8 |
-| `t91.py` | 本地 | ❌ 无 | — （**通过**） |
+### ✅ 真正修掉的一条：`full79.py` 的 import 顺序（我自己引入又自己抓出来的）
 
-`t91.py` 也用本地版却通过 —— 因为它不触发回合制。
-**这正说明问题不是「本地版一定错」，而是「进了战斗就必然超时」。**
+`f743d33` 那次把两处修复合并时，我把 `sys.path.insert(0, os.path.dirname(...))`
+排在了 `import os` **之前** —— 而那一行自己就用 `os.path`。
+等于**把刚在 XX-AUDIT-014 修好的 `NameError` 又带了回来**，
+CI 上 `full79` 从「跑完 14 条断言」退化成「0.15 秒就崩」。
 
-### 已做
+更该记的是我当时的验证方式：我写的是「静态验证：`py_compile` 通过」。
 
-5 个文件删掉本地实现，改 `from _unblock import unblock`。
-`tries` 由 6 变 8（共享版默认）。**改动只在 `tests/` 内，不碰 `ui.js`** ——
-所以与 Z8 的 XX-AUDIT-005 无冲突。
+> **`py_compile` 只查语法，查不出运行期的名字解析。**
+> 它对 `NameError: name 'os' is not defined` 完全无感 ——
+> 而这恰恰就是浏览器测试在本地唯一可能暴露的那类错。
 
-静态验证：`py_compile` 通过；`from _unblock import unblock` 实测可导入；
-共享版 `UNBLOCK_JS` 确认含 `xx-duel` 与「逃」路径；无显式 `tries` 调用会踩默认值；
-`time` 在五个文件里都仍被使用（没留下未用 import）。
+### ✅ 补上那条缺失的验证手段：`tests/lint-py-boot.py`
 
-**未在本机跑过** —— playwright 无 bionic wheel。以 CI 为准。
+既然浏览器跑不了，那就**让脚本自己跑起来**：用一个假 `playwright` 模块把
+`sync_playwright()` 桩掉，把 `time.sleep` 打掉，再把每个 `.py` **从头执行一遍**。
 
-### 教训：这是**第三次**「同一份逻辑复制多份，然后各自漂移」
+它只回答一个问题：**这个文件在真机上「还没开始点按钮」之前，会不会就已经崩？**
 
-- `ok` / `warn` 助手：8 份 `.py` 各写一遍 → `audit-reach.py` 那次 TypeError
-- `unblock` 助手：共享版已修好，5 份复制品没跟上 → 本工单的 5 个红
-- `tests/t8*.mjs` 与 `tests/t8*.py` **同名不同物**：`t86.mjs` 跑在 `npm test`，
-  `t86.py` 跑在浏览器套件里，两套断言完全不同
+只把 `NameError` / `ImportError` / `AttributeError` / `SyntaxError` 当失败
+（`TimeoutError`、`AssertionError` 那些是桩造成的，不算）。
 
-> **建议**：把 `_unblock.py` 这类助手**收敛成一个共享模块**，
-> 并加一条 lint 禁止各测试文件再定义本地副本。
-> 本工单只修了症状，没做收敛 —— 收敛会动全部测试文件，属于独立工单。
+**反向验证过**：把 `import os` 挪回使用之后 → 报红并指出确切行号，exit 1；
+还原 → 全绿。
+
+**它不能证明断言对。** 桩出来的 `pg.evaluate()` 返回假对象，所有断言都会判真。
+所以这条 lint 全绿**不代表浏览器测试会过** —— 那仍然是 CI 的事。
+它的价值是把「脚本自己崩了」这一类从「只能在 CI 上发现」拉回本地。
+
+已接进 `npm run lint`（带 `command -v python3` 守卫）。
 
 ### 实测状态对照
 
@@ -6216,7 +6200,13 @@ pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e
 |---|---|---|
 | `4dad804` | ❌ 预缓存 P0 | 1 / 8 |
 | `50c268f` | ✅ 通过（30s） | 2 / 8（`audit-reach` 从崩溃变成跑完是绿的） |
-| 本次 | 待 CI 实测 | 待 CI 实测 |
+| `f743d33` | ✅ 通过 | 2 / 8（**假设被推翻**;`full79` 因我的 import 顺序退化成秒崩） |
+| 本次 | 待 CI 实测 | 待 CI 实测 —— `full79.py` 顺序已修，其余 5 个仍未处理 |
+
+**剩余 5 个（t86/t87/t88/t89/audit-loop）的真因仍然未知。**
+现在至少有一条本地能跑的线索了：它们不是「脚本崩了」，是真的断言不过，
+而且 `t86` 的失败里有一条 `4个时段渲染 ['night']` —— 只渲染出 1/4，
+那更像数据/逻辑问题，不只是遮挡。
 
 ### 顺带一条噪音（另立工单，不混进来）
 
