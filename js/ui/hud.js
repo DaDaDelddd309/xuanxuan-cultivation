@@ -4,6 +4,7 @@ import { PAL } from '../core/palette.js';
 import { WEAPONS } from '../game/weapons.js?v=17';
 import { CHARACTERS } from '../game/player.js?v=17';
 import { Input } from '../core/input.js?v=17';
+import { collatzParityAt } from '../game/spawner.js';   // XX-MATH-001:局内「爆发/收敛」信号
 
 // 属性面板行标签(顺序与 _updateStats 的 vals 一一对应)
 const STAT_LABELS = ['攻击', '冷却', '护甲', '移速', '范围', '经验', '财运', '拾取'];
@@ -102,8 +103,13 @@ export const HUD = {
     const sec = Math.floor(g.time);
     if (sec !== this._sec) {
       this._sec = sec;
+      // XX-MATH-001:后面缀上 Collatz 的奇偶信号。
+      //   odd(3n+1) = 爆发,even(÷2) = 收敛,settle = 归于 1,未激活 = 不显示。
+      //   不加新 DOM、不加新 CSS —— 挂在本来就每秒刷新的计时器上。
+      const par = collatzParityAt(sec);
       this.el['hud-timer'].textContent =
-        String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+        String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0')
+        + (par === 'odd' ? ' · 爆发' : par === 'even' ? ' · 收敛' : par === 'settle' ? ' · 归一' : '');
     }
 
     // ---- 击杀 / 金币 / 等级 ----

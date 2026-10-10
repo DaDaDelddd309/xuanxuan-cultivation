@@ -3,7 +3,7 @@ import { spawnEnemy, ENEMY_TYPES, combatState } from './enemies.js?v=17';
 import { Director, P } from './director.js';   // 生成预算导演(V0.99 工单 XX-SPAWN-001)
 
 import { PAL } from '../core/palette.js';
-import { modAt as _collatzMod } from './collatz.js';   // XX-MATH-001
+import { modAt as _collatzMod, parityAt as _collatzParity, biasOf as _collatzBias } from './collatz.js';   // XX-MATH-001
 const MAX_E = 180;          // 同屏普通怪上限(CONTRACT v2.1 §4:200→180,超过不刷普通怪)
 const TAU = Math.PI * 2;
 
@@ -23,6 +23,22 @@ export function getCollatzTrajectory() { return _traj; }
 /** 当前时刻的难度调制系数 ∈ [0.85, 1.25];未激活恒为 1。 */
 export function collatzModAt(t) { return _traj ? _collatzMod(_traj, t) : 1; }
 
+/**
+ * 当前处于「爆发」还是「收敛」—— 奇数步(3n+1)=爆发,偶数步(÷2)=收敛。
+ * 未激活时返回 ''(HUD 什么都不显示)。
+ *
+ * 【为什么必须有它】难度调制本身玩家是**看不见**的:系数在 0.85~1.25 之间
+ * 无声地起伏,不给出信号的话就是「难度在乱抖」。
+ * 奇偶信号的意义在于**可学习** —— 看见「收敛中」就知道现在刷得快,
+ * 看见「爆发中」就该找地方躲。机制不落到界面上就等于没做。
+ */
+/** 本局偏向:'aggro' | 'sustain' | ''(未激活)。 */
+export function collatzBias() { return _traj ? _collatzBias(_traj) : ''; }
+
+export function collatzParityAt(t) {
+  return _traj ? _collatzParity(_traj, t) : '';
+}
+
 // 阶段刷怪池:[类型, 权重] —— 0-60s 纸妖/夜枭 → 120s 加骨卫/蛛妖 → 240s 加金刚力士/火药童子 → 360s 加铁甲龟/青灯鬼火
 const POOLS = [
   [['slime', 6], ['bat', 3]],
@@ -31,7 +47,19 @@ const POOLS = [
   [['bat', 2], ['skeleton', 4], ['spider', 3], ['brute', 3], ['bomber', 3], ['qinglu', 2], ['mire', 1]],
   [['skeleton', 3], ['spider', 3], ['brute', 4], ['bomber', 3], ['turtle', 2], ['wisp', 3], ['qinglu', 2], ['mire', 2], ['summoner', 1]],
 ];
-function poolIdx(t) { return t < 55 ? 0 : t < 120 ? 1 : t < 240 ? 2 : t < 360 ? 3 : 4; }
+// XX-MATH-001:刷怪池档位。**未激活时 k=1,与改动前逐位相同。**
+//   aggro(奇数步多的局)→ k<1 → 档位边界提前 → 重兵来得更早
+//   sustain(偶数步多的局)→ k>1 → 边界推后 → 前期更温和
+// 这条偏置不依赖给装备打「激进/续航」标签,改标签是另一件事(见 TICKETS)。
+const AGGRO_K = 0.82, SUSTAIN_K = 1.12;
+function poolK() {
+  const b = _traj ? _collatzBias(_traj) : 'sustain';
+  return b === 'aggro' ? AGGRO_K : SUSTAIN_K;
+}
+export function poolIdx(t) {   // 导出为只读查询:「t 时刻刷怪池处于第几档」——门禁要能观测偏置
+  const k = _traj ? poolK() : 1;
+  return t < 55 * k ? 0 : t < 120 * k ? 1 : t < 240 * k ? 2 : t < 360 * k ? 3 : 4;
+}
 
 function pickWeighted(pool) {
   let tot = 0;
