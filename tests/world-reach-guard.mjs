@@ -3,11 +3,14 @@
 // 「把三个 verify* 搬进 tests/ 接 CI(lockedStory 剧情可达性护栏)」
 //
 // 【为什么不能直接用 network.js 自带的 lockedStory】
-// 它硬编码查 `['n8','n4','n5']` 三个节点。实测 story.js 实际引用的是**七个**:
-//   n0 n2 n4 n5 n7 n8 n9   (21 处)
-// quest.js 另引用 n1 n2 n3 n5 n7 n8 n10 (11 处)。
-// 也就是说:把 n7 相关的路封掉,lockedStory 照样返回 ok ——
-// 而「黑风岭那一片地方」正是 n7 承载的剧情。
+// 它硬编码查 `['n8','n4','n5']` 三个节点。story.js 实测引用的是**六个**:
+//   n0 n2 n4 n5 n8 n9
+// quest.js 另引用 0 个(XX-PLAY-011 起支线锚点已全部改成按类型)。
+// 也就是说:把 n5 之外那些节点相关的路封掉,lockedStory 照样返回 ok。
+//
+// 【2026-10-11 更新】原先这里写的是「七个: n0 n2 n4 n5 n7 n8 n9」,
+//   并特别指出 n7 承载「黑风岭那一片地方」的剧情。XX-AUDIT-025 把
+//   laolao at:1 从 n7 改成 n5 之后,n7 不再被任何剧情引用,故退出引用集。
 //
 // 更根本的:XX-WORLD-007 之后剧情改成**按类型锚定**了,
 // 硬编码三个 id 这件事本身就已经过期。
@@ -132,8 +135,15 @@ console.log('\n=== [3] 护栏覆盖度不许变窄(防悄悄失效) ===');
   //   改成:绝对下限下调到 7(= story.js 现在的覆盖面),
   //   并把「护栏必须覆盖 boss 与 secret」单独钉死 —— 那是 XX-WORLD-007 的核心语义,
   //   比一个笼统的总数更能说明「覆盖面没变窄」。
-  t('引用节点去重后不少于 7 个(XX-PLAY-011 后基线;quest 贡献已按设计归零)',
-    ALL_REFS.length >= 7, `实测 ${ALL_REFS.length}: ${ALL_REFS.join(' ')}`);
+  //
+  // 【2026-10-11 XX-AUDIT-025】下限再下调到 6:story.js 的 laolao at:1
+  //   从 node:'n7' 改成 node:'n5'(那条 beat 文本写的是黑风岭,而黑风岭是 n5)。
+  //   n7 此前在 story.js 里**只出现这一处**,改完它就退出引用集,7 → 6。
+  //   这不是护栏失效,而是护栏如实反映了引用关系:
+  //   没有剧情再指向 n7,就不需要为它单独保证可达。
+  //   下面的 boss/secret 断言才是覆盖面真没变窄的证据,继续保留。
+  t('引用节点去重后不少于 6 个(XX-AUDIT-025 后基线;n7 已退出 story.js 引用集)',
+    ALL_REFS.length >= 6, `实测 ${ALL_REFS.length}: ${ALL_REFS.join(' ')}`);
   const types = ALL_REFS.map(id => (NODE_BY_ID.get(id) || {}).type).filter(Boolean);
   t('引用节点覆盖多种类型(不全是野地)', new Set(types).size >= 3, [...new Set(types)].join(','));
   t('护栏仍覆盖 boss(妖巢)与 secret(秘境)—— XX-WORLD-007 的核心语义',

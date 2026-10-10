@@ -3,8 +3,14 @@
 //  1. 预缓存清单长期停在 V0.76,新文件(修仙层/美术/音频)从未进缓存,离线即失效。
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
-const V = 'xuanxuan-v099q';
-const BUILD = '20261008-1710';
+//
+// v099r(2026-10-11)· 合并方统一升版。
+// 本次并入 Z8 侧 5 个提交(XX-LINK-001 / XX-LINK-003 / XX-MATH-001b 等,
+// 其中「局外节点倾向接入局内刷怪与掉落」是玩家可见改动,却一直挂在 v099q 上),
+// 加上桌面侧 XX-AUDIT-025 与 P1-2 基线增量。
+// 按 VERSION-CONVENTION §2,本行是版本号唯一真源,其余三处由 lint-version 校验。
+const V = 'xuanxuan-v099s';
+const BUILD = '20261011-0050';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',

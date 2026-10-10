@@ -279,35 +279,40 @@ export function typeOf(node) {
 // ───────────────────────────────────────────────────────────
 
 /**
- * ⚠️ 已核实的问题(不是本次引入的):
+ * ⚠️ 迁移期发现的数据不一致
  *
- * story.js:47 有这么一条 beat:
- *   { at:1, node:'n7', text:'黑风岭的石头缝里,挂满了写着字的木牌。都是愿。' }
+ * —— ✅ 已修(2026-10-11 · XX-AUDIT-025),留档勿重犯:——
  *
- * 但 world.js:39 里 **黑风岭是 n5**,n7 是个没命名的普通 elite 节点。
- * 也就是说这条 beat 的 `node` 指错了地方:文本说黑风岭,坐标却落在 n7。
+ * 【storyN7Mislabelled】原状是 story.js 的 laolao at:1 写 `node:'n7'`,
+ *   而那条 beat 的文本说的是黑风岭 —— 黑风岭是 **n5**:
+ *     · 本文件 nodes.js:149 `{ id:'n5', name:'黑风岭', type:'elite' }`
+ *     · regions.js:139 明确把 `'黑风岭(n5)'` 与 `'无名险地(n7)'` 分开
+ *     · quest.js:36 laolao tip 写「黑风岭一带的险地」,也是两者并列
+ *     · 同线 at:2 / at:3 都锚在 n5,且 story.js:184 的注释写明
+ *       「laolao 的 beat2/beat3 本来就设计成同一处(同一个黑风岭)」
+ *   结论:这是**文案-坐标错配**(改 story),不是节点数据错(不改本文件)。
  *
- * 旁证:
- *   · quest.js:16 laolao 支线写的是 `where:['n5','n7']`,tip:'黑风岭与险地'
- *     —— 明确把 n5=黑风岭、n7=险地 分开。所以 quest 是对的,story 是错的。
- *   · 同一叙事线紧邻的两条 beat(at:2 / at:3)用的都是 n5,只有 at:1 跑到了 n7。
+ *   为什么当时不顺手修:改它会让「玩家是否已 met 过这个节点」的判定变化,
+ *   按 AGENTS.md 该单独发版。后来发现这个前提已经不成立 ——
+ *   XX-WORLD-007/XX-PLAY-006 之后 `_advance()` 是**两级判定**
+ *   (story.js:252-259):id 不中或类型不符会**自动回落到按 nodeType 匹配**。
+ *   n5 与 n7 同为 elite,实测在两个位置都能推进,只是走的分支不同。
+ *   所以它**不是**玩家可见 bug,按数据一致性处理,未单独升版。
+ *   —— 但错的 id 仍然是雷:一旦有人收紧 `_nodeTypeOk` 或去掉类型兜底,
+ *   它立刻变成「文本说黑风岭、玩家却卡在无名险地」的真 bug。所以还是改了。
  *
- * 结论:这是一条**文案-坐标错配**,不是节点数据错。
- * 正确修法是改 story.js 的那一个 node 值(n7 → n5),**不动 world.js**。
+ * 【仍未修,留给后续工单】
+ *   · gridMismatch: WORLD.grid=6 与实际坐标范围 1..4 不符;ui.js 已绕开,字段事实上已废弃
+ *   · deadTravel:  world.js 的 travel() 零调用点(死代码)。见 README 阶段 1
  *
- * 为什么不放在这次迁移里改:
- *   改它会让「老玩家已 met 过的节点」判定发生变化(玩家可能已经站在 n7 看过这段),
- *   属于玩家可见的行为变更,应该单独发一个版本、单独说明,
- *   而不是混在一堆地图重构里悄悄上线。
- *
- * 另:`WORLD.grid = 6` 但坐标只到 4 —— ui.js:807-813 早已绕开它,
- * 直接按数据真实范围算布局。所以 grid 这个字段事实上已废弃,
- * 迁移完成后可以直接删(见 README 阶段 1)。
+ * 另:修 story.js 时**不要**改本文件 —— n0..n10 永久冻结,
+ * story.js 5 条线 + quest.js 8 条支线硬编码引用它们。
  */
 
 export const KNOWN_ISSUES = {
-  /** story.js:47 的 node 应为 n5 而非 n7。修 story,不改 nodes。 */
-  storyN7Mislabelled: { file:'js/xiuxian/story.js', line:47, shouldBe:'n5', actual:'n7' },
+  /** ✅ 已修 2026-10-11(XX-AUDIT-025):story.js laolao at:1 的 node 已由 n7 改为 n5。 */
+  storyN7Mislabelled: { file:'js/xiuxian/story.js', beat:'laolao@1', shouldBe:'n5', actual:'n7',
+                        fixedAt:'2026-10-11', ticket:'XX-AUDIT-025' },
   /** WORLD.grid=6 与实际坐标范围 1..4 不符;ui.js 已绕过。字段已废弃。 */
   gridMismatch: { file:'js/xiuxian/world.js', line:57, declared:6, actual:4, deadField:true },
   /** world.js 的 travel() 零调用点(死代码)。见 README 阶段 1。 */

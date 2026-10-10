@@ -48,7 +48,22 @@ export const ARCS = {
       { at:0, node:'n9', nodeType:'village', text:'落云镇有个孩子病了。看了三个大夫,都说不是病。',
         rumor:'不是病,是要价。那孩子许过愿。',
         reveal:'他许的是「让我娘好起来」。' },
-      { at:1, node:'n7', nodeType:'elite', text:'黑风岭的石头缝里,挂满了写着字的木牌。都是愿。',
+      // 【XX-AUDIT-025】这条原来写 node:'n7'，但文本说的是黑风岭，而黑风岭是 n5
+      //   （nodes.js:149 {id:'n5', name:'黑风岭', type:'elite'}；
+      //     regions.js:139 明确把 '黑风岭(n5)' 与 '无名险地(n7)' 分开）。
+      //   旁证：同线 at:2 / at:3 都锚在 n5，且 story.js:184 的注释写明
+      //   「laolao 的 beat2/beat3 本来就设计成同一处（同一个黑风岭）」——
+      //   只有 at:1 跑到了 n7，是笔误，不是设计。
+      //
+      //   【影响面实测，比工单原判小】JOINT-DEV-PLAN §四 把它列为
+      //   「玩家可见行为变更」，这个前提在 XX-WORLD-007/XX-PLAY-006 之后已经不成立：
+      //   _advance() 是**两级判定**（story.js:252-259）—— id 不中或类型不符
+      //   会自动回落到「按 nodeType 匹配」。而 n5 与 n7 同为 elite，
+      //   实测（见 TICKETS XX-AUDIT-025）在 n5 与 n7 两种位置都能推进，
+      //   只是走的分支不同（id 分支 ↔ 类型兜底）。
+      //   所以这是**数据一致性**修复，不是玩家可见 bug，故不单独升版。
+      //   留着错的 id 才是雷：一旦有人收紧 _nodeTypeOk 或去掉类型兜底，它立刻变成真 bug。
+      { at:1, node:'n5', nodeType:'elite', text:'黑风岭的石头缝里,挂满了写着字的木牌。都是愿。',
         rumor:'愿上写的名字,没有一个活着兑现。',
         reveal:'姥姥收愿,不定价格 —— 她看你能付多少,你就欠多少。' },
       { at:2, node:'n5', nodeType:'elite', text:'你找到了那块愿牌。字是她自己刻的,歪歪扭扭。',

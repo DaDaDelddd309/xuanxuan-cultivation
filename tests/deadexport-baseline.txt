@@ -5,9 +5,14 @@
 #   · 计划用(注明挂在哪个工单上)
 # 确认没人用的,**不要**写进来 —— 它会一直出现在报告里提醒你删。
 #
-# 本清单由 2026-10-10 逐条人工核实生成(初版 20 条,本轮收敛到 17 条:
-# SECRET_PILL 已删除、rollEnemy/homeNode 已有消费者被摘除)。当前 17 条与候选完全对齐:
+# 本清单由 2026-10-10 逐条人工核实生成(初版 20 条 → 17 条:
+# SECRET_PILL 已删除、rollEnemy/homeNode 已有消费者被摘除;
+# 2026-10-10 本轮 +13 条 XX-WORLD 阶段化脚手架 → 30 条)。当前 30 条与候选完全对齐:
 # `node tests/lint-deadexport.mjs --list` 可核对,「已不再是候选」应为 0。
+#
+# ⚠️ 判「真死」之前先读 `js/xiuxian/world/nodes.js` 的 `FEATURE_FLAGS`。
+#   大世界整套系统是分 5 阶段逐个开阀的,后续阶段的出口天然零引用 ——
+#   那不是死代码,是还没轮到它们上场。这类条目集中在文件末尾一节,已挂工单号。
 #   · 全仓库(js/ tests/ tools/)零代码引用
 #   · 零 HTML 内联引用(index.html 等)
 #   · 零动态下标访问
@@ -82,3 +87,65 @@ legendByRarity
 
 legendAt
 # legend.js 按位置取传说,地图图鉴接线时要用。
+
+
+# ── XX-WORLD 阶段化脚手架(2026-10-10 新增,13 条)────────────────────
+# 这一组**全部**来自 `js/xiuxian/world/*`,由 XX-WORLD-001(阶段 0 纯数据落地)
+# 与 XX-WORLD-004(阶段 1 区域上地图)于 2026-10-10 引入。
+# 共同点:零引用**不是**「忘了删」,而是 `nodes.js` 的 `FEATURE_FLAGS`
+# 刻意把整套大世界分 5 个阶段、逐个开阀(nodes.js:232 原话:
+# 「这是控制体量的主阀门 —— 每个阶段只翻一个,任何阶段都能单独发布、单独回滚」)。
+# 当前 `regions:true`、其余全 false,所以后续阶段的出口天然无人调用。
+#
+# ⚠️ 删这些等于拆掉 XX-WORLD-005/006 的地基,而这两张工单在
+# docs/JOINT-DEV-PLAN.md §三 里明确派给**桌面侧**(即本会话这一侧)。
+# 判「真死」之前先读 FEATURE_FLAGS,别只数 grep 命中。
+
+TICK_MS
+# network.js 赶路时间单位(75s/格)。XX-WORLD-005 阶段 2「距离/耗时」的
+# 唯一真源 —— 耗时那半边就是乘它。FEATURE_FLAGS.roads=false。
+
+ROAD_BY_ID
+# network.js 路 id 索引。阶段 2 的 Dijkstra 入口按 id 取路。
+
+ROAD_BY_PAIR
+# network.js 无序对索引(两点间反查)。阶段 2 确认「从 A 到 B 走哪条」要用。
+
+roadsFromLegacy
+# network.js 从旧格式边表构造路网。阶段 2 迁移 world.js 老 travel() 数据时消费。
+
+rollTravelEncounters
+# network.js 路上遭遇。FEATURE_FLAGS.encounters 专属,阶段 2 开启。
+
+bindRegions
+# network.js 路网绑定区域(依据 crossesRegion)。阶段 3 封锁依赖跨区路网。
+
+NODE_FACETS
+# nodes.js 节点「面」(城镇/宗门/行会/渡口/灵田/凶地/争夺)。
+# 阶段 1 已落地,但出口在 UI 侧:目前地图渲染走 regionView/regionRects,
+# 节点级面染色属 XX-WORLD-005 动 ui.js 时接线。
+
+nodesInRegion
+# nodes.js 区域→节点(按 NODES 顺序)。与 regions.js 的 regionNodes 成对,
+# 两个出口都留给阶段 2 的赶路 UI 按区域列节点。
+
+nodeProp
+# nodes.js 字段回退链(节点自带 → 类型默认 → 硬兜底)。
+# 注释写明「UI 层不再写 NODE_TYPES[n.type] && ... 这种防御代码」——
+# 它是用来**替换** ui.js 现有防御写法的,而替换动作属 XX-WORLD-005。
+
+nodeGlyph
+# nodes.js 地图符号。注释写明「ui.js:834 的硬编码表由这个取代」——
+# 同上,替换动作属 XX-WORLD-005(该工单正是动 ui.js travel 分支)。
+
+typeOf
+# nodes.js 节点类型定义(含 fallback)。nodeProp/nodeGlyph 的公共底座,随两者一起接线。
+
+KNOWN_ISSUES
+# nodes.js 的**文档型导出**:记录迁移期查实的三处数据不一致
+# (storyN7Mislabelled / gridMismatch / deadTravel),本就不该有消费者。
+# 其中 storyN7Mislabelled 就是 JOINT-DEV-PLAN §四 的 **XX-AUDIT-025**
+# (story.js 的 node 应为 n5 而非 n7),已派给桌面侧。保持零引用是预期状态。
+
+regionNodes
+# regions.js 区域→节点(按 REGIONS 声明顺序)。阶段 2 赶路 UI 用。
