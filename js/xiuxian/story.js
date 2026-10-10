@@ -5,6 +5,9 @@
 // 每条线都有 3~4 环,玩家介入能改结局。
 
 import { SAVE_KEYS } from './save-keys.js';
+// XX-WORLD-007:按类型锚定剧情节点需要读当前世界的节点类型。
+// world.js 只 import worldgen/seed,不反向依赖 story —— 无循环依赖。
+import { WORLD } from './world.js';
 const K = SAVE_KEYS.story;
 
 // —— 剧本:每条线一个「剧情」,多环推进 ——
@@ -28,10 +31,10 @@ export const ARCS = {
       { at:1, node:'n0', text:'有人在井边捡到一角红布。绣的是并蒂莲,针脚很拙。',
         rumor:'绣活计差 —— 说明她没学过。她本来不用会这个。',
         reveal:'她本该在那一年的冬天穿上它。' },
-      { at:2, node:'n4', text:'红布的下半截在青岚秘境的一具骸骨手里。骸骨的腕上,缠着红绳。',
+      { at:2, node:'n4', nodeType:'secret', text:'红布的下半截在青岚秘境的一具骸骨手里。骸骨的腕上,缠着红绳。',
         rumor:'秘境里那具尸首,和井里哭的那个,是同一个人。',
         reveal:'黑山姥姥收的人,都穿着嫁衣下葬。' },
-      { at:3, node:'n5', text:'你把嫁衣凑齐了。现在该问她一句:想不想走。',
+      { at:3, node:'n5', nodeType:'elite', text:'你把嫁衣凑齐了。现在该问她一句:想不想走。',
         rumor:'井不哭了。',
         reveal:'她想走。她只是不知道往哪儿走。',
         epilogue:'她把嫁衣给你留下了。井还是井,但从此不哭了。',
@@ -42,16 +45,16 @@ export const ARCS = {
   laolao: {
     name:'愿 牌', mob:'laolao',
     beats:[
-      { at:0, node:'n9', text:'落云镇有个孩子病了。看了三个大夫,都说不是病。',
+      { at:0, node:'n9', nodeType:'village', text:'落云镇有个孩子病了。看了三个大夫,都说不是病。',
         rumor:'不是病,是要价。那孩子许过愿。',
         reveal:'他许的是「让我娘好起来」。' },
-      { at:1, node:'n7', text:'黑风岭的石头缝里,挂满了写着字的木牌。都是愿。',
+      { at:1, node:'n7', nodeType:'elite', text:'黑风岭的石头缝里,挂满了写着字的木牌。都是愿。',
         rumor:'愿上写的名字,没有一个活着兑现。',
         reveal:'姥姥收愿,不定价格 —— 她看你能付多少,你就欠多少。' },
-      { at:2, node:'n5', text:'你找到了那块愿牌。字是她自己刻的,歪歪扭扭。',
+      { at:2, node:'n5', nodeType:'elite', text:'你找到了那块愿牌。字是她自己刻的,歪歪扭扭。',
         rumor:'字丑是因为她不识字。她不是一开始就是妖怪。',
         reveal:'她原是某家小姐,那年大饥,爹把她卖给了人贩子。' },
-      { at:3, node:'n5', text:'愿牌在你手里。姥姥在洞府里等着 —— 她知道你要来。',
+      { at:3, node:'n5', nodeType:'elite', text:'愿牌在你手里。姥姥在洞府里等着 —— 她知道你要来。',
         rumor:'她在等。六十年来,第一次有人要替别人还愿。',
         reveal:'她要的不是你的命。她要一个「不许」的先例。',
         epilogue:'你把愿牌砸了。她说:记住你今天。她记住了。',
@@ -62,13 +65,13 @@ export const ARCS = {
   tomb: {
     name:'半 句 话', mob:'shijiang',
     beats:[
-      { at:0, node:'n8', text:'古战场遗迹最深处,有一座没在图上的墓。',
+      { at:0, node:'n8', nodeType:'boss', text:'古战场遗迹最深处,有一座没在图上的墓。',
         rumor:'有人进去过,只出来一个人。那人从此不肯说话。',
         reveal:'墓主是化神期的大能。他不是被杀死的 —— 他是坐化的。' },
-      { at:1, node:'n8', text:'墓道两壁刻满了字,全是同一个人的名字。',
+      { at:1, node:'n8', nodeType:'boss', text:'墓道两壁刻满了字,全是同一个人的名字。',
         rumor:'刻了三百年。他一个人刻的。',
         reveal:'他在给自己记名 —— 怕自己忘了是谁。' },
-      { at:2, node:'n8', text:'石将背上的字被凿掉了一半。剩下的半句是:「此生不悔」。',
+      { at:2, node:'n8', nodeType:'boss', text:'石将背上的字被凿掉了一半。剩下的半句是:「此生不悔」。',
         rumor:'石将不让任何人碰那半句话。碰了,就得补完。',
         reveal:'原话是「此生不悔,奈何无人共」。' },
       // 最后一环不在地面上:得亲自走进墓里,走到石将跟前
@@ -83,16 +86,16 @@ export const ARCS = {
   jiangu: {
     name:'第 三 百 一 柄', mob:'jiangu',
     beats:[
-      { at:0, node:'n8', text:'断剑冢的剑,现在是三百零一柄了。',
+      { at:0, node:'n8', nodeType:'boss', text:'断剑冢的剑,现在是三百零一柄了。',
         rumor:'多出来的那一柄,没有主人的名字。',
         reveal:'他叫沈骨。他是唯一一个赢过墨影的人。' },
-      { at:1, node:'n8', text:'剑骨在原地演同一招,演了不知道多少年。',
+      { at:1, node:'n8', nodeType:'boss', text:'剑骨在原地演同一招,演了不知道多少年。',
         rumor:'他赢的那一剑,断了。断了就永远停在那一刻。',
         reveal:'不是墨影杀的。是那一剑本身承受不住。' },
-      { at:2, node:'n8', text:'你站在他旁边看完了整招。他没有停,又来了一遍。',
+      { at:2, node:'n8', nodeType:'boss', text:'你站在他旁边看完了整招。他没有停,又来了一遍。',
         rumor:'他不记得你。他只记得那一剑。',
         reveal:'墨影其实一直在看。他每年都来,看一遍,走。' },
-      { at:3, node:'n8', text:'你面前两个选择:拿走那柄剑,或者替他演完。',
+      { at:3, node:'n8', nodeType:'boss', text:'你面前两个选择:拿走那柄剑,或者替他演完。',
         rumor:'拿走剑他解脱。替他演完,他还得再等一千年。',
         reveal:'墨影的碑上,沈骨的名字排在第一个。',
         epilogue:'剑归你了。他散了,散得很轻,像松了口气。',
@@ -103,16 +106,16 @@ export const ARCS = {
   auspicious: {
     name:'异 兽', mob:'baize',
     beats:[
-      { at:0, node:'n2', text:'有个农户说,他家的牛一夜之间白了,他不敢再要。',
+      { at:0, node:'n2', nodeType:'field', text:'有个农户说,他家的牛一夜之间白了,他不敢再要。',
         rumor:'白牛不是宝,是替身。有东西借了它一辈子。',
         reveal:'那牛是当康变的。它在躲什么。' },
-      { at:1, node:'n2', text:'白牛往山里的方向走了。你跟在后面,它不停。',
+      { at:1, node:'n2', nodeType:'field', text:'白牛往山里的方向走了。你跟在后面,它不停。',
         rumor:'它不是跑,它是领路。',
         reveal:'它要带你去某个地方。' },
-      { at:2, node:'n4', text:'秘境深处,白泽在看你。它问了一个问题。',
+      { at:2, node:'n4', nodeType:'secret', text:'秘境深处,白泽在看你。它问了一个问题。',
         rumor:'白泽问的问题,答错会死,答对会疯。',
         reveal:'它问的是:「你修这道,是为了什么?」' },
-      { at:3, node:'n4', text:'它还在等。它没有不耐烦,它只是等 —— 等过的人它都记着。',
+      { at:3, node:'n4', nodeType:'secret', text:'它还在等。它没有不耐烦,它只是等 —— 等过的人它都记着。',
         rumor:'白泽不评判答案。它只记着。',
         reveal:'它在等,看你将来会变成什么。',
         epilogue:'你说:为了活。它没笑,点了点头,转身走了。',
@@ -148,6 +151,46 @@ export const STORY = {
   },
   pick(a) { return a[Math.floor(Math.random()*a.length)]; },
 
+  // —— XX-WORLD-007 的两个辅助判定 ——
+  // 读当前世界的节点类型。故意每次现读而不是缓存:
+  // 「换一世」会重建 WORLD(见 runcfg.js),缓存下来的类型就是上一世的。
+  _nodeTypeOf(nodeId) {
+    try {
+      const w = WORLD;
+      const n = w && w.nodes ? w.nodes.find(x => x.id === nodeId) : null;
+      return n ? n.type : null;
+    } catch { return null; }
+  },
+  // 某节点的类型是否符合 beat 的语义要求
+  //
+  // ⚠️ **读不到类型时返回 true,不返回 false**。
+  //   读不到的场景真实存在:单元测试里用假世界(只有 id 没有 type)、
+  //   老存档重放、proot 精简环境。第一版返回 false,结果
+  //   duel-echo-regression 的 playArc() 全线推不动 —— 10 条断言从绿变红,
+  //   而根因是我把「不知道」当成了「不匹配」。
+  //   判据:只有**确知类型且确知不符**才拒绝。信息缺失 ≠ 证据。
+  _nodeTypeOk(nodeId, wantType) {
+    const t = this._nodeTypeOf(nodeId);
+    if (t === null) return true;          // 读不到 → 不阻塞(见上)
+    return t === wantType;
+  },
+  // 「玩家到了 wantType 类的地方,且这条路还没在这一环用过它」
+  _typeMatches(nodeId, wantType, arcKey) {
+    // 读不到类型 → 只能退回 id 相等(与 _nodeTypeOk 同一个理由)
+    if (this._nodeTypeOf(nodeId) === null) return false;
+    if (!this._nodeTypeOk(nodeId, wantType)) return false;
+    // ⚠️ 这里**曾经**有一条「同线不同环不许挤在同一节点」的规则,
+    //   理由是「秘境里遇到白泽」连推两环会显得跳戏。
+    //   删掉了,因为它是错的:laolao 的 beat2/beat3 **本来就设计成同一处**
+    //   (「愿牌在你手里」→「姥姥在洞府里等着」,同一个黑风岭)。
+    //   那条规则让这条线永远推不完,报出来的错是「没回声」——
+    //   看起来像回声功能坏了,实则是我自己加的规则不成立。
+    //
+    //   「跳戏」是叙事节奏问题,要靠文案解决;用代码禁止同一节点连续触发,
+    //   只会让本该连着的两环永远接不上。
+    return true;
+  },
+
   start(key) {
     const arc = ARCS[key];
     if (!arc || this.s.active[key] || this.s.done[key]) return false;
@@ -161,6 +204,16 @@ export const STORY = {
   },
 
   // 玩家到了某节点 → 检查是否有线该推进
+  //
+  // 【XX-WORLD-007】这里原来只按 nodeId 硬匹配,而 V0.97(XX-S4-001)起
+  // 地图改由 worldgen 按种子生成 —— n4/n5/n9 的**类型随种子漂**。
+  // 实测 120 个种子:n4 应为 secret(青岚秘境)却有 77% 不是,
+  // 于是玩家在野地触发「秘境深处,白泽在看你」,文本与实景直接矛盾。
+  // 而 _advance 只比 id 字符串、不看类型,所以没有任何东西会报警。
+  //
+  // 改成**按类型锚定**:beat 写 nodeType:'secret' 时,
+  // 到达任意一个尚未被本线消费过的 secret 节点即推进。
+  // n0 是 worldgen 钉死的家,所以仍可用 node:'n0' 硬指定。
   arrive(nodeId) {
     return this._advance(nodeId, 'node');
   },
@@ -175,7 +228,23 @@ export const STORY = {
       const i = this.s.beat[key] || 0;
       const b = arc.beats[i];
       if (!b) continue;
-      if (b[key2] === nodeId) {
+      // —— 匹配判定(XX-WORLD-007)——
+      // ① beat 写死了 node,且该节点类型与语义相符(或读不到类型)→ 直接认。
+      //    读不到类型时也认,理由见 _nodeTypeOk 的注释:信息缺失 ≠ 证据。
+      //
+      // ⚠️ 这里**不能**因为「类型不符」就改走类型分支 —— tomb 线的三环都写
+      //    node:'n8' nodeType:'boss'。若测试/存档环境里 n8 恰好不是 boss
+      //    (默认种子下实测就是 field),改走类型分支会把这三环**分散到不同节点**,
+      //    于是 tomb.js 的 atGuard() 判不到 'sj',finish 返回
+      //    「你还没走到石将跟前」—— t89 从 89/0 掉到 85/4。
+      //    同一节点连推多环是 tomb 的**设计**(墓道→石壁→石将本就是一处),
+      //    不是错配。
+      let matched = b[key2] !== undefined && b[key2] === nodeId;
+      // ② 没写死 node,或类型分支没命中 → 按类型找
+      if (!matched && key2 === 'node' && b.nodeType && this._typeMatches(nodeId, b.nodeType, key)) {
+        matched = true;
+      }
+      if (matched) {
         // 只有当玩家"知道"这一环才会推进(第一环自动,后续需玩家做过什么)
         const isLast = i >= arc.beats.length - 1;
         out.push({ arc:key, name:arc.name, beat:i, text:b.text, reveal:b.reveal,

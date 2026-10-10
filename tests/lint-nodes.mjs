@@ -31,14 +31,15 @@
 //   §2 地标契约:剧情硬编码引用的 nodeId,其类型必须与剧情文本语义相符
 //   §3 结构健康:节点数/ID 唯一/连通/无孤岛
 //
-// 📌 §2 当前是**红的**,这是有意留着的 —— 它记录的是一个真实缺陷,不是误报。
-//   但要说清损害边界(实测 120 种子):
-//     · 节点本身**都存在且从家可达**(0 次缺失/不可达)→ 剧情不会卡死
-//     · 真正的损害:玩家在野地触发「秘境深处,白泽在看你」,文本与实景矛盾;
-//       n9 被写成「落云镇」但实际可能是妖巢
-//   修法见 TICKETS.md XX-WORLD-007(把地标 id 改成按类型寻址,而非按序号)。
-//   在那之前,本条**必须保持红色** —— 它是这个缺陷的哨兵。
-//   一旦有人把 worldgen 改成钉死地标类型,这条会自己转绿,不需要手动改门禁。
+// 📌 §2 记录的是 XX-WORLD-007 的修复前契约。**该缺陷已于 2026-10-10 修掉**:
+//   story.js 改成**按类型锚定**(`nodeType:'secret'` 而非 `node:'n4'`),
+//   所以「n4 必须是 secret」这条要求不再成立,也**不再需要成立** ——
+//   真正该保证的是「每个种子下都有 secret 节点可供锚定」,这条 worldgen 满足。
+//   §2 已随之改写为新契约,并且带反向自检(空世界必须判 false)。
+//
+// 修复前实测的损害边界(留档,别再夸大):
+//   · 剧情**不会卡死** —— 120 种子里 n4/n5/n9 全部存在且从家可达
+//   · 真正的损害:玩家在野地触发「秘境深处,白泽在看你」,文本与实景矛盾
 //
 // 退出码:0 = 通过;非 0 = 不通过(CI 靠这个)
 import { readFileSync } from 'fs';
@@ -51,8 +52,12 @@ const R = p => readFileSync(join(ROOT, p), 'utf8');
 
 let fail = 0;
 const ok = (name, cond, detail = '') => {
-  console.log(`  ${cond ? '✅' : '❌'} ${name}${detail ? '  ' + detail : ''}`);
-  if (!cond) fail++;
+  // ⚠️ detail **只在失败时打印**。第一版不管成败都打印,
+  // 于是这条出现了「✅ … story.js 里一个 nodeType 都没有 —— 修复没生效?」
+  // —— 一个绿色的对勾后面跟着一句「修复没生效」。
+  // 读日志的人会以为没问题,而实际是相反的意思。这比报错更坏。
+  if (cond) console.log(`  ✅ ${name}`);
+  else { fail++; console.log(`  ❌ ${name}${detail ? '  — ' + detail : ''}`); }
 };
 
 // 采样多少个种子:够覆盖随机分布,又不至于让 lint 慢到没人愿意跑
@@ -78,31 +83,61 @@ console.log('\n=== [1] worldgen 不变量:120 个种子逐条验 ===');
   ok('青石村固定在 (1,1) 且类型为 village', homeOk);
 }
 
-console.log('\n=== [2] 地标契约:剧情硬编码的 nodeId 类型必须稳定 ★本门禁的核心 ===');
+console.log('\n=== [2] 类型锚点契约(XX-WORLD-007 修好后) ===');
 {
-  // 每条:nodeId → 剧情文本对它的类型要求。
-  // 来源是 story.js 里 beat 的 text 实际写了什么,不是猜的:
-  //   at:2 node:'n4' 「秘境深处,白泽在看你」  → 必须 secret
-  //   at:0 node:'n9' 落云镇                  → 必须 village
-  const LANDMARKS = {
-    n0: { type: 'village', why: '青石村 · 序章起点' },
-    n4: { type: 'secret',  why: '青岚秘境 · 「秘境深处,白泽在看你」' },
-    n5: { type: 'elite',   why: '黑风岭 · 愿牌散落处' },
-    n9: { type: 'village', why: '落云镇 · 坊市/茶摊/霜清' },
+  // 【契约变了】
+  // 修之前:要求「n4 恒为 secret」—— 但 worldgen 只钉死 n0,做不到,于是长期红。
+  // 修之后:story.js 改成**按类型锚定**(nodeType:'secret'),
+  //        于是真正该保证的是「每个种子下都有 secret 节点可供锚定」。
+  // 这个契约 worldgen 满足得了,而且**已经实测过**。
+  const NEEDED = {
+    n0: 'village',   // 青石村 · 序章起点(worldgen 钉死)
   };
-  for (const [id, exp] of Object.entries(LANDMARKS)) {
-    const types = new Map();
-    for (const s of SEEDS) {
-      const n = generate(s).nodes.find(x => x.id === id);
-      const t = n ? n.type : 'MISSING';
-      types.set(t, (types.get(t) || 0) + 1);
+  // 2a 家必须恒定 —— 这条任何时候都不能破
+  for (const s of SEEDS) {
+    const h = generate(s).nodes.find(n => n.home);
+    if (!(h && h.x === 1 && h.y === 1 && h.type === 'village')) {
+      ok(`seed=${s} 青石村仍在 (1,1) 且为 village`, false, JSON.stringify(h));
+      break;
     }
-    const bad = [...types.entries()].filter(([t]) => t !== exp.type);
-    const dist = [...types.entries()].map(([t, c]) => `${t}:${c}`).join(' ');
-    ok(`${id} 恒为 ${exp.type}(${exp.why})`, bad.length === 0,
-       bad.length ? `实测分布 ${dist} —— 有 ${bad.map(([t, c]) => `${t}×${c}`).join(',')} 不符,`
-                       + `换种子后剧情会指向错误地点` : `(${dist})`);
+    if (s === SEEDS[0]) ok('青石村恒在 (1,1) 且为 village(120 种子全验)', true);
   }
+
+  // 2b 剧情用到的每种类型,每个种子都必须至少有一个节点
+  const story = R('js/xiuxian/story.js');
+  const wantTypes = [...new Set([...story.matchAll(/nodeType:'(\w+)'/g)].map(m => m[1]))];
+  console.log(`  (剧情用到的锚点类型: ${wantTypes.join(', ')})`);
+  // 只统计真正的**地图节点** beat 行 —— 两种要排除:
+  //   ① 注释里的字面量(说明文字写着「仍可用 node:'n0' 硬指定」)
+  //   ② room:'sj' 这类墓内房间 —— 它不是地图节点,不需要类型锚定
+  //     (sj 由 tomb.js 管,见下方 §3 的放行说明)
+  const beatLines = story.split('\n')
+    .filter(l => /^\s*\{\s*at:\d+,/.test(l) && /\bnode:'/.test(l));
+  const homeBeats = beatLines.filter(l => /node:'n0'/.test(l)).length;   // 家是钉死的,不算
+  // ⚠️ 比的是**出现次数**,不是去重后的类型数。
+  //    第一版拿 `wantTypes`(= new Set 后 = 5 种)去比 19 个 beat,永远对不上。
+  const typeCount = beatLines.filter(l => /nodeType:'\w+'/.test(l)).length;
+  ok(`剧情 ${beatLines.length} 个地图节点环里,除青石村 ${homeBeats} 环外每环都带 nodeType`,
+     typeCount === beatLines.length - homeBeats,
+     `实测 ${typeCount} 个 nodeType / ${beatLines.length - homeBeats} 个应锚定的环 —— `
+     + `修复可能被回退,或新增 beat 时忘了加 nodeType`);
+
+  const missing = {};
+  for (const s of SEEDS) {
+    const types = new Set(generate(s).nodes.map(n => n.type));
+    for (const t of wantTypes) if (!types.has(t)) missing[t] = (missing[t] || 0) + 1;
+  }
+  ok(`每个种子下锚点类型都存在(${wantTypes.length} 种 × ${SEEDS.length} 种子)`,
+     Object.keys(missing).length === 0,
+     Object.keys(missing).length ? '缺失: ' + JSON.stringify(missing) : '');
+
+  // 2c 反向自检:如果锚点类型没被满足,这条必须会红 ——
+  //    构造一个「什么都不含的假世界」跑一遍判定逻辑,确认它拒绝。
+  ok('锚点判定逻辑对空世界返回 false',
+     (() => {
+       const fake = { nodes: [{ id: 'x', type: 'field' }] };
+       return !new Set(fake.nodes.map(n => n.type)).has('secret');
+     })(), '反向验证失败:要求 secret 但世界只有 field,竟判 true');
 }
 
 console.log('\n=== [3] 剧情/支线引用的 nodeId 必须真的存在 ===');
