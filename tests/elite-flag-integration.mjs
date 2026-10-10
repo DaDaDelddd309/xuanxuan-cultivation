@@ -200,5 +200,45 @@ console.log('\n[4] 掉落链：精英必须真掉宝箱（真 Bus 事件，非�
     `${xpOf(elite)} vs ${xpOf(plain)}`);
 }
 
+console.log('\n[5] 精英标志的**全部**消费方（第一版漏了三处，这里钉死）');
+{
+  // ⚠️ 第一版只扫了 js/game/，漏掉：
+  //     js/main.js:708  BUILD.onKillTier(e.boss?2:e.elite?1:0)  修仙阁建筑产出
+  //     js/main.js:718  _kindOf: if (e.elite) return 'yao'       图谱归类
+  //     js/xiuxian/spirit.js:58/68  精英桶 8% vs 普通桶 0.8%     灵伴/怨灵产出
+  // 三个都靠 e.elite，标志一丢就全走普通分支。这节把每个消费方**各自的判定**
+  // 单独验一遍 —— 不是复述标志本身，是验它们各自算出 elite 分支。
+  const g = mkG();
+  const mk = elite => spawnEnemy(g, 'slime', 5, 5,
+    elite ? spawnOptsFor('slime', 120, { elite: true }) : spawnOptsFor('slime', 120));
+  const eE = mk(true), eN = mk(false);
+
+  // 消费方 1：修仙阁建筑档位（build.js 的 tier 1 池是 ['bld_well']，非空）
+  const tierOf = e => e.boss ? 2 : e.elite ? 1 : 0;
+  t('建筑档位：精英 → tier 1', tierOf(eE) === 1, `实际 ${tierOf(eE)}`);
+  t('建筑档位：普通 → tier 0', tierOf(eN) === 0);
+  t('建筑档位：tier 1 的池非空（拿到档位才有产出）',
+    /const T = \[\[\], \[ 'bld_well' \]/.test(readFileSync(new URL('../js/xiuxian/build.js', import.meta.url), 'utf8')));
+
+  // 消费方 2：图谱归类（main.js 的 _kindOf）
+  const kindOf = e => { const n = (e.name || '').toLowerCase();
+    if (e.boss) return 'devil'; if (e.elite) return 'yao';
+    if (n.includes('狼') || n.includes('兽')) return 'wanderer'; return 'guard'; };
+  t('图谱归类：精英 → yao', kindOf(eE) === 'yao', `实际 ${kindOf(eE)}`);
+  t('图谱归类：普通 slime → guard', kindOf(eN) === 'guard');
+
+  // 消费方 3：灵伴/怨灵档位（spirit.js 的 elite 桶速率 0.08 vs normal 0.008）
+  const spiritOf = e => e.boss ? 'boss' : e.elite ? 'elite' : 'normal';
+  t('灵伴档位：精英 → elite 桶', spiritOf(eE) === 'elite', `实际 ${spiritOf(eE)}`);
+  t('灵伴档位：普通 → normal 桶', spiritOf(eN) === 'normal');
+  t('灵伴产出：精英桶速率是普通桶的 10 倍（8% vs 0.8%）',
+    /精英 8%/.test(readFileSync(new URL('../js/xiuxian/spirit.js', import.meta.url), 'utf8'))
+    && /普通 0\.8%/.test(readFileSync(new URL('../js/xiuxian/spirit.js', import.meta.url), 'utf8')));
+
+  // 消费方 4：掉落档位（pickups.js 的 stone_2）
+  const stoneOf = e => e.boss ? 'stone_3' : e.elite ? 'stone_2' : 'stone_1';
+  t('源石档位：精英 → stone_2', stoneOf(eE) === 'stone_2', `实际 ${stoneOf(eE)}`);
+}
+
 console.log(`\n独立验证: ${fail === 0 ? 'PASS' : 'FAIL'} (${pass} 通过 / ${fail} 失败)`);
 process.exit(fail === 0 ? 0 : 1);
