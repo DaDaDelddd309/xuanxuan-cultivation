@@ -200,6 +200,49 @@ ok('回合制 foe 走 bossPortrait(boss.type)', /bossPortrait\(\s*boss\.type\s*\
 ok('回合制 foe 不再写死 PORTRAIT.foe', !/img:\s*PORTRAIT\.foe/.test(foeBlock),
    /img:\s*PORTRAIT\.foe/.test(foeBlock) ? '还写死着' : '');
 
+// ————————————————————————— 5. 角色卡(XX-CHAR-001)—————————————————————————
+console.log('\n[5] 角色卡:字段齐全,且代码引用的每个 CHARACTERS.x 都真的存在');
+
+const { CHARACTERS } = await import('../js/game/player.js');
+const keys = Object.keys(CHARACTERS);
+ok('CHARACTERS 非空', keys.length > 0, keys.join(', '));
+
+// 五个展示字段一个都不能缺 —— 缺了 vPeople() 会渲染出 undefined
+const NEED = ['name', 'role', 'title', 'bio', 'portrait'];
+for (const [k, c] of Object.entries(CHARACTERS)) {
+  const miss = NEED.filter(f => !c[f]);
+  ok(`角色卡 ${k} 五个展示字段齐全`, miss.length === 0, miss.length ? `缺 ${miss.join(',')}` : c.name);
+}
+
+// 立绘文件必须存在(映射写了、文件没有 = 假绿)
+for (const [k, c] of Object.entries(CHARACTERS)) {
+  const p = PORTRAIT[c.portrait];
+  ok(`角色卡 ${k} 的立绘图存在`, !!p && existsSync(join(ROOT, p)), p || `(portrait=${c.portrait} 没映射)`);
+}
+
+// ★ 通用门禁:代码里写的 CHARACTERS.xxx 必须在 CHARACTERS 里真的存在。
+//   这个 bug(XX-CHAR-001)的性质是「引用了一个不存在的 key」,
+//   单点断言容易漏,通用扫一遍才拦得住同类问题。
+//
+// ⚠️ 必须用 codeMask 剥掉注释再扫 —— 今天第四次栽在这上面:
+//   前三次分别是「注释里写着开关名」「注释里写着 MEDITATE_FROZEN」、
+//   「注释里写着 top:-20px」。注释里**提到**一个符号,
+//   不等于代码**引用**了它。用原始文本扫,只要注释提一句就误报。
+//   仓库里 lib-uimod 的 codeMask 就是干这个的,别自己写正则剥注释。
+const { codeMask } = await import('./lib-uimod.mjs');
+const refBad = [];
+for (const f of ['js/main.js', 'js/xiuxian/ui.js', 'js/xiuxian/ui/bag.js',
+                 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/duel.js']) {
+  let src = '';
+  try { src = rd(f); } catch { continue; }
+  const code = codeMask(src).code;   // 返回 {code, strings},要用 .code
+  for (const m of code.matchAll(/CHARACTERS\.([a-zA-Z_]\w*)/g)) {
+    if (!(m[1] in CHARACTERS)) refBad.push(`${f}:${m[1]}`);
+  }
+}
+ok('代码引用的 CHARACTERS.x 全部存在(注释已排除)', refBad.length === 0,
+   refBad.length ? `不存在: ${refBad.join(', ')}` : `可用 key: ${keys.join(', ')}`);
+
 // ————————————————————————— 汇总 —————————————————————————
 console.log(`\nxx-play-feedback: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);
 if (fail) { console.log('失败项:'); bad.forEach(b => console.log('  - ' + b)); }

@@ -49,7 +49,20 @@ const B_KEYS = [...legend.matchAll(/key:'([a-z]+)'/g)].map(m => m[1]);
 // 注意排除 `foe`:它是**旧轮换表的兜底键**(4 个敌人挤 3 张脸时的入口),
 // 不是第 7 张反派专属立绘。XX-AUDIT-011 接的是 6 张专属脸,foe 仍在,
 // 但它不属于「反派专属立绘」这一批 —— 算进去会得出「7 张」的错误结论。
-const portrait = read('js/xiuxian/ui/portrait.js');
+//
+// ⚠️ 只扫 PORTRAIT 这一个对象,不能扫整个文件(XX-PLAY-008 踩过)。
+//    portrait.js 里后来多了 BOSS_PORTRAIT(回合制 boss 的立绘映射),
+//    其中 boss_overlord 指向 assets/portrait/villain-yaohou.jpg ——
+//    全文件扫描会把它当成第 7 张「反派专属立绘」,红成「实测 7」。
+//    但 boss_overlord 是 boss 类型 id,不是反派立绘 key,两者不是一回事。
+//    截取范围:PORTRAIT 声明处 → BOSS_PORTRAIT 声明处之前。
+const portraitAll = read('js/xiuxian/ui/portrait.js');
+const pStart = portraitAll.indexOf('export const PORTRAIT');
+const pEnd = portraitAll.indexOf('export const BOSS_PORTRAIT');
+ok('portrait.js 里找得到 PORTRAIT 声明', pStart >= 0);
+ok('portrait.js 里找得到 BOSS_PORTRAIT 声明(用于划定扫描边界)', pEnd > pStart,
+   `PORTRAIT@${pStart} BOSS_PORTRAIT@${pEnd}`);
+const portrait = portraitAll.slice(pStart, pEnd > pStart ? pEnd : portraitAll.length);
 const C_KEYS = [...new Set(
   [...portrait.matchAll(/([a-z]+)\s*:\s*'assets\/portrait\/villain-([a-z]+)\.jpg'/g)]
     .map(m => m[1])

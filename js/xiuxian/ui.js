@@ -738,7 +738,15 @@ export const Hall = {
     // → 去妖巢(boss)节点时直接 TypeError,回合制开不起来
     // 每类敌人带一个稳定 key:台词与立绘都靠它分派,不要靠随机顺序。
     const foes = isBoss
-      ? [['墨影', CHARACTERS.moying.title, 'foe', true, 'moying']]
+      // ⚠️ XX-CHAR-001:这里原来写的是 CHARACTERS.moying.title,
+      //   而 CHARACTERS 只有 knight/mage/ranger/white 四个**可选角色**,
+      //   根本没有 moying → undefined.title → TypeError,
+      //   去妖巢(boss)节点时回合制开不起来。
+      //   上一行的注释说「V0.92 修过这个 TypeError」,那次只是把
+      //   LORE.CHARACTERS 换成 CHARACTERS —— 换成了另一个不存在的东西,等于没修。
+      //   墨影是反派不是可选角色,身份信息在 bestiary 里(form: '宿 敌'),
+      //   这里和下面三行一样用字面量。
+      ? [['墨影', '宿 敌', 'foe', true, 'moying']]
       : [['黑风散修','炼气中期','foe', false, 'heifeng'],
          ['守谷妖修','妖修','momocha', false, 'shougu'],
          ['游方剑客','筑基初期','merchant', false, 'youfang']];
