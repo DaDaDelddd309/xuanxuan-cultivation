@@ -106,6 +106,20 @@ function weightedIdx(pool) {
   return 0;
 }
 
+/** weightedIdx 的子集版 —— 在给定的**下标子集**内按 w 加权,返回该子集里的一个 pool 下标。
+ *  同样只算下标、不动 pool(移除由调用方做)。
+ *  给 XX-PLAY-002 的「先按种类筛子集、再在子集里加权」用:
+ *  去重只决定「这一轮从哪些种类里抽」,种类**内部**仍要按 w 抽,
+ *  否则均匀抽等于把 w 架空(神通权重拉到多少,卡位构成都不动)。
+ *  ⚠️ idxs 为空时**不要**调用它(无合法下标可返回),由调用方兜底。 */
+function weightedIdxIn(pool, idxs) {
+  let tot = 0;
+  for (let i = 0; i < idxs.length; i++) tot += pool[idxs[i]].w;
+  let r = Math.random() * tot;
+  for (let i = 0; i < idxs.length; i++) { r -= pool[idxs[i]].w; if (r <= 0) return idxs[i]; }
+  return idxs[0]; // 兜底:权重累加没命中(如全 0 权重)仍返回合法下标,不会是 undefined
+}
+
 // 被动等级记录在 g.passiveLv(main 开局创建;crit 等新键由 applyChoice 动态补)
 // ══════ 神通(XX-ARCH-006 / owner 选 A:接上局内)══════════════
 //
@@ -248,8 +262,9 @@ export function rollChoices(g) {
   while (out.length < cap && pool.length) {
     const freshIdx = [];
     for (let i = 0; i < pool.length; i++) if (!usedKinds.has(pool[i].kind)) freshIdx.push(i);
+    // 有新种类可抽 → 在这些新种类里**按 w 加权**(不再均匀抽);
     // 没有新种类可抽 → 这一轮退回普通加权抽取
-    const idx = freshIdx.length ? freshIdx[(Math.random() * freshIdx.length) | 0] : weightedIdx(pool);
+    const idx = freshIdx.length ? weightedIdxIn(pool, freshIdx) : weightedIdx(pool);
     const [c] = pool.splice(idx, 1);
     out.push(c);
     usedKinds.add(c.kind);
