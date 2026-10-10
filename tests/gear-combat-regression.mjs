@@ -105,8 +105,13 @@ ok('装备表里有回春词条装备', !!regenId, 'regenId=' + regenId);
     spawnText(){}, addParticles(){}, shake(){}, killEnemy(){},
     bus: { emit(){} },
   };
-  // 直接给 100 伤害
-  damageEnemy(g, e, 100, {});
+  // ⚠️ 必须钉死 `crit:false`,否则这条断言是**掷骰的**。
+  //    damageEnemy(g,e,amount,o) 里 `o.crit === undefined` 会走
+  //    `Math.random() < st.crit` 并把伤害乘 critDmg —— knight 的 crit=0.12、critDmg=1.6,
+  //    所以约 12% 的运行里 100 伤害变 160,吸血 10 变 16,本条必红。
+  //    这不是产品 bug(暴击 ×1.6 伤害 → ×0.1 吸血 = 16,数值自洽),
+  //    是断言没把与被测项无关的随机源摁住。
+  damageEnemy(g, e, 100, { crit: false });
   ok('打 100 伤害回 10 血', Math.abs(p.hp - 60) < 1e-6, 'hp=' + p.hp);
 }
 
@@ -120,7 +125,7 @@ ok('装备表里有回春词条装备', !!regenId, 'regenId=' + regenId);
               status:{}, burnT:0, hitT:0, flashT:0, kx:0, ky:0 };
   const g = { player:p, stats:{dmg:0}, cam:{follow(){}}, spawnText(){}, addParticles(){},
               shake(){}, killEnemy(){}, bus:{emit(){}} };
-  damageEnemy(g, e, 100, { dot: 1 });
+  damageEnemy(g, e, 100, { dot: 1, crit: false });
   ok('DoT 伤害不回血', Math.abs(p.hp - 50) < 1e-6, 'hp=' + p.hp);
 
   // 但联动伤害(synergy)算玩家主动触发,应回血
@@ -128,8 +133,12 @@ ok('装备表里有回春词条装备', !!regenId, 'regenId=' + regenId);
   p2.stats.lifestealPct = 0.1; p2.hp = 50;
   const g2 = { player:p2, stats:{dmg:0}, cam:{follow(){}}, spawnText(){}, addParticles(){},
                shake(){}, killEnemy(){}, bus:{emit(){}} };
-  damageEnemy(g2, e, 100, { synergy: 1 });
-  ok('联动伤害回血(玩家主动触发)', p2.hp > 50, 'hp=' + p2.hp);
+  damageEnemy(g2, e, 100, { synergy: 1, crit: false });
+  // 钉死 crit 后才有资格断言精确值。原来写的是 `> 50`:
+  // 它能抓住「完全不回血」(hp=50 不过 >50),但**抓不住量级错误** ——
+  // 暴击回 16、回血系数写错、忘了乘 GEAR_POWER 衰减,全都照样过。
+  // 精确到 60 才能把「回血是对的」和「回血是多错的」分开。
+  ok('联动伤害回血(玩家主动触发)', Math.abs(p2.hp - 60) < 1e-6, 'hp=' + p2.hp);
 }
 
 // ————— 6. heal() 的边界 —————
