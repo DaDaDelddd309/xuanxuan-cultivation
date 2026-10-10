@@ -19,7 +19,7 @@ globalThis.window = {};
 globalThis.Audio = function(){ this.play=()=>Promise.resolve(); this.pause=()=>{}; };
 
 import * as C from '../js/game/collatz.js';
-import * as S from '../js/game/spawner.js';
+import * as S from '../js/game/spawner.js?v=18';
 
 let pass = 0, fail = 0;
 const failed = [];
