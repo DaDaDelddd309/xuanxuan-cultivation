@@ -257,6 +257,63 @@ console.log('\n[7] 机制必须**落到界面上**,否则玩家看不见就等�
   console.log(`     生产引用:${EXPORTS.map(n => `${n}=${srcs.filter(({ s }) => s.includes(n + '(') || s.includes(n + ' as ')).length}`).join(' ')}`);
 }
 
+// ---- HUD 奇偶信号的可读性(XX-MATH-001b)----
+// 为什么测这个:「每 20 秒翻一次、规律性偏强」被怀疑是缺陷。实测过,结论是
+// **不该改**,理由写在 TICKETS 里(奇数步恒为 1 步是 3n+1 的数学事实,
+// 拉长它等于对算法撒谎;而标签连续 ≥3 分钟的只占 0.1%)。
+//
+// 但「信号会不会退化成整局一个常量标签」是**另一回事** —— 那是真的失效:
+// HUD 上挂个永远不变的「收敛」,等于装饰。这条性质没有测试盯着,所以补上。
+//
+// 全部走**生产路径** spawner.collatzParityAt,不直接调 collatz.js 的导出 ——
+// 「导出了但生产引用为 0 的代码 = 没写」,测一个没人调用的导出等于自娱自乐。
+{
+  const SEC = 20;
+  let bothSeen = 0, eligible = 0;
+  let worstHold = 0, worstSeed = -1;
+  const holds = [];
+
+  S.setCollatzTrajectory(null);
+  ok('未激活时 HUD 不加后缀(不能误报一个不存在的信号)', S.collatzParityAt(100) === '',
+     `实际 ${JSON.stringify(S.collatzParityAt(100))}`);
+
+  for (let i = 0; i < 200; i++) {
+    const r = C.runSeedFor('parity-' + i);
+    S.setCollatzTrajectory(r.traj);
+    const n = Math.min(r.traj.steps, 400);
+    const seq = [];
+    for (let k = 0; k <= n; k++) seq.push(S.collatzParityAt(k * SEC));
+
+    if (r.traj.steps >= 10) {                       // 太短的局不参与「两种都见过」
+      eligible++;
+      if (seq.includes('odd') && seq.includes('even')) bothSeen++;
+    }
+    let hold = 1, run = 1;
+    for (let k = 1; k < seq.length; k++) {
+      run = seq[k] === seq[k - 1] ? run + 1 : 1;
+      if (run > hold) hold = run;
+    }
+    holds.push(hold);
+    if (hold > worstHold) { worstHold = hold; worstSeed = i; }
+  }
+
+  // 实测 198/198 全部见到两种标签。取 100% 是有依据的:Collatz 序列里
+  // 奇偶必然交替,只要局够长就不可能只出一种。
+  ok('每一局都能同时看到「爆发」和「收敛」(信号不是常量装饰)',
+     eligible > 0 && bothSeen === eligible, `${bothSeen}/${eligible}`);
+
+  // 实测最长连续 10 步(3.3 分钟),p90=6。留到 12 步当红线:
+  // 越过说明收敛段被拉得没有上限,玩家会盯着一个不动的标签。
+  ok('标签连续时长有上界(不会整局不变)', worstHold <= 12,
+     `最长 ${worstHold} 步 @seed ${worstSeed}`);
+
+  holds.sort((a, b) => a - b);
+  ok('多数局在 6 步(2 分钟)内至少翻一次', holds[Math.floor(holds.length * 0.9)] <= 6,
+     `p90=${holds[Math.floor(holds.length * 0.9)]} p50=${holds[Math.floor(holds.length * 0.5)]} max=${holds[holds.length - 1]}`);
+
+  S.setCollatzTrajectory(null);
+}
+
 console.log(`\n通过 ${pass} / 失败 ${fail}`);
 if (failed.length) { console.log('\n失败明细:'); for (const f of failed) console.log('  ✗ ' + f); }
 process.exit(fail ? 1 : 0);
