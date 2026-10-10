@@ -341,6 +341,11 @@ function startRun(charId) {
   cam.snap(p.x, p.y);
   // 灵伴随本局开始:重置局内状态(连死 3 次 → 本局她不出场)
   companion.begin();
+  // 广播条一并清场(XX-AUDIT-031)。它的 root 元素是**整页只建一次**的,
+  // 且从来没有被移除过 —— 所以上一局最后两句会留在 DOM 里。
+  // 中途 HUD 被 .hidden 藏住看不见,玩家一开新局 HUD 恢复,
+  // 旧台词会先于本局任何台词出现,还被当成「刚说完的」那一行。
+  clearBroadcast();
   // 开场台词:满血起手,本局最多 2 句,同一表现必出同一句
   runEventLines('fullHp', { say: t => Bond.bubble(t) });
   inRun = true;
@@ -456,6 +461,7 @@ import { SPIRIT } from './xiuxian/spirit.js';
 import { NAGER, installNagger } from './xiuxian/nag.js';
 import { Ritual } from './xiuxian/ritual.js';
 import { Bond } from './xiuxian/bond.js';
+import { clearBroadcast } from './xiuxian/companion-broadcast.js';
 import { Profile, Seed } from './xiuxian/profile.js';
 import { Titles, Nemesis } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';

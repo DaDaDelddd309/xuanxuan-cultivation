@@ -91,3 +91,12 @@ js/xiuxian/world.js :: buildEdges
 #    → 跟踪:见 XX-AUDIT-030
 js/xiuxian/world.js :: homeNode
 js/xiuxian/world.js :: rollEnemy
+
+# 广播条的手动显隐。**冗余件,已确认**:root 挂在 .hud-top 里、#hud 里,
+# 而 css/style.css:52 是 `.hidden { display:none !important }` ——
+# HUD 一藏,广播条跟着没了,不需要这个函数。它原注释「HUD 隐藏时一并收起」
+# 是不实描述(XX-AUDIT-031 已更正)。
+# 之所以留着而不是删:它配对的 `.cc-bc-hidden` CSS 规则仍在,
+# 删函数要连带动样式,属独立清理工单,不适合夹带在缺陷修复里。
+# ⚠️ 不要为了「让它有意义」而去调用它 —— 那是为函数找场景,不是为场景找函数。
+js/xiuxian/companion-broadcast.js :: setVisible

@@ -4209,3 +4209,70 @@ STAGED 表负责到期，**不在本文件另建机制**。
 顺带查出一个新事实：**`tests/lint-deadexport.mjs` 存在，但 `lint` 链里没有它**
 （`grep lint-deadexport package.json` = 0）。也就是说「全仓库无人 import 的死导出」
 这一类目前**没有任何门禁在管**，本轮记入待办。
+
+---
+
+## XX-AUDIT-031 · 广播条跨局残留：`clearBroadcast()` 从写出来就没人调用 ✅ 已修
+
+**发现途径**：XX-AUDIT-030 里 `lint-deadexport` 跑出一批新候选，其中两个在
+**我自己写的** `companion-broadcast.js`：`clearBroadcast` 与 `setVisible`。
+
+### 现象
+
+`root` 元素由 `ensure()` 建、**整页只建一次**，全仓 `cc-broadcast` 只有一处赋值，
+**从来没有被移除过**。于是 `clearBroadcast()` 零调用 —— 而它自己的注释白纸黑字写着
+「开局/结算清场」。
+
+玩家看到的：
+
+1. 上一局最后两句留在 DOM 里；
+2. 中途 HUD 被 `.hidden` 藏住，看不见；
+3. **一开新局 HUD 恢复，旧台词先于本局任何台词出现**；
+4. 更糟的是 `cur` 还指着旧行，本局第一句一进来，旧行会被顶成
+   `cc-bc-line-prev`（「刚说完的」那一行）—— 顺序也错了。
+
+与 `_sFeedable` / `player.gearBonus` / XX-AUDIT-029 同一族：
+**「定义了 ≠ 用得上」，两边都不报错。**
+
+### 修复
+
+在 `main.js` 开局处、`companion.begin()` 紧旁边调用 `clearBroadcast()` ——
+广播条本来就是灵伴的**局内状态**，和 `companion.begin()`（局内状态重置）同属一处。
+
+### 顺带更正一条不实注释
+
+`setVisible` 原注释写「HUD 隐藏时一并收起，避免残留」。**那句是错的**：
+`root` 在 `.hud-top` 里、`#hud` 里，而 `css/style.css:52` 是
+`.hidden { display: none !important }` —— HUD 一藏广播条跟着没了，**不需要这个函数**。
+真正的残留不是「没藏」，是「跨局留着」。注释已改为如实说明，并写明
+**不要为了让它有意义而去调用它**（为函数找场景，不是为场景找函数）。
+
+### 门禁
+
+`tests/broadcast-residue-regression.mjs`，13 项，接入 `npm test` 首位。
+覆盖：说两句→2 行 / `clearBroadcast()` 真清空 / 清空后新局第一句不再带旧行 /
+新局第一行内容正确 / `setVisible` 只切 class 不删节点 /
+接线契约（import、调用次数、**与 `companion.begin()` 相邻**、不得塞进 `HUD.show(false)` 之后）。
+
+### ⚠️ 门禁自己也踩了一次同一个坑
+
+第一次反向验证**没通过**：把调用行改成 `// clearBroadcast();` 之后，
+裸正则 `/clearBroadcast\(\)/` **照样匹配** —— 被注释掉的代码仍然含这串字符，
+断言变成恒真，摘掉接线测试仍 13/13 全绿。
+
+这与 `lint-precache` / `lint-portraits`「把注释里的内容当条目」是同一族，
+项目里已有单一真源 `tests/lib-swlist.mjs` 的 `stripComments`（2026-10-10 正是为这族 bug 建的）。
+**直接复用，没有再造一份。** 改完后重做反向验证：
+
+| 破坏方式 | 期望 | 实测 |
+|---|---|---|
+| 注释掉 `main.js` 的调用 | 红 | ❌ 2 条红：`剥注释后匹配到 0 次(期望 1 次)` + 相邻性 ✅ |
+| 把 `clearBroadcast()` 改成空操作 | 红 | ❌ 4 条红 ✅ |
+
+还原后 13/13。`check:full=0`。
+
+### 又一次「只查一半就下结论」
+
+中途我断言「`.hud-top` 从来没被创建，广播条挂到了 body」——
+理由是 grep 只覆盖了 `js/` 和 `css/`。**错**：`index.html:29` 就有 `<div class="hud-top">`。
+项目铁律里那条「历史上多次因只查一半就下结论误判」，这次又中了一次。

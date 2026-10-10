@@ -79,14 +79,26 @@ export function say(who, text, opt = {}) {
   }, DWELL_MS);
 }
 
-/** 开局/结算清场 */
+/** 开局清场 —— 跨局残留的修复点(XX-AUDIT-031) */
 export function clearBroadcast() {
   clearTimeout(timer);
   if (root) root.innerHTML = '';
   cur = null; prev = null;
 }
 
-/** HUD 隐藏时一并收起,避免残留 */
+/**
+ * 手动收起/展开。
+ *
+ * ⚠️ 原注释写「HUD 隐藏时一并收起，避免残留」—— **那句是错的**。
+ *    root 挂在 `.hud-top` 里、`.hud-top` 在 `#hud` 里,
+ *    而 `css/style.css:52` 是 `.hidden { display:none !important }` ——
+ *    HUD 一藏,广播条跟着一起没了,**根本不需要这个函数**。
+ *    真正的残留问题不是「没藏」,是「跨局留着」(已由 clearBroadcast 修)。
+ *
+ *    目前产品侧无人调用(只有测试在调)。留着是因为「进结算层时手动收起」
+ *    是个合理需求,但**不要为了让它有意义而去调用它** ——
+ *    那是为函数找场景,不是为场景找函数。
+ */
 export function setVisible(on) {
   if (root) root.classList.toggle('cc-bc-hidden', !on);
 }
