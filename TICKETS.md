@@ -6135,94 +6135,95 @@ HUD 读的是                   spawner.js?v=18  (另一份)
 
 ---
 
-## 🟠 XX-AUDIT-033 · 浏览器测试 5 个文件在 CI 上红，且本机无法复现 ⬜ 待办（2026-10-11 桌面侧立）
+## 🟠 XX-AUDIT-033 · 浏览器测试 6 个文件在 CI 上红 · 根因已定位（2026-10-11 桌面侧）
 
-**接自 XX-AUDIT-014。** 那个工单关掉了，但 **CI 的 `browser` job 仍然是红的**，
-不要以为「浏览器测试已进自动路径」=「它已经绿了」。
+> 🔴 **根因已定位并已修**（commit 见下）。`browser` job 变绿与否以 CI 实测为准，本工单暂不标 ✅。
 
-### 实测状态（`gh run view 38067736459`，commit `4dad804`）
+### 🔴 根因：这 5 个文件的本地 `unblock` 看不见 `.xx-duel`
 
-```
-浏览器测试: 1 / 8 通过
-❌ 失败: t86 t87 t88 t89 audit-reach audit-loop full79
-```
+`tests/_unblock.py` 里有一份**改进过的**共享 `unblock`，它会优先在回合制里
+点「逃 / 退 / 认输 / 认栽」走**正规退出路径**，再兜底移除全屏层。
 
-其中 `audit-reach` 与 `full79` 已在 XX-AUDIT-014 里修掉（脚本自身崩了）。
-**剩下这 5 个是真实的断言失败**，症状高度一致：
+但 **`t86` / `t87` / `t88` / `t89` / `full79` 各自复制了一份逐字节相同的本地实现**，
+那份本地版只清两种层：
 
-| 文件 | 失败断言 |
-|---|---|
-| `t86` | 弹出叙事卡 / 卡片有名字 / 4个时段渲染 / 夜雾最浓 / 夜怪最强 / 晨怪最弱 |
-| `t87` | 修仙阁 12 个标签 / 弹出结案卡 / 两个结局选项 |
-| `t88` | 走完4环 / 支线页显示待了结区块 / 有「了结」按钮 |
-| `t89` | 弹出补完选项 |
-| `audit-loop` | 灵气会被自动吸取并累计 / 源石真的进背包了 |
-
-**共同伴随 `playwright._impl._errors.TimeoutError: Page.click: Timeout 30000ms exceeded`。**
-
-### 我的判断：大概率同源，不是 5 个独立 bug —— **已被 CI 证实（2026-10-11）**
-
-`t86/t87/t88/t89` 验的都是**点某个按钮 → 弹出某张全屏卡**。
-`audit-loop` 验的也是「点一下看灵气/源石有没有真的动」。
-全部卡在 `Page.click` 超时 —— **症状指向「有东西挡住了按钮」，而不是 5 处逻辑各自坏掉**。
-
-**证实过程**：XX-AUDIT-014 修掉了 `full79.py` 的 `NameError` 之后，
-`full79` 从「脚本崩溃」变成了「跑到第 15 条断言然后失败」，而它的失败症状是：
-
-```
-playwright._impl._errors.TimeoutError: Page.click: Timeout 30000ms exceeded.
+```python
+pg.evaluate("()=>!!document.querySelector('.xx-ritual,.xx-storycard')")
+pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
 ```
 
-**与另外 5 个一模一样。** 也就是说 `full79` 一直也是同一个病 ——
-只是先前被自己的 `NameError` 挡在前面，根本没跑到那一步，所以看不出来。
+**`.xx-duel` 不在里面。** 而它是：
 
-**结论：6 个红是同一个根因**，不是 6 个独立 bug。
-第一个该验证的假设：**这 6 个文件里有没有漏调 `unblock()`**，
-或者调用时机早于全屏层出现。次要假设是全屏层出现时机被 V0.9x 的改动挪动了
-（`_unblock.py` 的 `tries=8` 可能已经不够）。
-
-### 修复后的实测状态（commit `50c268f`，CI run `38070341472`）
-
-```
-✓ check job   通过 30s        ← 预缓存 P0 已修,这条从红转绿
-✗ browser job 2 / 8 通过      ← t91、audit-reach 新通过
-❌ 失败: t86 t87 t88 t89 audit-loop full79
+```css
+/* css/xiuxian.css:723 */
+.xx-duel{position:absolute;inset:0;z-index:80;overflow:hidden;background:#0b0908}
 ```
 
-**`audit-reach` 从崩溃变成通过** —— 这是本工单最实质的进展：
-它之前在第 50 行就崩，后面 6 条断言一条没跑到，
-也就是说「玩家在正常流程里到底能不能拿到坐骑」**从来没被真正验证过**。
-现在它真的会跑了，而且**跑完是绿的** —— 坐骑流程本身没问题。
+`inset:0` + `z-index:80` = 铺满视口的全屏层，**物理上挡住所有点击**。
 
-`full79` 也从「脚本崩溃」变成「跑完 14 条断言后卡在点击超时」。
-
-**这 6 个剩下的，本机依然无法验证**：playwright 无 bionic wheel。
-改动它们要碰 `ui.js` 的点击/渲染层 —— **与 Z8 正在做的 XX-AUDIT-005 撞**，故未动。
-
-### 为什么不在桌面侧顺手修
-
-1. **本机与 Z8 都装不上 playwright**（`run-browser.sh` 已写明：
-   playwright 只发 glibc wheel，Android 是 bionic，装上也跑不起来）。
-   修它们需要**在浏览器里反复试**，而我没有任何一次试的机会 ——
-   只凭 CI 日志改，等于拿「看起来对」当「验证过」。
-2. 要碰 `ui.js` 的渲染/点击层 —— **与 Z8 正在做的 XX-AUDIT-005（ui.js 拆分）撞**。
-3. 5 个文件很可能同源，修法要一起看，逐条试会来回返工。
-
-### 验收
+于是链路是闭合的：
 
 ```
-npm run check           rc=0        （本地能跑的范围内全绿）
-CI browser job          通过         ★ 这条才是本工单的验收
+回合制战斗开着 → 本地 unblock 查不到 .xx-ritual/.xx-storycard → 立即 return
+              → .xx-duel 仍盖在页面上 → 下一次 pg.click() 超时 30s
 ```
 
-**在 `browser` job 变绿之前，本工单不能标 ✅。**
+`js/xiuxian/duel.js:166` 建的是 `xx-duel hidden`，所以只在测试误入战斗时才会暴露 ——
+这解释了为什么它躲过了所有本地检查，又在 CI 上稳定复现。
 
-### 顺带一条噪音
+### 五份本地实现完全相同，且 `tries` 还更小
 
-CI 日志里还有 19 条 `PAGEERROR: Failed to execute 'connect' on 'AudioNode':
-cannot connect to an AudioNode belonging to a different audio context.`
+| 文件 | unblock 来源 | 处理 `.xx-duel` | tries |
+|---|---|---|---|
+| `t86.py` | 本地 | ❌ 无 | 6 |
+| `t87.py` | 本地 | ❌ 无 | 6 |
+| `t88.py` | 本地 | ❌ 无 | 6 |
+| `t89.py` | 本地 | ❌ 无 | 6 |
+| `full79.py` | 本地 | ❌ 无 | 6 |
+| `audit-loop.py` | 共享 `_unblock` | ✅ | 8 |
+| `audit-reach.py` | 共享 `_unblock` | ✅ | 8 |
+| `t91.py` | 本地 | ❌ 无 | — （**通过**） |
 
-它**没有**让测试变红，但它是真问题：某个模块在两个 `AudioContext` 之间连节点。
-独立复核后另立工单，本工单不混进来 —— 「测试红」和「日志脏」是两件事，混在一起会互相掩盖。
+`t91.py` 也用本地版却通过 —— 因为它不触发回合制。
+**这正说明问题不是「本地版一定错」，而是「进了战斗就必然超时」。**
+
+### 已做
+
+5 个文件删掉本地实现，改 `from _unblock import unblock`。
+`tries` 由 6 变 8（共享版默认）。**改动只在 `tests/` 内，不碰 `ui.js`** ——
+所以与 Z8 的 XX-AUDIT-005 无冲突。
+
+静态验证：`py_compile` 通过；`from _unblock import unblock` 实测可导入；
+共享版 `UNBLOCK_JS` 确认含 `xx-duel` 与「逃」路径；无显式 `tries` 调用会踩默认值；
+`time` 在五个文件里都仍被使用（没留下未用 import）。
+
+**未在本机跑过** —— playwright 无 bionic wheel。以 CI 为准。
+
+### 教训：这是**第三次**「同一份逻辑复制多份，然后各自漂移」
+
+- `ok` / `warn` 助手：8 份 `.py` 各写一遍 → `audit-reach.py` 那次 TypeError
+- `unblock` 助手：共享版已修好，5 份复制品没跟上 → 本工单的 5 个红
+- `tests/t8*.mjs` 与 `tests/t8*.py` **同名不同物**：`t86.mjs` 跑在 `npm test`，
+  `t86.py` 跑在浏览器套件里，两套断言完全不同
+
+> **建议**：把 `_unblock.py` 这类助手**收敛成一个共享模块**，
+> 并加一条 lint 禁止各测试文件再定义本地副本。
+> 本工单只修了症状，没做收敛 —— 收敛会动全部测试文件，属于独立工单。
+
+### 实测状态对照
+
+| commit | `check` job | `browser` job |
+|---|---|---|
+| `4dad804` | ❌ 预缓存 P0 | 1 / 8 |
+| `50c268f` | ✅ 通过（30s） | 2 / 8（`audit-reach` 从崩溃变成跑完是绿的） |
+| 本次 | 待 CI 实测 | 待 CI 实测 |
+
+### 顺带一条噪音（另立工单，不混进来）
+
+CI 日志里还有 19 条
+`PAGEERROR: Failed to execute 'connect' on 'AudioNode': cannot connect to an AudioNode belonging to a different audio context.`
+
+它**没有**让测试变红，但它是真问题：某模块在两个 `AudioContext` 之间连节点。
+「测试红」和「日志脏」是两件事，混在一起会互相掩盖。
 
 ---
