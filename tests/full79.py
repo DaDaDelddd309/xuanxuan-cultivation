@@ -1,21 +1,25 @@
 from playwright.sync_api import sync_playwright
+# 2026-10-11(XX-AUDIT-014):补 os。
+#   下面 CHROME=os.environ.get('XX_CHROME') 用了 os,却只有 `import time, json`。
+#   同一文件里 goto 那行用的是 `__import__('os')` 内联写法 ——
+#   当初作者显然知道 os 没 import,只在**一处**打了补丁,漏了 CHROME 这处。
+#   浏览器测试只能在 CI 上跑(playwright 无 bionic wheel),本地永远看不到,
+#   于是这个 NameError 一路红到 main 上。
+#
+# ⚠️ import 必须排在下面 sys.path.insert **之前** ——
+#   那个 insert 自己也用了 os.path,顺序反了就是同一个 NameError。
+#   (我第一版把两处修复合并时踩过这个坑:两段注释里各有一句"补 os",
+#    结果后加的那段排在了 import 前面,把刚修好的 bug 又带了回来。)
+import os, time, json
+import sys as _sys; _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # 2026-10-11(XX-AUDIT-033):本地 unblock 已删除,改用 tests/_unblock.py 的共享版。
 #   原因:本地版只清 .xx-ritual / .xx-storycard,**完全看不见 .xx-duel**。
 #   而 .xx-duel 是 `position:absolute;inset:0;z-index:80` 的全屏层(css/xiuxian.css:723),
-#   一旦回合制战斗开着,它物理上挡住**所有**点击 → Page.click 30s 超时。
+#   它铺满视口时会挡住**所有**点击 → Page.click 30s 超时。
 #   共享版会先点「逃/退/认输」走正规退出路径,再兜底移除。
-#   这 5 个文件(t86/t87/t88/t89/full79)在 CI 上全部因 Page.click 超时红,
-#   症状完全一致 —— 同一个根因,不是 5 个独立 bug。
-import sys as _sys; _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _unblock import unblock
 
-# 2026-10-11(XX-AUDIT-014):补 os。
-#   下面第 4 行 CHROME=os.environ.get('XX_CHROME') 用了 os,却只有 `import time, json`。
-#   同一行往下第 11 行的 goto 用的是 `__import__('os')` 内联写法 ——
-#   当初作者显然知道 os 没 import,只在**一处**打了补丁,漏了上面这处。
-#   浏览器测试只能在 CI 上跑(playwright 无 bionic wheel),本地永远看不到,
-#   于是这个 NameError 一路红到 main 上。
-import os, time, json
 HIDE_HALL = "()=>{document.querySelector('.xx-screen')?.remove();" + "document.getElementById('screens').style.display='none';}"
 CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[]; fails=[]

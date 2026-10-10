@@ -6588,7 +6588,7 @@ enemies 的 90px/×8%+30 等。**漂移集中在「注释在给活代码写具�
 
 ---
 
-## XX-AUDIT-026 · 三路并行审计：断链 / 重复定义与存档键 ⛔ 2 条产品级待修
+## XX-AUDIT-034 · 三路并行审计：断链 / 重复定义与存档键 ⛔ 1 条 P0 + 2 条 P1 待修（5 条里已撤回 2 条误报）
 
 **发现时间**：2026-10-11（owner 要求「把以前的坑找出来严谨仔细排查」，分三路并行）
 **方法**：三路 explore 只读排查，全程禁用 `npm test`/`npm run lint`/重模拟（本机 CPU 吃紧）。
@@ -6607,13 +6607,16 @@ enemies 的 90px/×8%+30 等。**漂移集中在「注释在给活代码写具�
 然后威力/射程/次数**一个数都不变**。
 > 形状与 `tests/lint-deadwire.mjs:15-18` 记录的 `player.gearBonus` 事故**完全一致**。
 
-### A2 ★★ 跨区域链路断在装配层 —— 区域已画出来，相邻关系永远建不起来
-`network.js:469` 的 `bindRegions()` **零调用点**（grep 全仓只有定义和两行注释）
-→ `NODE_REGION_REF` 永远 null → `regionAdjacency()` 恒返回空 Map，
-而 `regionAdjacency()` **自己也零调用**。
-但 `regions.js:198` 的 `NODE_REGION` 早就导出好了，**数据在、注入函数在、唯独没人调**。
-且 `FEATURE_FLAGS.regions=true`、`ui/map.js:100-104` 正在真渲染区域色块，
-`ROADS` 里有 14 处 `crossesRegion:true` 的**活跃数据**（非 PENDING）却无人校验。
+### A2 ❌ **误报，已撤回** —— 是分阶段脚手架，不是断链
+> **2026-10-11 复核撤回。** 审计只 grep 了调用点，**没读 `tests/deadexport-baseline.txt`**。
+> `bindRegions` 在该基线 `:120`，理由写明「**阶段 3 封锁依赖跨区路网**」；
+> 基线说明头还有一条硬警告：「⚠️ 判『真死』之前先读 `FEATURE_FLAGS`。大世界整套系统是分 5 阶段
+> 逐个开阀的，后续阶段的出口天然零引用 —— **那不是死代码，是还没轮到它们上场**」。
+> `FEATURE_FLAGS` 印证：只有 `regions:true`（阶段 1 已落地），而 `blockades:false`（阶段 3）——
+> **跨区路网本来就没上线，相邻表自然用不上。** 数据在、函数在、按阶段等着上线，这是设计，不是断链。
+
+（原始发现保留在下，仅作「审计漏读基线」的案例：`bindRegions()` 零调用点、
+`regionAdjacency()` 恒返回空 Map 且自身零调用、`regions.js:198` 的 `NODE_REGION` 已备好。）
 
 ### A3 ★ 建筑落位被丢弃 —— 建筑总往左堆，且灵田自动下种静默失效
 `build.js:156` 把 `slot` 存成 `inst.slot`（**该字段全仓从未被读取**），
@@ -6623,10 +6626,10 @@ enemies 的 90px/×8%+30 等。**漂移集中在「注释在给活代码写具�
 `BUILD.harvest(+v)` 灵田自动下种**静默不执行**。只有恰好点「下一个顺序空格」才对上。
 （建材**种类**选择是通的，坏的只是**落位**。）
 
-### A4 ○ 节点 facet 身份层整层不可见
-`nodes.js:97` 的 `NODE_FACETS`（7 个面向）零消费，`.facets` **零运行时读取**。
-但 7 个节点已打了标签，其中 4 个是玩家看得见的 legacy 节点。
-`nodes.js:12` 声明「身份用 facet 表达」、`types.js:208` 有契约，**地图上一个都不显示**。
+### A4 ❌ **误报，已撤回** —— 同 A2，是登记在册的分阶段脚手架
+> **2026-10-11 复核撤回。** `NODE_FACETS` 同样在 `deadexport-baseline.txt:122`，
+> 理由写明「阶段 1 已落地，但出口在 UI 侧：目前地图渲染走 regionView/regionRects，
+> 节点级面染色**属 XX-WORLD-005 动 ui.js 时接线**」。同 A2 的误读：审计没读基线。
 
 ### A5 ○ `adjacentRegions()` 是直接 throw 的地雷
 `regions.js:213-215` 函数体只有 `throw`，注释却宣称「由 network.js 的 regionAdjacency() 实现并覆盖」
@@ -6676,87 +6679,98 @@ Profile 统一档的 `EMPTY` 与 `collect()` 写入字段精确对应。
 |---|---|---|
 | **P0** | A1 升星零影响 | 玩家花钱且 UI 全程显示，唯独收益为零 —— 同 `gearBonus` 事故 |
 | **P0** | `player.js:114` 假上限 | 数值安全，30 级就破，一局典型就能到 |
-| **P1** | A2 跨区装配层 | 数据与函数都在，只差一行调用 |
+| **P1** | ~~A2 跨区装配层~~ | ❌ **已撤回**：分阶段脚手架，基线有登记且带阶段号 |
 | **P1** | A3 建筑落位 | 玩家「点哪建哪」实际不成立，且连带灵田失效 |
 | **P1** | C1 Titles 裸 parse | 唯一还能静默毁数据的点 |
-| **P2** | A4 / A5 / loot 死 cap / weapons 死数组 / companion JSDoc 打架 | 清理类 |
+| **P2** | A5 / loot 死 cap / weapons 死数组 / companion JSDoc 打架 | 清理类 |
 
 > P0/P1 都需要 owner 拍板或授权才能改 `js/`（`AGENTS.md` 第六节第 3 条），本轮**一条都没擅自动**。
+
+## ④ 复核：5 条里撤回了 2 条（这一节本身是教训）
+
+**四条全部逐条复核过**（不接受转述），结论：
+
+| 条目 | 复核方法 | 结论 |
+|---|---|---|
+| **A1** 升星零影响 | grep 全仓 `.effect(` → 只命中 `tests/test-artstar.mjs`；生产只用 `up/stars/cost` | ✅ **成立**。且 `artstar.js` **不在死导出基线、也无任何阶段化注释** —— 没有「还没轮到」的借口 |
+| **A2** 跨区装配层 | 查 `deadexport-baseline.txt:120` + `FEATURE_FLAGS` | ❌ **撤回**，见上 |
+| **A3** 建筑落位 | 读 `build.js:150-162` 源码 + grep `.slot` 零命中 | ✅ **成立**，且 `build.js` 无阶段化说明 |
+| **A4** facet 不可见 | 查 `deadexport-baseline.txt:122` | ❌ **撤回**，见上 |
+| **C1** Titles 裸 parse | 读 `relations.js:96-100` 源码 | ✅ **成立** |
+
+### 为什么会误报
+
+审计员**只 grep 了调用点，没读 `tests/deadexport-baseline.txt`**。
+而那份基线的说明头恰恰写着：
+
+> ⚠️ 判「真死」之前先读 `FEATURE_FLAGS`。大世界整套系统是分 5 阶段逐个开阀的，
+> 后续阶段的出口天然零引用 —— **那不是死代码，是还没轮到它们上场。**
+
+**「零调用点」≠「死代码」。** 一个基线文件就在仓库里，专门记录「已确认的零引用」及其理由，
+审计本该先查它再下结论。20 条里有 2 条栽在这，说明**剩下的 3 条也必须复核后才能动手**。
+
+> 这已经是本项目第 6 次「度量工具自己出错比没有度量工具更危险」——
+> 前 5 次是我自己和审计员交的，这次是**工单发出去之后**才发现，必须回头改，
+> 否则对面会照着误报去改正确的代码。
 ## 🟠 XX-AUDIT-033 · 浏览器测试 5 个文件在 CI 上红，且本机无法复现 ⬜ 待办（2026-10-11 桌面侧立）
 ## 🟠 XX-AUDIT-033 · 浏览器测试 6 个文件在 CI 上红 · 根因已定位（2026-10-11 桌面侧）
 
 > 🔴 **根因已定位并已修**（commit 见下）。`browser` job 变绿与否以 CI 实测为准，本工单暂不标 ✅。
 
-### 🔴 根因：这 5 个文件的本地 `unblock` 看不见 `.xx-duel`
+### 🔴 根因假设**被 CI 实测推翻**（2026-10-11，记录下来别重走）
 
-`tests/_unblock.py` 里有一份**改进过的**共享 `unblock`，它会优先在回合制里
-点「逃 / 退 / 认输 / 认栽」走**正规退出路径**，再兜底移除全屏层。
+我一度认定：这 5 个文件的本地 `unblock` 只清 `.xx-ritual/.xx-storycard`、
+**看不见 `.xx-duel`**（`inset:0; z-index:80` 的全屏层），所以一旦回合制开着，
+后续点击必然 30s 超时。
 
-但 **`t86` / `t87` / `t88` / `t89` / `full79` 各自复制了一份逐字节相同的本地实现**，
-那份本地版只清两种层：
-
-```python
-pg.evaluate("()=>!!document.querySelector('.xx-ritual,.xx-storycard')")
-pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
-```
-
-**`.xx-duel` 不在里面。** 而它是：
-
-```css
-/* css/xiuxian.css:723 */
-.xx-duel{position:absolute;inset:0;z-index:80;overflow:hidden;background:#0b0908}
-```
-
-`inset:0` + `z-index:80` = 铺满视口的全屏层，**物理上挡住所有点击**。
-
-于是链路是闭合的：
+**改完推上去实测（run `38072663714`）：`browser` job 仍然 2 / 8，一个都没好。**
 
 ```
-回合制战斗开着 → 本地 unblock 查不到 .xx-ritual/.xx-storycard → 立即 return
-              → .xx-duel 仍盖在页面上 → 下一次 pg.click() 超时 30s
+✓ check job   通过
+✗ browser job 2 / 8 通过 —— ❌ 失败: t86 t87 t88 t89 audit-loop full79
 ```
 
-`js/xiuxian/duel.js:166` 建的是 `xx-duel hidden`，所以只在测试误入战斗时才会暴露 ——
-这解释了为什么它躲过了所有本地检查，又在 CI 上稳定复现。
+**所以「本地版看不见 `.xx-duel`」不是这些红的根因。** 它是一个**真实存在的缺陷**
+（共享版确实多做了 `.xx-duel` 的处理，改成共享版是正确的收敛），
+但它**不是**这 6 个红的原因。
 
-### 五份本地实现完全相同，且 `tries` 还更小
+> 教训：证据链我自认为闭合了 —— 选择器漏了 `.xx-duel` 是事实、
+> `.xx-duel` 挡住点击是事实、「一旦开着就超时」也是机械必然。
+> **唯独缺的一环是「这些测试里它开着吗」，而那一环我没能证。**
+> 我当时说了「大概率同源」，那就是概率，不是证据。
+> 把它当结论写进提交信息，是过度断言。
 
-| 文件 | unblock 来源 | 处理 `.xx-duel` | tries |
-|---|---|---|---|
-| `t86.py` | 本地 | ❌ 无 | 6 |
-| `t87.py` | 本地 | ❌ 无 | 6 |
-| `t88.py` | 本地 | ❌ 无 | 6 |
-| `t89.py` | 本地 | ❌ 无 | 6 |
-| `full79.py` | 本地 | ❌ 无 | 6 |
-| `audit-loop.py` | 共享 `_unblock` | ✅ | 8 |
-| `audit-reach.py` | 共享 `_unblock` | ✅ | 8 |
-| `t91.py` | 本地 | ❌ 无 | — （**通过**） |
+### ✅ 真正修掉的一条：`full79.py` 的 import 顺序（我自己引入又自己抓出来的）
 
-`t91.py` 也用本地版却通过 —— 因为它不触发回合制。
-**这正说明问题不是「本地版一定错」，而是「进了战斗就必然超时」。**
+`f743d33` 那次把两处修复合并时，我把 `sys.path.insert(0, os.path.dirname(...))`
+排在了 `import os` **之前** —— 而那一行自己就用 `os.path`。
+等于**把刚在 XX-AUDIT-014 修好的 `NameError` 又带了回来**，
+CI 上 `full79` 从「跑完 14 条断言」退化成「0.15 秒就崩」。
 
-### 已做
+更该记的是我当时的验证方式：我写的是「静态验证：`py_compile` 通过」。
 
-5 个文件删掉本地实现，改 `from _unblock import unblock`。
-`tries` 由 6 变 8（共享版默认）。**改动只在 `tests/` 内，不碰 `ui.js`** ——
-所以与 Z8 的 XX-AUDIT-005 无冲突。
+> **`py_compile` 只查语法，查不出运行期的名字解析。**
+> 它对 `NameError: name 'os' is not defined` 完全无感 ——
+> 而这恰恰就是浏览器测试在本地唯一可能暴露的那类错。
 
-静态验证：`py_compile` 通过；`from _unblock import unblock` 实测可导入；
-共享版 `UNBLOCK_JS` 确认含 `xx-duel` 与「逃」路径；无显式 `tries` 调用会踩默认值；
-`time` 在五个文件里都仍被使用（没留下未用 import）。
+### ✅ 补上那条缺失的验证手段：`tests/lint-py-boot.py`
 
-**未在本机跑过** —— playwright 无 bionic wheel。以 CI 为准。
+既然浏览器跑不了，那就**让脚本自己跑起来**：用一个假 `playwright` 模块把
+`sync_playwright()` 桩掉，把 `time.sleep` 打掉，再把每个 `.py` **从头执行一遍**。
 
-### 教训：这是**第三次**「同一份逻辑复制多份，然后各自漂移」
+它只回答一个问题：**这个文件在真机上「还没开始点按钮」之前，会不会就已经崩？**
 
-- `ok` / `warn` 助手：8 份 `.py` 各写一遍 → `audit-reach.py` 那次 TypeError
-- `unblock` 助手：共享版已修好，5 份复制品没跟上 → 本工单的 5 个红
-- `tests/t8*.mjs` 与 `tests/t8*.py` **同名不同物**：`t86.mjs` 跑在 `npm test`，
-  `t86.py` 跑在浏览器套件里，两套断言完全不同
+只把 `NameError` / `ImportError` / `AttributeError` / `SyntaxError` 当失败
+（`TimeoutError`、`AssertionError` 那些是桩造成的，不算）。
 
-> **建议**：把 `_unblock.py` 这类助手**收敛成一个共享模块**，
-> 并加一条 lint 禁止各测试文件再定义本地副本。
-> 本工单只修了症状，没做收敛 —— 收敛会动全部测试文件，属于独立工单。
+**反向验证过**：把 `import os` 挪回使用之后 → 报红并指出确切行号，exit 1；
+还原 → 全绿。
+
+**它不能证明断言对。** 桩出来的 `pg.evaluate()` 返回假对象，所有断言都会判真。
+所以这条 lint 全绿**不代表浏览器测试会过** —— 那仍然是 CI 的事。
+它的价值是把「脚本自己崩了」这一类从「只能在 CI 上发现」拉回本地。
+
+已接进 `npm run lint`（带 `command -v python3` 守卫）。
 
 ### 实测状态对照
 
@@ -6764,7 +6778,13 @@ pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e
 |---|---|---|
 | `4dad804` | ❌ 预缓存 P0 | 1 / 8 |
 | `50c268f` | ✅ 通过（30s） | 2 / 8（`audit-reach` 从崩溃变成跑完是绿的） |
-| 本次 | 待 CI 实测 | 待 CI 实测 |
+| `f743d33` | ✅ 通过 | 2 / 8（**假设被推翻**;`full79` 因我的 import 顺序退化成秒崩） |
+| 本次 | 待 CI 实测 | 待 CI 实测 —— `full79.py` 顺序已修，其余 5 个仍未处理 |
+
+**剩余 5 个（t86/t87/t88/t89/audit-loop）的真因仍然未知。**
+现在至少有一条本地能跑的线索了：它们不是「脚本崩了」，是真的断言不过，
+而且 `t86` 的失败里有一条 `4个时段渲染 ['night']` —— 只渲染出 1/4，
+那更像数据/逻辑问题，不只是遮挡。
 
 ### 顺带一条噪音（另立工单，不混进来）
 
