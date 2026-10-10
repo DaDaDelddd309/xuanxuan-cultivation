@@ -36,6 +36,30 @@
 # 本脚本第 3 步就是补这个洞。
 #
 # ─────────────────────────────────────────────────────────────────
+# ⚠️ 第二个坑:openssh 自带的 run 脚本用相对路径,runit 下起不来
+#
+# `dpkg -S` 可确认 var/service/sshd/run 由 openssh 包自带,内容是:
+#     exec sshd -D -e 2>&1
+# 这里的 `sshd` 是**相对名**。runit 拉起服务时的环境里 PATH 不含
+# $PREFIX/bin,于是 sshd 起来后自我 re-exec 失败,结果:
+#
+#     · `pgrep -a sshd` 看得到进程在
+#     · `sv status sshd` 也报 run
+#     · **但端口从不绑定**,连上去是 "Connection timed out during
+#       banner exchange" 或 "Connection refused"
+#
+# 症状极具迷惑性:进程在、服务显示 run、就是没有服务。
+# 手工把同样内容 `sh -c 'exec sshd -D -e 2>&1'` 跑一遍却正常 ——
+# 因为交互 shell 的 PATH 含 $PREFIX/bin。正因如此很容易误判成
+# 「rinit 坏了」而反复重启服务,永远找不到原因。
+#
+# 修法:把 run 脚本里的 `sshd` 换成绝对路径,本脚本第 3b 步自动做:
+#     exec $PREFIX/bin/sshd -D -e
+# 2026-10-10 在 mini 上实测:改前不绑定(Connection refused),
+# 改后正常收发 banner,且 runit 拉起后 kill 掉会自动重启
+# (PID 10195 → 10228),Z8 侧密钥登录照常。
+#
+# ─────────────────────────────────────────────────────────────────
 # 本脚本刻意不碰的东西
 #   ~/.ssh/authorized_keys、known_hosts、sshd_config —— 只读不改。
 #   密钥与端口是各机事实,脚本无权替你决定。只 mkdir/chmod ~/.ssh 目录本身。
@@ -114,6 +138,22 @@ if [ -f "$SVDIR/$SVC/down" ]; then
   fi
 else
   say "服务已启用(无 down 文件)"
+fi
+
+# ── 3b) ★ 修正 run 脚本的相对路径(见文件头「第二个坑」)────────────
+# openssh 自带 `exec sshd -D -e 2>&1`,runit 下 sshd 自我 re-exec 失败,
+# 症状是「进程在、服务 run、但端口从不绑定」。这里改成绝对路径。
+RUNFILE="$SVDIR/$SVC/run"
+if [ -f "$RUNFILE" ] && grep -q '^exec sshd' "$RUNFILE" 2>/dev/null; then
+  cp "$RUNFILE" "$RUNFILE.bak" 2>/dev/null
+  {
+    printf '#!/data/data/com.termux/files/usr/bin/sh\n'
+    printf 'exec %s/bin/sshd -D -e\n' "$PREFIX"
+  } > "$RUNFILE"
+  chmod 700 "$RUNFILE" 2>/dev/null
+  say "✅ 已把 run 脚本的相对 sshd 改成绝对路径（原文件备份为 run.bak）"
+else
+  say "run 脚本无需修正（已是绝对路径或不存在）"
 fi
 
 # 只 chmod 目录本身,不动里面任何密钥文件。
