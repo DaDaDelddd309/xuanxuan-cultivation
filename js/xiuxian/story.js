@@ -232,14 +232,28 @@ export const STORY = {
       // ① beat 写死了 node,且该节点类型与语义相符(或读不到类型)→ 直接认。
       //    读不到类型时也认,理由见 _nodeTypeOk 的注释:信息缺失 ≠ 证据。
       //
-      // ⚠️ 这里**不能**因为「类型不符」就改走类型分支 —— tomb 线的三环都写
-      //    node:'n8' nodeType:'boss'。若测试/存档环境里 n8 恰好不是 boss
-      //    (默认种子下实测就是 field),改走类型分支会把这三环**分散到不同节点**,
-      //    于是 tomb.js 的 atGuard() 判不到 'sj',finish 返回
-      //    「你还没走到石将跟前」—— t89 从 89/0 掉到 85/4。
-      //    同一节点连推多环是 tomb 的**设计**(墓道→石壁→石将本就是一处),
-      //    不是错配。
+      // 【XX-PLAY-006】这里原来只比 id 字符串,**类型声明形同虚设**:
+      //   注释① 早就写明「类型与语义相符才算」,可代码没有那句校验。
+      //   于是只要 id 相等就推进 —— 而 n4/n5/n7/n8/n9 这些 id 是
+      //   worldgen.decorate() 按 (y,x) 排序**逐种子重新发**出来的
+      //   (js/xiuxian/worldgen.js:237),同一个 id 在不同种子里是不同类型。
+      //   实测 200 个种子:除 n0(家,恒为 village)外,n1~n16 **每个都漂**;
+      //   tomb/jiangu 写死的 n8 只有 3.5% 的种子真的是 boss。
+      //   玩家在野地走进 n8 → 「古战场遗迹最深处,有一座没在图上的墓」当场触发,
+      //   文本与实景直接矛盾。这就是 owner 报的「地标随种子漂」。
+      //
+      //   现在 id 分支**也要过类型关**。读不到类型时仍然放行(见 _nodeTypeOk)。
+      //
+      // ⚠️ 旧注释担心「类型不符就改走类型分支」会让 tomb 三环分散、t89 掉到 85/4。
+      //   实测 200 个种子后这个担心不成立:**boss 每张图恒为 1 个**
+      //   (field 4~9 / secret 2~4 / elite 1~3 / village 2~3,只有 boss 唯一)。
+      //   唯一化之后 tomb 三环 + jiangu 四环都落在**同一个** boss 节点上,
+      //   「墓道→石壁→石将本就是一处」的设计反而被保住了。
       let matched = b[key2] !== undefined && b[key2] === nodeId;
+      // id 相等**不等于**语义相符:beat 声明了 nodeType 就必须过这一关
+      if (matched && key2 === 'node' && b.nodeType) {
+        matched = this._nodeTypeOk(nodeId, b.nodeType);
+      }
       // ② 没写死 node,或类型分支没命中 → 按类型找
       if (!matched && key2 === 'node' && b.nodeType && this._typeMatches(nodeId, b.nodeType, key)) {
         matched = true;
