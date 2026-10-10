@@ -135,6 +135,27 @@ export function setSpawnMode(m) {
   spawnMode = m;
   return true;
 }
+
+// —— 局外倾向注入(XX-LINK-001)————————————————
+// runcfg.js(V0.98 建)是「修仙阁 ↔ 砍杀」之间唯一的接口,2026-10-10 已由
+// ui.js arrive() 写入 setActive(),但**局内从来没人读它** —— 于是「从哪个
+// 节点出发」依然不决定「这一局会遇到什么」。
+//
+// 这里用和 spawnMode 完全相同的模式接收它:模块级变量 + 显式 setter,
+// **不 import 局外模块**,保持 game/ 不反向依赖 xiuxian/(runcfg 也不 import
+// game/*,单向由 tests/test-runcfg.mjs [7] 钉住)。
+//
+// 数值语义:「相对倍率」,和局内原有曲线**相乘**,不做替换 —— 所以未设
+// 节点时全为 1,局内表现与接线前逐位相同。
+const TUNE_DEFAULT = { hpMult: 1, dmgMult: 1, speedMult: 1, eliteRate: 1, hordeRate: 1 };
+let runTune = { ...TUNE_DEFAULT };
+
+/** 局外(修仙阁)注入本局倾向。startRun 调一次;传 null/省略即回到默认 */
+export function setRunTune(t) {
+  runTune = { ...TUNE_DEFAULT, ...(t || {}) };
+  return runTune;
+}
+export function getRunTune() { return runTune; }
 // 复用的刷怪坐标(热路径零分配)
 const SP = { x: 0, y: 0 };
 
@@ -150,7 +171,10 @@ function ringSpot(g, p) {
 /** 统一的强度曲线出口。导演的「宝石兑现」也走这里,避免两份血量公式各走各的 */
 export function spawnOptsFor(type, t, o = {}) {
   const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
-  return { hpMult: spawnHpMultAt(type, t, o), dmgMult: dmgM, speedMult: spdM };
+  // × runTune:节点越险,怪越硬越痛(妖巢 hp×1.4 dmg×1.3),村庄全 1
+  return { hpMult: spawnHpMultAt(type, t, o) * runTune.hpMult,
+           dmgMult: dmgM * runTune.dmgMult,
+           speedMult: spdM * runTune.speedMult };
 }
 
 export function initSpawner(g) {
@@ -161,6 +185,7 @@ export function initSpawner(g) {
   g.addReset(() => {
     acc = 0; hordeT = 42; eliteCd = 15; endless = false;
     spawnMode = 'budget';
+    runTune = { ...TUNE_DEFAULT };   // 每局必须归位,否则上一局节点会漏进下一局
     g._finalBoss = false; g._endless = false;
     combatState.runActive = false;
   });
@@ -183,7 +208,8 @@ export function initSpawner(g) {
     if (spawnMode === 'timed' || s_read.rate >= 0.6) {
       hordeT -= dt;
       if (hordeT <= 0) {
-        hordeT = (endless ? 38 : 46) + Math.random() * 14;
+        // ÷hordeRate:怪潮更密(秘境 hordeRate=1.5)。下限 0.35 防止倍率极端时退化成每帧刷潮
+        hordeT = ((endless ? 38 : 46) + Math.random() * 14) / Math.max(0.35, runTune.hordeRate);
         doHorde(g, p, t, early);
       }
     } else {
@@ -212,7 +238,8 @@ export function initSpawner(g) {
       if (g.enemies.length >= cap) break;
       ringSpot(g, p);
       // 精英:冷却好了有小概率出现(最小间隔 ~16-24s);360s 后可能出黑无常
-      if (eliteCd <= 0 && Math.random() < 0.09) {
+      // ×eliteRate:精英密度(村庄 0=不刷精英,险地 3.2 → 9%→28.8%)
+      if (eliteCd <= 0 && Math.random() < 0.09 * runTune.eliteRate) {
         const et = (t >= 360 && Math.random() < 0.4) ? 'reaper' : pickWeighted(pool);
         spawnEnemy(g, et, SP.x, SP.y, spawnOptsFor(et, t, { elite: true }));
         eliteCd = 16 + Math.random() * 8;
@@ -235,13 +262,14 @@ function doHorde(g, p, t, early) {
   if (n > 30) n = 30;
   if (early) n = (n * 0.85) | 0;
   const off = Math.random() * TAU;
-  const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
   for (let i = 0; i < n; i++) {
     if (g.enemies.length >= MAX_E) break;
     const a = off + (i / n) * TAU + (Math.random() - 0.5) * 0.15;
-    spawnEnemy(g, type, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, {
-      hpMult: spawnHpMultAt(type, t, { horde: true }), dmgMult: dmgM, speedMult: spdM,
-    });
+    // 走统一出口(XX-LINK-001)。原先这里手搓 opts,怪潮就成了唯一一条**不吃节点
+    // 倾向**的刷怪路径 —— 而 hordeRate 恰恰只放大怪潮,于是「加难度」实际在稀释
+    // 难度:秘境 hordeRate=1.5 怪更密,可这批怪仍是基准血量,场上其余全是 x1.15/x1.1。
+    spawnEnemy(g, type, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R,
+               spawnOptsFor(type, t, { horde: true }));
   }
   g.spawnText(p.x, p.y - 70, '怪潮来袭!', { color: PAL.cinnabar, size: 20, life: 1.6 });
 }
