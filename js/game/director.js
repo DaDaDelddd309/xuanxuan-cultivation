@@ -244,10 +244,27 @@ export const Director = {
 //   篝火 5 级 + 白天 + 大拾取(800)→ 保护 > 800 ⇒ 能挂机
 //   篝火 1 级 + 白天 + 大拾取(800)→ 保护 < 800 ⇒ 追不上,外沿有代价
 //   篝火 1 级 + 小拾取(120)      → 保底也够盖住 ⇒ 新手不会被自动拾取坑到
+//
+// ⚠️ 这里**没有上限**(XX-PLAY-001)。原来有个 WARD_PICKUP_CEIL=2.60 配一句
+//    「也不能超过拾取的 2.6 倍」,但它写在 computeWard() 里却**从未生效**:
+//      const clamped = max(pickup*FLOOR, min(pickup*CEIL, w));
+//      w = max(w, clamped);        ← min(…,w) 恒 ≤ w,外层 max 直接绕过上限
+//    实测 LV5 / 拾取 120 → 830 = 6.92×。
+//
+//    有人(我)照着注释把它"修好",`test-director.mjs` 当场红两条:
+//      · 同等级夜里护栏更大        → 被上限压平,白天夜里一样大
+//      · 护栏随篝火等级单调递增    → LV3/4/5 全被压成同一个数
+//    这两条 owner 测试说明:**护栏本来就该随投入一直变大** —— 那正是
+//    「砸进去源石升级篝火,护栏范围大了,技能的拾取范围比护栏小,
+//    就可以安逸挂机了」这条成长线的全部收益。
+//    所以 2.6× 是一个**从未存在过的设计**,不是"忘了实现"。
+//    死代码连同错误注释一起删掉:留着它,下一个读到的人会再去"修好"它。
+//
+// ⚠️ owner 另报「护栏范围太大」(XX-PLAY-001 待办)。那是**数值**问题,
+//    不是缺上限:该降到多少由 owner 定,不在这里猜。
 const WARD_BASE = 130;           // 篝火 1 级的护栏基准
 const WARD_PER_LV = 175;         // 每升一级 +175:5 级累计 830,配白天倍率能追过 800 的大拾取
-const WARD_PICKUP_FLOOR = 0.55;  // 护栏至少是拾取的 55%
-const WARD_PICKUP_CEIL  = 2.60;  // 也不能超过拾取的 2.6 倍
+const WARD_PICKUP_FLOOR = 0.55;  // 护栏至少是拾取的 55%(新手保底,这条是**有效**的)
 
 /**
  * 护栏半径 —— 唯一入口。UI / 局内推怪 / HUD 全部走它,避免三处各算一套。
@@ -263,8 +280,10 @@ export function computeWard({ campLv = 1, phase = 'day', mount = false, pickup =
   const mountMul = mount ? 1.28 : 1;
   let w = base * phaseMul * mountMul + (mate || 0);   // 同伴撑大护栏
   if (pickup > 0) {
-    const clamped = Math.max(pickup * WARD_PICKUP_FLOOR, Math.min(pickup * WARD_PICKUP_CEIL, w));
-    w = Math.max(w, clamped);
+    // 只抬下限,不设上限 —— 理由见上面 XX-PLAY-001 的注释。
+    // 「新手不会被自动拾取坑到」这条保底是真的有效的:
+    // 大拾取(800)时 LV1 护栏被从 130 抬到 440(0.55×),外沿才有取舍。
+    w = Math.max(w, pickup * WARD_PICKUP_FLOOR);
   }
   return Math.round(Math.max(48, w));
 }

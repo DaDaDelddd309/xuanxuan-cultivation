@@ -96,6 +96,16 @@ function weightedPick(pool) {
   return pool.splice(0, 1)[0];
 }
 
+/** weightedPick 的只算下标版本 —— 给「先按种类筛子集、再在子集里加权」用。
+ *  注意它**不从 pool 里移除**,移除由调用方做。XX-PLAY-002。 */
+function weightedIdx(pool) {
+  let tot = 0;
+  for (let i = 0; i < pool.length; i++) tot += pool[i].w;
+  let r = Math.random() * tot;
+  for (let i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) return i; }
+  return 0;
+}
+
 // 被动等级记录在 g.passiveLv(main 开局创建;crit 等新键由 applyChoice 动态补)
 // ══════ 神通(XX-ARCH-006 / owner 选 A:接上局内)══════════════
 //
@@ -219,7 +229,31 @@ export function rollChoices(g) {
     return [goldChoice(25), healChoice(p), goldChoice(60, true)];
   }
   const pool = cands.slice();
-  while (out.length < 3 && pool.length) out.push(weightedPick(pool));
+  // XX-PLAY-002:同类不连出。
+  //
+  // 原来的 `while (out.length < 3 && pool.length) out.push(weightedPick(pool))`
+  // 是纯加权抽取、不看已选种类,于是后期候选池里只剩神通时,
+  // **三张卡 100% 是「带回的技能」**(实测 20000 次:被动满 + 4 武器满级进化
+  // 状态下 100% 全神通)。owner 原话:「玩屁」——三选一没有选择就没有决策。
+  //
+  // 这里改成:**优先抽还没出现过的种类**,池里没有别的种类了才允许重复。
+  // 不是"禁止重复",是"能 diverse 就 diverse" —— 候选真的只有一种时,
+  // 仍然给三张同类卡(否则会出现空位,比同类更糟)。
+  const usedKinds = new Set(out.map(c => c.kind));
+  // 候选池只有**一种**类时,"不连出同类"救不了 —— 三张还是一样(XX-PLAY-002)。
+  // 所以这种情况下**只从池里取 2 张**,留一格给兜底(金币/回血):
+  // build 已经到头了,给点别的可拿的东西,比给三张一模一样的卡强。
+  const poolKinds = new Set(cands.map(c => c.kind));
+  const cap = poolKinds.size <= 1 ? 2 : 3;
+  while (out.length < cap && pool.length) {
+    const freshIdx = [];
+    for (let i = 0; i < pool.length; i++) if (!usedKinds.has(pool[i].kind)) freshIdx.push(i);
+    // 没有新种类可抽 → 这一轮退回普通加权抽取
+    const idx = freshIdx.length ? freshIdx[(Math.random() * freshIdx.length) | 0] : weightedIdx(pool);
+    const [c] = pool.splice(idx, 1);
+    out.push(c);
+    usedKinds.add(c.kind);
+  }
   // 不足 3 项时补保底(满血时不给回血项)
   const fills = [goldChoice(25), healChoice(p), goldChoice(60, true)];
   for (let i = 0; i < fills.length && out.length < 3; i++) {

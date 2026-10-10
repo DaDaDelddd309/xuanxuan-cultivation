@@ -149,6 +149,11 @@ export function phaseChime(from, to) {
   g.gain.setValueAtTime(0, c.currentTime);
   g.gain.linearRampToValueAtTime(night ? 0.28 : 0.16, c.currentTime + 0.05);
   g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 2.2);
-  osc.connect(g); g.connect(c.destination);
+  // ⚠️ XX-PLAY-003:原来这里是 `g.connect(c.destination)` —— **绕过了 musicBus**。
+  //   这是 buildAmb 之外的**第二条**绕过路径,后果一样:玩家在 UI 上把「音乐」关掉,
+  //   环境音没了、这声锣照样敲。属于「我明明关了,它还在响」那一类投诉。
+  //   现在与 buildAmb 走同一条总线 —— 音乐开关对它同样生效。
+  const bus = (typeof SFX !== 'undefined' && SFX && SFX.musicBus) ? SFX.musicBus : c.destination;
+  osc.connect(g); g.connect(bus);
   osc.start(); osc.stop(c.currentTime + 2.4);
 }
