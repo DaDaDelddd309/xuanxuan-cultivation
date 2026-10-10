@@ -19,7 +19,7 @@ import { rollChoices, applyChoice , runArtSync } from './game/upgrades.js?v=17';
 // loadoutBonus/GEAR 由 XX-EQUIP-004 接进结算时才真正参与计算,
 // 现在接进来是为了存档字段有个权威入口,而不是留一个没人 import 的死模块
 // (lint-deps 会把「写好了但没人用」直接判红)。
-import { loadoutBonus, GEAR } from './game/gear.js?v=17';
+import { loadoutBonus } from './game/gear.js?v=17';
 import { makeWeapon } from './game/weapons.js?v=17';
 import { HUD } from './ui/hud.js?r=8';
 import { Screens } from './ui/screens.js?v=17';
@@ -333,8 +333,7 @@ function startRun(charId) {
   // 这里只做**挂载与重算**,不改任何伤害公式 ——
   // 吸血/反噬怎么在结算里生效是桌面侧 XX-EQUIP-004 的活,且必须反向验证。
   // 放在 startRun 而不是 loadGear,是保证「每局重置」不会把上一局的装备加成带过来。
-  const loadout = (Save.data && Save.data.gear) || {};
-  p.gearBonus = loadoutBonus(loadout);
+  p.gearBonus = loadoutBonus(Save.loadout());   // 唯一真源:Save 自己那套清洗规则
   p.recalc();
   engine.player = p;
   combatState.runActive = true;

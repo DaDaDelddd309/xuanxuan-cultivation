@@ -15,6 +15,14 @@ const VALID_GEAR = [
   'hongyi_garment', 'laolao_hairpin', 'baize_claw', 'dangkang_ring',
   'qingqiong_robe', 'jiangu_blade', 'shijiang_seal', 'dengshi_lamp',
 ];
+// 装备 id → 槽位。同样**重复声明**而不从 gear.js import,理由同上。
+// 两份若不一致,由 tests/gear-regression.mjs 的存档契约段报出来。
+// ⚠️ 这张表是必需的,不是图省事:equip() 必须知道"这件穿哪个槽",
+//    而 save.js 不能反向依赖 gear.js(会把整个游戏层拖进 UI 层依赖链)。
+const GEAR_SLOT = {
+  hongyi_garment:'body', laolao_hairpin:'head', baize_claw:'hand', dangkang_ring:'hand',
+  qingqiong_robe:'foot', jiangu_blade:'hand', shijiang_seal:'head', dengshi_lamp:'foot',
+};
 
 function defaults() {
   return {
@@ -24,6 +32,10 @@ function defaults() {
     // 装备:槽位 → 装备 id。新档全空 —— 送了新手装备就会让
     // 「结案 → 掉装备 → 穿戴」这条链变成可有可无(那是 XX-EQUIP-005 要验的东西)。
     gear: { head: null, body: null, hand: null, foot: null },
+    // 背包里的装备(还没穿的)。与 gear 分开存:
+    // 「拿到」和「穿上」是两件事,分不开就没法做「换装」。
+    // 同样**不送新手装备** —— 否则玩家永远学不会结案才能拿东西。
+    gearOwned: [],
     totalRuns: 0, totalKills: 0,
   };
 }
@@ -68,6 +80,19 @@ function sanitize(raw) {
       d.gear[slot] = (typeof id === 'string' && VALID_GEAR.includes(id)) ? id : null;
     }
   }
+  // 已拥有的装备:逐个过白名单,顺带**保证每件装备只算一次**
+  // (重复结案、或老档里同一件出现过多次,都只留一次 —— 否则会出现两件同 id 的"红嫁衣")
+  if (Array.isArray(raw.gearOwned)) {
+    const seen = new Set();
+    for (const id of raw.gearOwned) {
+      if (typeof id === 'string' && VALID_GEAR.includes(id) && !seen.has(id)) seen.add(id);
+    }
+    d.gearOwned = [...seen];
+  }
+  // 穿着的必须也在背包里 —— 否则改档就能白嫖一件没拿到的装备
+  for (const slot of VALID_SLOTS) {
+    if (d.gear[slot] && !d.gearOwned.includes(d.gear[slot])) d.gear[slot] = null;
+  }
   return d;
 }
 
@@ -90,4 +115,47 @@ export const Save = {
   },
 
   reset() { this.data = defaults(); this.commit(); },
+
+  // ————— 装备(XX-EQUIP-005)—————
+  /** 拿到一件装备(结案掉落)。重复拿到返回 false —— 本系统**不产出第二件**。 */
+  ownGear(id) {
+    if (typeof id !== 'string' || !VALID_GEAR.includes(id)) return false;
+    if (this.data.gearOwned.includes(id)) return false;
+    this.data.gearOwned.push(id);
+    this.commit();
+    return true;
+  },
+
+  ownsGear(id) { return this.data.gearOwned.includes(id); },
+
+  /**
+   * 穿上。**单槽互斥**:同槽位的旧装备自动回到背包,不会凭空消失。
+   * @returns {{ok:boolean, msg?:string, replaced?:string|null}}
+   */
+  equip(id) {
+    if (!this.ownsGear(id)) return { ok: false, msg: '还没有这件' };
+    const slot = GEAR_SLOT[id];
+    if (!VALID_SLOTS.includes(slot)) return { ok: false, msg: `${id} 的槽位不合法` };
+    const d = this.data.gear;
+    const replaced = d[slot];
+    d[slot] = id;                      // ⚠️ 键是**槽位**,不是装备 id
+    this.commit();
+    return { ok: true, replaced: replaced === id ? null : replaced };
+  },
+
+  /** 脱下某个槽位 */
+  unequip(slot) {
+    if (!VALID_SLOTS.includes(slot)) return { ok: false, msg: '没有这个槽位' };
+    if (!this.data.gear[slot]) return { ok: false, msg: '这个槽位本来就是空的' };
+    this.data.gear[slot] = null;
+    this.commit();
+    return { ok: true };
+  },
+
+  /** 当前穿着的一整套(loadoutBonus 的输入形状) */
+  loadout() {
+    const out = {};
+    for (const slot of VALID_SLOTS) if (this.data.gear[slot]) out[slot] = this.data.gear[slot];
+    return out;
+  },
 };

@@ -8,6 +8,7 @@ import { vRealm as vRealmImpl } from './ui/realm.js';
 // title页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/title.js。
 import { vTitle as vTitleImpl } from './ui/title.js';
 // bag页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/bag.js。
+import { vGear as vGearImpl, doGearOn as doGearOnImpl, doGearOff as doGearOffImpl } from './ui/gear.js';
 import { vBag as vBagImpl, showMountGet as showMountGetImpl, _nextPending as _nextPendingImpl, empty as emptyImpl, enterVillage as enterVillageImpl, vVillage as vVillageImpl, vMount as vMountImpl, vPeople as vPeopleImpl, _feedBtnText as _feedBtnTextImpl, _vMutCard as _vMutCardImpl, _vPartPicker as _vPartPickerImpl, _sFeedable as _sFeedableImpl } from './ui/bag.js';
 // dexsys页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/dexsys.js。
 import { vDex as vDexImpl, vSys as vSysImpl } from './ui/dexsys.js';
@@ -56,7 +57,7 @@ import { MOUNT, MOUNTS, MOUNT_LIST } from './mount.js';
 import { BUILD, FIELD_PERIOD } from './build.js';
 import { BUILDINGS, BESTIARY, NPCS, TIERS, RICE } from './bestiary.js';
 
-const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['market','集市'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
+const TABS = [['realm','境界'],['map','大地图'],['camp','营地'],['arts','神通'],['bag','行囊'],['gear','装备'],['market','集市'],['people','人物'],['title','称号'],['fam','家族'],['build','领地'],['dex','图鉴'],['quest','支线'],['sys','存档']];
 
 let root, bodyEl, tab = 'realm';
 let feedN = 1;   // 投石数量
@@ -144,6 +145,21 @@ export const Hall = {
   act(a, v, v2, slot) {
     const s = Cult.get();
     switch (a) {
+      // ===== 装备(XX-EQUIP-005)=====
+      case 'gear-on': {
+        const r = this.doGearOn(v);
+        if (r.ok) toast(this._gearMsg || '已穿戴');
+        else toast(r.msg || '穿不上');
+        this.render();
+        break;
+      }
+      case 'gear-off': {
+        const r = this.doGearOff(v);
+        if (r.ok) toast(this._gearMsg || '已脱下');
+        else toast(r.msg || '脱不下');
+        this.render();
+        break;
+      }
       // ===== 灵伴变异(XX-MUTATION-003/004)=====
       // 载体是**真的把源石丢进漩涡**:石头被扣掉、状态永久变。
       case 'feedpick':
@@ -818,6 +834,7 @@ export const Hall = {
       : tab === 'map'   ? (TOMB.s.in ? this.vTomb() : this.vMap(s))
       : tab === 'camp'  ? this.vCamp(s)
       : tab === 'bag'   ? this.vBag(s)
+      : tab === 'gear'  ? this.vGear()
       : tab === 'market'? this.vMarket(s)
       : tab === 'arts'  ? this.vArts(s)
       : tab === 'people'? this.vPeople(s)
@@ -983,6 +1000,10 @@ export const Hall = {
   // 于是投喂整条链不可达,而 act() 里四个 feed* 分支都还在、merge 干净、测试全绿。
   // `test-ui-split` 的「拆出去的每个方法 Hall 上必须还有同名壳」就是守住这层的门禁。
   _sFeedable(stoneId) { return _sFeedableImpl(this, stoneId); },
+  // —— 装备页(XX-EQUIP-005)——
+  vGear() { return vGearImpl(this); },
+  doGearOn(id) { return doGearOnImpl(this, id); },
+  doGearOff(slot) { return doGearOffImpl(this, slot); },
   showMountGet(m) { return showMountGetImpl(this, m); },
   _nextPending() { return _nextPendingImpl(this); },
   empty(title, desc, clues) { return emptyImpl(this, title, desc, clues); },

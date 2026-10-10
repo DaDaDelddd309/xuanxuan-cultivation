@@ -138,6 +138,18 @@ export const GEAR = {
 };
 export const GEAR_IDS = Object.keys(GEAR);
 
+/**
+ * 「结案对象 → 掉哪件装备」的唯一真源(XX-EQUIP-005)。
+ * gear 表用 `from` 字段声明来源,这里反查 —— 调用方不硬编码支线名。
+ * ⚠️ 纯函数,不写任何存档;发放由 core/save.js 的 Save.ownGear() 负责。
+ * @param {string} source 支线/妖的 key(如 'hongyi')
+ * @returns {string|null} 装备 id;没有就 null
+ */
+export function gearFromSource(source) {
+  if (!source) return null;
+  return GEAR_IDS.find(id => GEAR[id].from === source) || null;
+}
+
 /** 空装备栏(新档的初始值)。
  *  四个槽位全 null —— **不送新手装备**:
  *  送了就把「结案 → 掉装备 → 穿戴」这条链变成可有可无,而那正是 XX-EQUIP-005 要验的。 */

@@ -8,6 +8,8 @@ import { Cult } from './index.js';
 import { Bag, STONES, SCROLLS, GOODS } from './items.js';
 import { BUILDINGS } from './bestiary.js';   // 触发建材注册(Bag 白名单)
 import { TOMB } from './tomb.js';            // 石将支线在墓里结案
+import { Save } from '../core/save.js';     // 装备掉落落档(XX-EQUIP-005)
+import { gearFromSource, GEAR } from '../game/gear.js';   // 「结案对象 → 装备」反查
 
 const K = SAVE_KEYS.quest;
 
@@ -104,14 +106,20 @@ export const QUEST = {
     if (!this.ready(key)) return { ok:false, msg:'还没办成。' };
     this.s.active = this.s.active.filter(k=>k!==key);
     this.s.done[key] = { path, at: Date.now() };
-    const reward = this.grant(l.quest.reward, path);
+    const reward = this.grant(l.quest.reward, path, key);
     this.save();
     return { ok:true, path, quest:l.quest, reward };
   },
   // 奖励发放
-  grant(rw, path) {
-    const got = { dao:0, scroll:null, item:null, special:null, text:[] };
-    if (!rw) return got;
+  /**
+   * @param {object} rw    支线奖励配置
+   * @param {number} path  结局 1/2
+   * @param {string} [questKey] 支线 key —— XX-EQUIP-005:装备由**结案对象**决定,
+   *   所以必须传进来。装备表 gear.js 用 `from` 字段反查,不靠硬编码支线名。
+   */
+  grant(rw, path, questKey) {
+    const got = { dao:0, scroll:null, item:null, special:null, gear:null, text:[] };
+    if (!rw && !questKey) return got;
     if (rw.dao) { Cult.get().dao += rw.dao; got.dao = rw.dao; got.text.push(`道行 +${rw.dao}`); }
     if (rw.scroll) {
       const sc = SCROLLS[rw.scroll];
@@ -122,6 +130,15 @@ export const QUEST = {
       got.text.push(`${(STONES[rw.item]||GOODS[rw.item]||BUILDINGS[rw.item]||{name:rw.item}).name} ×1`); }
     if (rw.special) { got.special = rw.special; Cult.get().dao += path===1?0:300;
       if (path===2) got.text.push('道行 +300'); }
+    // —— 装备掉落(XX-EQUIP-005)——
+    // 只从**支线结案**掉,绝不进砍杀局普通池:拿到就是拿到了,不会被刷爆。
+    // gearFromSource 反查 gear 表的 `from` 字段,不在这里硬编码 8 条支线名 ——
+    // 硬编码的话加一件装备就要改两个文件,迟早对不上。
+    const gid = questKey && gearFromSource(questKey);
+    if (gid) {
+      if (Save.ownGear(gid)) { got.gear = gid; got.text.push(`${GEAR[gid].name}`); }
+      else got.text.push(`${GEAR[gid].name}(已有)`);   // 不产出第二件,但要告诉玩家
+    }
     Cult.commit();
     return got;
   },

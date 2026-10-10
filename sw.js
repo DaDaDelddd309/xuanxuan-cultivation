@@ -47,7 +47,7 @@ const XX = [
   // 它们就在 ui.js 的**静态 import 图**上 —— 原生 ESM 全有或全无,
   // 离线拉不到任意一个就是整页白屏。dom.js 是共享 DOM 辅助(esc/toast),
   // 视图模块和 ui.js 都依赖它,漏掉等于整页转义失效。
-  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
+  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/gear.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
   // 存档键集中注册表(XX-AUDIT-006 批 1)。
   // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
   // 离线拉不到就是整页白屏。
