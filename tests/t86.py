@@ -1,6 +1,16 @@
 import os as _os;_OUT=_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'_shots');_os.makedirs(_OUT,exist_ok=True)
 import os, time
 from playwright.sync_api import sync_playwright
+# 2026-10-11(XX-AUDIT-033):本地 unblock 已删除,改用 tests/_unblock.py 的共享版。
+#   原因:本地版只清 .xx-ritual / .xx-storycard,**完全看不见 .xx-duel**。
+#   而 .xx-duel 是 `position:absolute;inset:0;z-index:80` 的全屏层(css/xiuxian.css:723),
+#   一旦回合制战斗开着,它物理上挡住**所有**点击 → Page.click 30s 超时。
+#   共享版会先点「逃/退/认输」走正规退出路径,再兜底移除。
+#   这 5 个文件(t86/t87/t88/t89/full79)在 CI 上全部因 Page.click 超时红,
+#   症状完全一致 —— 同一个根因,不是 5 个独立 bug。
+import sys as _sys; _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _unblock import unblock
+
 CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[];fails=[]
 with sync_playwright() as p:
@@ -11,12 +21,6 @@ with sync_playwright() as p:
     pg.goto('http://127.0.0.1:%s/' % __import__('os').environ.get('XX_TEST_PORT','8894'),wait_until='networkidle')
     pg.evaluate("()=>localStorage.clear()")
     pg.reload(wait_until='networkidle'); time.sleep(2.5)
-    def unblock(pg, tries=6):
-        """清掉挡住页面的全屏层(仪式/结算卡)。测试里任何点击前都该先调。"""
-        for _ in range(tries):
-            if not pg.evaluate("()=>!!document.querySelector('.xx-ritual,.xx-storycard')"): return
-            pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-storycard').forEach(e=>e.remove())")
-            time.sleep(0.35)
 
 
     ok=lambda n,c: print(('  ✅ ' if c else '  ❌ ')+n) or (None if c else fails.append(n))
