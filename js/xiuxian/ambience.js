@@ -73,24 +73,22 @@ function buildAmb(phase, vol) {
   src.start();
   nodes.push(src, f, g);
 
-  // 夜虫/鸟鸣:间歇性高频点缀
-  if (phase.key === 'night' || phase.key === 'dawn') {
-    const osc = c.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = phase.key==='night' ? 3200 : 2600;
-    const og = c.createGain(); og.gain.value = 0;
-    const lfo = c.createOscillator();
-    const lfoG = c.createGain();
-    lfo.frequency.value = phase.key==='night' ? 0.28 : 0.55;
-    lfoG.gain.value = 0.05;
-    lfo.connect(lfoG); lfoG.connect(og.gain);
-    osc.connect(og); og.connect(out);
-    osc.start(); lfo.start();
-    nodes.push(osc, og, lfo);
-  }
-  // 日间那声 1400Hz triangle 已删除 ——
-  // gain 只有 0.012,但 1400Hz 落在人耳最敏感的频段,听起来就是「蜂鸣」。
-  // 风声底噪已经够了,不需要再叠一个高频。
+  // 夜虫已删除(XX-AUDIO-004 · owner 授权我决定)。
+  //
+  // 原来是夜/黎明叠一层 osc.frequency = 3200/2600Hz 的**纯 sine**,
+  // 配 LFO 0.28Hz 调幅。听起来是「嗡————嗡————」的**周期性蜂鸣**,
+  // 不是虫鸣 —— 虫鸣之所以像虫鸣靠的是高频**脉冲**,持续音+慢 LFO
+  // 恰恰是电子蜂鸣的特征。
+  //
+  // 而同一个文件里已经有先例:日间那声 1400Hz triangle 就是因为
+  // 「落在人耳最敏感的频段,听起来就是蜂鸣」被删的。夜虫 3200Hz
+  // 比它还高 2.3 倍,同一类投诉的同一类音源。
+  //
+  // 来历查证:全仓库只有 CHANGELOG.md:901 提过它,那是
+  // 「WebAudio 实时合成、零外部音频文件」的实现记录,不是产品理由。
+  // 详见 TICKETS.md XX-AUDIO-004。
+  //
+  // 风声底噪(上面那段)全部保留 —— 它承载「昼夜不同」,是氛围音真正的表达。
 }
 
 export const Ambience = {

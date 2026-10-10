@@ -70,7 +70,19 @@ console.log('=== [3] 旧注释已被更正(不留误导) ===');
 console.log('=== [4] 数据侧:敌人确实带了专属 key ===');
 {
   // foes 数组第 6 位是专属 key,接线依赖它
-  const foes = SRC.slice(SRC.indexOf('const foes ='), SRC.indexOf('const foes =') + 600);
+  //
+  // ⚠️ 先剥注释再截取(XX-CHAR-001 踩过,这是同一个族的第 5 次):
+  //   原来这里是 SRC.slice(idx, idx + **600**) 的定长窗口,连注释一起切。
+  //   我给 boss 分支加了一段更正注释(~400 字),结果数组被挤出窗口 ——
+  //   youfang 明明在数据里,测试报「不在」。
+  //   注释挤掉数据,和注释被当成断言,是同一类自指坑的两面。
+  //   定长窗口本身就是脆弱设计:注释写多写少都会改变结论。
+  //   现在先剥注释,再按 `];` 收尾截取 —— 不依赖长度。
+  const codeNoCmt = SRC.split('\n')
+    .filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  const fStart = codeNoCmt.indexOf('const foes =');
+  const fEnd = codeNoCmt.indexOf('];', fStart);
+  const foes = fStart >= 0 && fEnd > fStart ? codeNoCmt.slice(fStart, fEnd + 2) : '';
   for (const k of ['moying', 'heifeng', 'shougu', 'youfang']) {
     t(`${k} 在 foes 数据里`, foes.includes(`'${k}'`));
   }

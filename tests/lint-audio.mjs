@@ -124,51 +124,61 @@ console.log('\n=== [5] 修仙阁环境音:高频层不许无说明地改动(XX-P
   t('转场锣声(phaseChime)也不许绕过 musicBus', !chimeBypass,
     '实测 ambience.js:152 是 g.connect(c.destination) —— 关掉音乐照样敲锣');
 
-  // (b) 夜/黎明那层高频:频率与调制深度一并钉住。
-  //     ⚠️ 不能按 'night' 字面量匹配 —— codeMask 会把字符串字面量抹成空格
-  //     (实测 `phase.key==='night' ? 3200 : 2600` 被抹成 `phase.key=== ? 3200 : 2600`)。
-  //     所以只钉**结构**:osc.frequency.value 上挂一个「? … : …」二元取值。
-  const night = AMB_CODE.match(/osc\.frequency\.value\s*=\s*[^;?]*\?[^;]*:[^;]*;/);
-  t('夜虫高频仍在(夜 3200Hz / 黎明 2600Hz),不是被偷偷删了', !!night,
-    '这层高频的去留是产品决策 —— 要删请先在 TICKETS.md 写明它当初为什么存在');
-  const lfo = AMB_CODE.match(/lfo\.frequency\.value\s*=\s*[^;?]*\?[^;]*:[^;]*;/);
-  t('夜虫的调制频率被钉住', !!lfo, 'LFO 决定它是"虫鸣"还是"蜂鸣",改了要有理由');
-
-  // (b2) ⚠️ 第三版盲区:注入把 3200 改成 5000(只是把频率调高,更刺耳),
-  //     上面所有断言照样全绿 —— 我钉了结构,没钉**数值**。
-  //     频率越高越刺耳,恰恰是这个投诉的核心变量,必须钉死。
-  //     (codeMask 只抹字符串字面量,数字是原样保留的,所以可以直接比数字)
-  t('夜虫频率仍是 3200Hz / 黎明 2600Hz(没有往上拧)',
-    /3200\s*:\s*2600/.test(AMB_CODE),
-    '实测代码里不是 3200:2600 —— 高频拧高 = 投诉原样复现');
-  t('夜虫的调制频率仍是 0.28 / 0.55(没被调快成"嗡")',
-    /0\.28\s*:\s*0\.55/.test(AMB_CODE),
-    'LFO 调快会让它从"虫鸣"变成持续"嗡"');
-
-  // (c) ⚠️ 上面两条有个盲区,反向验证时才发现:把
-  //     `if (phase.key === 'night' || phase.key === 'dawn')` 改成 `if (false)`
-  //     振荡器代码**一行没删**,上面两条照样全绿 —— 但夜虫再也不响了。
-  //     「代码在」不等于「还在跑」。所以必须单独钉住那道相位闸门。
+  // (b) 【XX-AUDIO-004 已反转】夜/黎明那层高频**已删除**。
   //
-  //     ⚠️ 第二版又踩了一次:我第一版写成「全文数 `phase.key ===` 出现几次」,
-  //     结果 ambience.js 的滤波器(70 行)和增益(71 行)里也有这个写法,
-  //     计数照样 >= 2,注入 `if(false)` 依然全绿 —— **假门禁比没门禁更坏**。
-  //     正确做法:先按 `if ( … )` 切出**条件本身**,再在条件内部数。
-  //     (codeMask 会抹掉字符串字面量,所以只数 `phase.key ===`,不匹配 'night')
-  const ifConds = [...AMB_CODE.matchAll(/if\s*\(([^)]*)\)/g)].map(m => m[1]);
-  const nightGate = ifConds.filter(c => (c.match(/phase\.key\s*===/g) || []).length >= 2);
-  t('夜虫的相位闸门还在(夜/黎明两个分支,没被改成常量 false)', nightGate.length >= 1,
-    `实测「同时比较两个 phase.key」的 if 条件有 ${nightGate.length} 个 —— 改成 if(false) 夜虫就永远不响了`);
+  //   这组断言从第一版起就在钉「3200/2600 不许被偷偷删掉」,还经历三轮返工
+  //   (钉结构 → 钉数值 → 钉相位闸门)才做到无盲区。现在 owner 授权我决定
+  //   (TICKETS.md XX-AUDIO-004),结论是删:
+  //     · 来历只有 CHANGELOG.md:901 的「WebAudio 实时合成、零外部音频文件」——
+  //       那是实现手段,不是产品理由
+  //     · 同一文件里已有一声 1400Hz 因「听起来就是蜂鸣」被删的先例,
+  //       夜虫 3200Hz 比它还高 2.3 倍,波形还是更"电子"的纯 sine
+  //     · LFO 0.28Hz 让它每 3.6 秒涨落一次 = 周期性蜂鸣,不是虫鸣脉冲
+  //
+  //   断言从「必须在」反转成「必须不在」。
+  //   用 AMB_CODE(已剥注释)判定:解释删除理由的注释里写着 3200/2600,
+  //   原始源码会误伤,codeMask 抹掉注释后才不会 —— 这正是该工具的用途。
+  // ⚠️ 下面这些「必须不在」的判定,只扫 buildAmb() 函数体 ——
+  //   ambience.js 里还有 phaseChime(转场锣声),它也用 createOscillator,
+  //   而且**必须留着**(XX-PLAY-003 刚修好它绕过 musicBus 的问题)。
+  //   全文件扫会把正当组件误判成「夜虫没删干净」—— 范围要收准。
+  const baStart = AMB_CODE.indexOf('function buildAmb');
+  const baEnd = AMB_CODE.indexOf('phaseChime', baStart);
+  const buildAmb = baStart >= 0 ? AMB_CODE.slice(baStart, baEnd > baStart ? baEnd : AMB_CODE.length) : '';
+  t('找得到 buildAmb 函数体(判定范围)', buildAmb.length > 100, `${buildAmb.length} 字符`);
 
-  // (c) 最关键的一条:**这层高频所在的代码块必须带用途说明**。
-  //     owner 问「存在干嘛、有什么用」而文档里查不到 —— 门禁就把这个缺口钉成硬要求:
-  //     改动附近必须留下它为什么存在。
-  const blockStart = AMB.indexOf('const osc = c.createOscillator()');
-  const around = blockStart >= 0 ? AMB.slice(Math.max(0, blockStart - 700), blockStart + 400) : '';
-  const explained = /夜虫|虫鸣|insect|cricket/i.test(around)
-    && /\/\/|\/\*/.test(around);
-  t('高频层附近留有用途注释(不再是无来由的嗡)', explained,
-    '补一句「这层干嘛用」;补不上就说明它本就不该留 —— 那才是该讨论的');
+  t('夜虫高频已删除(osc.frequency 上不再有 ?/: 二元取值)',
+    baStart < 0 || !/osc\.frequency\.value\s*=\s*[^;?]*\?[^;]*:[^;]*;/.test(buildAmb),
+    'XX-AUDIO-004 已定删除;要恢复先改 TICKETS.md 的结论');
+  t('3200/2600 这组频率不在 buildAmb 里了', baStart < 0 || !/3200\s*:\s*2600/.test(buildAmb),
+    '实测 buildAmb 内仍有 3200:2600 —— 夜虫没删干净');
+  t('LFO 的 0.28/0.55 调制不在 buildAmb 里了', baStart < 0 || !/0\.28\s*:\s*0\.55/.test(buildAmb),
+    '调制还在 = 那层振荡器没删干净');
+  t('buildAmb 里那个高频振荡器块整体没了',
+    baStart < 0 || !/const osc = c\.createOscillator\(\)/.test(buildAmb),
+    '实测 buildAmb 内仍有 const osc = c.createOscillator()');
+
+  // 转场锣声必须还在 —— 它和夜虫是两回事,不能顺手删掉。
+  t('转场锣声 phaseChime 仍在(与夜虫无关,别顺手删)',
+    /function phaseChime/.test(AMB_CODE), 'XX-PLAY-003 刚修好它的 musicBus 接线');
+
+  // (b2) 删除必须有据可查:门禁原来要求「改动附近留用途注释」,
+  //      现在反过来 —— 必须能在 TICKETS.md 查到删除结论和理由,
+  //      否则就是「静默删音频」,下一个人会以为它从来不存在。
+  let tickTxt = '';
+  try { tickTxt = readFileSync(ROOT + '/TICKETS.md', 'utf8'); } catch {}
+  t('TICKETS.md 写明了夜虫的来历与删除理由(不是静默删除)',
+    /XX-AUDIO-004/.test(tickTxt) && /夜虫/.test(tickTxt) && /CHANGELOG\.md:901/.test(tickTxt),
+    '补上:它当初为什么存在 + 凭什么判定该删');
+
+  // (b3) ⚠️ 反过来也要防「删过头」:风声底噪才是承载「昼夜不同」的那一层。
+  //      夜虫删了它必须还在 —— 否则就是把整个氛围音删掉换一片绿。
+  t('风声底噪仍在(没把整个氛围音删掉换绿)',
+    /createBufferSource/.test(AMB_CODE) && /src\.connect\(\s*f\s*\)/.test(AMB_CODE),
+    '布朗噪声 + 滤波那段没了 = 昼夜感知也没了,那是删过头');
+  t('昼夜频率分档仍在(夜/晨昏/昼 三档)',
+    /\b320\b/.test(AMB_CODE) && /\b500\b/.test(AMB_CODE) && /\b700\b/.test(AMB_CODE),
+    '昼夜三档频率不见了 —— 风声底噪不该被动');
 }
 
 if (fail === 0) {
