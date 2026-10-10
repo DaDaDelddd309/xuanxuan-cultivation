@@ -1,10 +1,12 @@
 # 轩轩修仙传 · 工单库（细化版 v2）
 
-> 建库 2026-10-08 · 本次细化：2026-10-08
-> 当前线上：**v099p**（commit `8a12fa7`，即 `origin/main`）· 版本真源是 `sw.js` 的 `const V`
-> 工作分支：**`merge-desktop`** —— Z8 侧与桌面侧(`origin/main`)已合并。
-> 本机曾与远端**分叉**(远端领先 18 / 本地领先 12),两边从同一分叉点 `8a12fa7`
-> 各自动工,重叠 12 个文件 —— 合并取舍见 §本轮新发现 的 XX-NEW-007。
+> 建库 2026-10-08 · 本次细化：2026-10-10
+> 当前线上：**v099q**（commit `f9a69bb`，即 `origin/main`）· 版本真源是 `sw.js` 的 `const V`
+> 工作分支：`merge-desktop`（= `origin/main`）—— Z8 侧与桌面侧已合并完毕。
+> 2026-10-10 复核：`git ls-remote` 显示远端**已无 `merge-desktop` 分支**，
+> 本地 `origin/merge-desktop` 是陈旧跟踪引用（还指向旧位置 `12445a4`）。
+> 本地 HEAD 与 `origin/main` 逐位相同（`f9a69bb`）—— **没有任何未推送提交**。
+> ⚠️ `git status` 的 `[ahead 55]` 是这个陈旧引用造成的假警报，别据此判断推送状态。
 > ⚠️ 本文件正文里出现的 V0.96 / `4ba7e2f` 是建库当时的历史快照，不是现状 —— 冲突时以本行为准
 > 依据：`ROGUELIKE-PLAN.md`、`ART-GUIDELINES.md`、`PALETTE.md`
 
@@ -2882,11 +2884,32 @@ XX-AUDIT-001 / 002 / 003 / 004 / 007 / 017，以及版本号。
 
 ---
 
-## 🟠 XX-AUDIT-019 `version.json` 没有任何 script 会重新生成 ⬜ 待办
+## 🟠 XX-AUDIT-019 `version.json` 没有任何 script 会重新生成 ⬜ 待办（**部分已澄清，2026-10-10**）
 
 **独立复核**：`version.json`（4732 字节，含 112 个文件的 sha256）确实存在，
 但 `package.json` 的 14 个 scripts 里**没有一个会重新生成它**。
 `tests/make-manifest.mjs` 存在（3019 字节）却**没挂进 scripts**。
+
+### ⚠️ 2026-10-10 复核修正：上面两条都不准确了
+
+- `package.json` **已有** `manifest:write` = `node tests/make-manifest.mjs --write`。
+  「没挂进 scripts」这条已过时 —— 生成器是接得上的，只是**没有任何流程会调用它**。
+- 文件数不是 112，是 **134**（且这个数本身也已过期，见下）。
+
+**真实情况**：`version.json` 的 build 停在 `20261008-1710`，此后所有改动都没登记。
+2026-10-10 实测漂移量：**134 → 176 个文件（+42）**，**32 个已登记文件哈希与磁盘不符**。
+
+**为什么门禁没拦住**：`lint-version.mjs` 只校验 `version` 字段与 `sw.js` 的 `const V`
+是否一致，**不校验文件哈希**，所以这份清单在 `v099q` 下依然「合规」——
+探针指向一个实际不存在的版本组合，排查时是反向误导（正是本工单预判的后果）。
+
+**已做**：`npm run manifest:write` 重生成，176/176 哈希一致，`npm run lint` exit 0
+（commit `24dda7b`）。
+
+**仍未做**：防止再次漂移。**不打算加常驻 lint** —— 清单覆盖全部文件（含 docs），
+任何文档改动都会让它变红，而按本项目「假红比不红更糟」的立场那是倒退。
+待定的轻量方案是：只对 `js/ + css/ + index.html + sw.js` 校验哈希，
+把 docs 排除在外，漂移才拦得住又不误报。
 
 **后果**：改了代码不重新生成 → `version.json` 里的探针指向一个
 **实际不存在的版本组合**。排查问题时它不是没帮上忙，是**反向误导**。
@@ -2904,12 +2927,35 @@ XX-AUDIT-001 / 002 / 003 / 004 / 007 / 017，以及版本号。
 **已出**：`VERSION-CONVENTION.md`（真源、`p/q/r` 后缀语义、CHANGELOG 对应关系、合并后统一升版流程）。
 
 **待执行**（等 Z8 合并完成后）：
-- [ ] 统一升到 `xuanxuan-v099q`
-- [ ] `node tests/lint-version.mjs` 通过
-- [ ] `node tests/make-manifest.mjs` 重生成 `version.json`
-- [ ] `npm run check:full` = 0
-- [ ] CHANGELOG 补本轮条目
-- [ ] 推送
+- [x] 统一升到 `xuanxuan-v099q` —— `sw.js` 的 `const V` 已是 `xuanxuan-v099q`
+- [x] `node tests/lint-version.mjs` 通过
+- [x] `node tests/make-manifest.mjs` 重生成 `version.json` —— 2026-10-10 补做，
+      134 → 176 文件，176/176 哈希一致（commit `24dda7b`）
+- [x] `npm run check:full` = 0 —— 2026-10-10 实测**真实退出码 0**，全绿
+      ⚠️ 当天一度误判为「间歇性失败（4 跑 3 过 1 败）」，已证伪，见下方「已证伪的误报」
+- [x] CHANGELOG 补本轮条目 —— `CHANGELOG.md:3` 已有 `## v099q · 两边并行开发合并`
+- [x] 推送 —— **无需推送**：本地 HEAD 与 `origin/main` 同为 `f9a69bb`，从未分叉
+
+### 已证伪的误报（2026-10-10，留档以免再犯）
+
+当天曾报「`npm run check` 间歇性失败，4 跑 3 过 1 败，失败点在 `test:e2e`
+报 `sh: 1: Bad substitution`」。**这是测量命令自身的缺陷，不是本项目的缺陷。**
+
+复现方式：测量脚本里用了 `echo "exit=${PIPESTATUS[0]}"`。`PIPESTATUS` 是
+**bash 专有数组**，本环境 shell 是 POSIX `sh`（dash），遇到它直接
+`Bad substitution` 并**以 2 退出**。于是：
+
+- 那个 `exit 2` 是 `echo` 的退出码，**不是 `npm run check` 的**
+- 那行 `Bad substitution` 也没经过 grep 过滤（不匹配任何模式），
+  所以它出现在输出里，看起来像是测试打的
+
+去掉 bash 专有语法后重跑：`npm run check` **真实退出码 0，全绿**。
+
+**教训**：测门禁就只用门禁自己的退出码，不要在管道后面套需要
+bash 的状态读取；否则会把测量工具的失败记到被测对象头上。
+
+`XX-AUDIT-026`（基线抖动，已记录两次）**本次未能复现，也未证伪**——
+它与此误报无关，仍待后续观察。
 
 ---
 
