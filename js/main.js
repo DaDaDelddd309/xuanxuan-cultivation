@@ -250,7 +250,16 @@ function toTurnBased(bossName) {
           realmIdx: Math.max(0, REALMS.findIndex(r => r.id === Cult.get().realm)),
         },
         foe: {
-          key: 'moying', name: boss.name, title: '妖  ·  本  局',
+          // ⚠️ XX-PLAY-005:原来这里是 key: 'moying' 写死的,
+          //   于是**任何** boss 进回合制都在演墨影 —— 屏幕上是墨影的立绘、
+          //   说的是墨影的台词「你不该来。」。owner 报「石像守卫叫你不该来」即此。
+          //   现在把真实类型 id(boss_golem / boss_overlord)传下去。
+          //   ⚠️ 立绘仍是 PORTRAIT.foe(墨影):6 张反派立绘里没有石像守卫/无常尊者
+          //     —— 它们是 roguelike sprite,不是修仙阁反派。这是**资产缺口**,
+          //     要么补画、要么接受通用图;不猜哪个反派长得像石头人。见 TICKETS.md XX-PLAY-005。
+          key: boss.type || 'boss_unknown',
+          name: boss.name,
+          title: '妖  ·  本  局',
           img: PORTRAIT.foe,
           realmIdx: Math.max(0, REALMS.findIndex(r => r.id === Cult.get().realm)) + 1,
           stronger: true, isNemesis: false,
