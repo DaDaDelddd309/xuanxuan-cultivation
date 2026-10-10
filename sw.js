@@ -9,8 +9,12 @@
 // 其中「局外节点倾向接入局内刷怪与掉落」是玩家可见改动,却一直挂在 v099q 上),
 // 加上桌面侧 XX-AUDIT-025 与 P1-2 基线增量。
 // 按 VERSION-CONVENTION §2,本行是版本号唯一真源,其余三处由 lint-version 校验。
-const V = 'xuanxuan-v099r';
-const BUILD = '20261011-0050';
+// v099s(2026-10-11)· XX-AUDIT-014。
+//   修一个**已经上线**的 P0:js/xiuxian/world/{network,types}.js 不在预缓存清单里,
+//   离线时取不到 → import 链断 → 白屏。实测线上 sw.js 里这两个文件计数为 0。
+//   必须再升一版:已经缓存 v099r 的客户端不会因为同版本号而更新 sw.js。
+const V = 'xuanxuan-v099s';
+const BUILD = '20261011-0120';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
@@ -39,8 +43,16 @@ const XX = [
   'js/xiuxian/ritual.js', 'js/xiuxian/loot.js', 'js/xiuxian/family.js', 'js/xiuxian/chronicle.js',
   // XX-WORLD-004:ui.js 现在**运行时**import 这两个。阶段 0 时它们零消费者,
   // 不在预缓存里没关系;阶段 1 接上线后就必须有 —— 否则离线时 SW 取不到,
-  // ui.js 整个模块加载失败,修仙阁直接白屏。network.js 仍未接线,留给 WORLD-005。
+  // ui.js 整个模块加载失败,修仙阁直接白屏。
+  // 2026-10-11(XX-AUDIT-014):network.js / types.js 一并补进来。
+  //   它们当时确实还没接线(world/ 四个文件里只有这两个运行时消费者为 0,
+  //   planRoute / verifyNetwork 只被 tests/ 调用),所以「不会被 fetch、不会白屏」。
+  //   但 CI 的预缓存双向核对是按「js/ 下所有 .js」一刀切的,已经因此红了三个提交。
+  //   而 XX-WORLD-005 马上就要把 planRoute 接进 ui.js travel 分支 ——
+  //   **那正是它们被 fetch 的那一刻**。阶段 0 落地的意义就是「代码库始终完整可运行」,
+  //   提前进预缓存比等接完线再补要安全:漏补的后果是离线白屏(P0)。
   'js/xiuxian/world/nodes.js', 'js/xiuxian/world/regions.js',
+  'js/xiuxian/world/network.js', 'js/xiuxian/world/types.js',
   'js/xiuxian/tomb.js', 'js/xiuxian/nag.js', 'js/xiuxian/spirit.js', 'js/xiuxian/mount.js',
   // V0.98 补齐:这批文件在 V0.86~V0.90 重写清单时被漏掉,
   // 但它们都在 main.js / ui.js 的**静态 import 图**上 ——

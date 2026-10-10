@@ -2894,12 +2894,105 @@ XX-AUDIT-001 / 002 / 003 / 004 / 007 / 017，以及版本号。
 **独立复核**：2 处调用点 —— `tools/art/measure_style.py:35`、`tools/visual/audit.py:240`。
 改用 `get_flattened_data()`。
 
-## 🟠 XX-AUDIT-014 P1-2 没有 CI,浏览器测试不在任何自动执行路径上 ⬜ 待办
+## ✅ XX-AUDIT-014 P1-2 浏览器测试不在任何自动执行路径上 ✅ 已修（2026-10-11 桌面侧）
 
-**独立复核**：`tests/run-browser.sh:25` 的 glob 是
-`tests/t8*.py tests/t9*.py tests/audit-reach.py tests/full*.py`,
-**不含 `audit-loop.py`** —— 而它正是验证 V0.96 核心闭环（砍杀与修仙阁是同一个游戏）的那条。
-⚠️ 报告称「`.github/` 在 `.gitignore` 里」,**建 CI 前需先查证该行是否还在**。
+> 🟡 **桌面侧认领 2026-10-11** → ✅ 已修。
+
+### 工单原描述的两条都早已修掉了（先核实再动手）
+
+| 原描述 | 实测 |
+|---|---|
+| `run-browser.sh:25` 的 glob 不含 `audit-loop.py` | ✅ 早就有（`006985b`） |
+| 「`.github/` 在 `.gitignore` 里，建 CI 前需先查证」 | ✅ 那行**已被移除**（`1a3a224`），`ci.yml` 已在 main 上被跟踪（`8afe45c`） |
+
+`.gitignore` 里留着一段注释，记着移除原因：
+> 原有一行 `.github/workflows/ci.yml` 把 CI 配置排除在版本库外，导致它从没被提交过 ——
+> 仓库损坏后从 GitHub 干净重克隆，未跟踪的文件不会回来，CI 配置就此整个丢失。
+> **放着不提交 = 随时可能再丢一次。**
+
+**所以本工单若照原文去做，是在修一个已经不存在的问题。**
+
+### 但接手工单时发现了真的东西：CI 在 main 上连续红了三个提交
+
+```
+6b89551  CI failure
+0475e80  CI failure
+4dad804  CI failure   ← Z8 侧最新的一次合并
+```
+
+**两个 job 都在红：**
+
+#### ① `check` job —— P0，而且是「没人被告知过」的那种
+
+```
+❌ 磁盘有、预缓存清单没有(离线会白屏):
+   js/xiuxian/world/network.js
+   js/xiuxian/world/types.js
+```
+
+**根因不是「忘了加」，而是「那条检查本地根本跑不到」**：
+
+`lint-precache.mjs` 只查**一个方向**（清单里有、磁盘没有）。
+另一个方向（磁盘有、清单没有）**只存在于 `.github/workflows/ci.yml` 的一段内联 `node -e` 里** ——
+所以本地 `npm run check` 永远是绿的，bug 从来没在开发机上露过面。
+
+> **「检查存在，但只存在于一个大多数人跑不到的地方」——**
+> 和本工单原话「浏览器测试不在任何自动执行路径上」是同一个病，只是方向反了。
+
+**已做**：
+- `sw.js` 补进 `js/xiuxian/world/network.js` 与 `types.js`
+- 新增 `tests/lint-precache-reverse.mjs`，**接进 `npm run lint`**
+- `ci.yml` 改成调同一个文件，消除重复实现
+- **反向验证**：抽掉 `network.js` 条目 → 该 lint 报红（exit 1）；还原 → 绿（exit 0）
+
+> 补这两个文件是**故意的**：它们当时确实还没接线（`world/` 四个文件里只有这两个
+> 运行时消费者为 0），「不会被 fetch、不会白屏」。但 XX-WORLD-005 马上就要把
+> `planRoute` 接进 `ui.js` travel 分支 —— **那正是它们被 fetch 的那一刻**。
+> 阶段 0 落地的意义就是「代码库始终完整可运行」，提前进预缓存比等接完再补安全。
+
+#### ② `browser` job —— 7/8 个文件红，且**本地无法复现**
+
+playwright 无 bionic wheel，这些测试**只能在 CI 上跑**（`run-browser.sh` 里已写明）。
+逐个查了 CI 日志，两处是确定可修的代码 bug：
+
+| 文件 | 失败原因 | 处置 |
+|---|---|---|
+| `full79.py` | `NameError: name 'os' is not defined` | ✅ 补 `import os` |
+| `audit-reach.py` | `TypeError: <lambda>() takes 2 positional arguments but 3 were given` | ✅ `ok`/`warn` 加可选第三参 |
+| `t86` `t87` `t88` `t89` `audit-loop` | 断言失败 + `Page.click: Timeout 30000ms exceeded` | ⚠️ **未处理，见下** |
+
+两个细节值得记下来：
+
+- **`full79.py` 的 `os` 是漏打补丁。** 同一文件第 11 行用的是 `__import__('os')` 内联写法 ——
+  当初作者显然知道 `os` 没 import，只在**一处**打了补丁，漏了第 4 行的 `CHROME=os.environ.get(...)`。
+- **`audit-reach.py` 那个 TypeError 比表面严重**：它在第 50 行就崩了，
+  后面 6 条断言**一条都没跑到** ——
+  也就是说「玩家在正常流程里到底能不能拿到坐骑」这个审计，**从来没被真正验证过**。
+
+两处均已静态验证（`py_compile` + AST 按真实 arity 复查 + 实测三参行为）。
+**没有在真机跑过** —— 本机跑不了，如实标注。
+
+### ⚠️ 剩下 5 个文件的红**没有处理，也不能在这里处理**
+
+`t86/t87/t88/t89/audit-loop` 是**真实的行为断言失败**（不是脚本崩了），
+典型症状是 `Page.click: Timeout 30000ms exceeded` —— 全屏层挡住了按钮。
+
+`audit-loop` 的两条具体断言：
+```
+❌ 灵气会被自动吸取并累计
+❌ 源石真的进背包了
+```
+这两条验的正是 V0.96 的核心闭环（砍杀与修仙阁是同一个游戏）。
+
+**为什么不在本工单里顺手修**：
+1. 改它们需要**在浏览器里反复试**，而本机与 Z8 **均无法安装 playwright**
+   （`run-browser.sh` 已把这段限制写进代码）；
+2. 那 5 个文件的失败可能**同源**（全屏层遮挡），修法要一起看，不能一条条试；
+3. 动它们要碰 `ui.js` 的渲染/点击层 —— **与 Z8 正在做的 XX-AUDIT-005 撞**。
+
+已立 **XX-AUDIT-027b** 承接。**这 5 个红在本工单关闭后依然存在，不要以为 CI 已经绿了。**
+
+---
 
 ## 🟡 XX-AUDIT-015 P1-4 文档与代码脱节,同一仓库三个数字互相矛盾 ⬜ 待办
 
@@ -6039,3 +6132,71 @@ HUD 读的是                   spawner.js?v=18  (另一份)
   - ⑮ 测试侧跨实例断言(测试掉戳)→ lint ⚠️ 点名 `spawner.js`
     **且** COLLATZ 门禁变红并给出症状 `48:40`
 - ⑮ 那条是理想形态:一个指路,一个抓现行,都看得见。
+
+---
+
+## 🟠 XX-AUDIT-033 · 浏览器测试 5 个文件在 CI 上红，且本机无法复现 ⬜ 待办（2026-10-11 桌面侧立）
+
+**接自 XX-AUDIT-014。** 那个工单关掉了，但 **CI 的 `browser` job 仍然是红的**，
+不要以为「浏览器测试已进自动路径」=「它已经绿了」。
+
+### 实测状态（`gh run view 38067736459`，commit `4dad804`）
+
+```
+浏览器测试: 1 / 8 通过
+❌ 失败: t86 t87 t88 t89 audit-reach audit-loop full79
+```
+
+其中 `audit-reach` 与 `full79` 已在 XX-AUDIT-014 里修掉（脚本自身崩了）。
+**剩下这 5 个是真实的断言失败**，症状高度一致：
+
+| 文件 | 失败断言 |
+|---|---|
+| `t86` | 弹出叙事卡 / 卡片有名字 / 4个时段渲染 / 夜雾最浓 / 夜怪最强 / 晨怪最弱 |
+| `t87` | 修仙阁 12 个标签 / 弹出结案卡 / 两个结局选项 |
+| `t88` | 走完4环 / 支线页显示待了结区块 / 有「了结」按钮 |
+| `t89` | 弹出补完选项 |
+| `audit-loop` | 灵气会被自动吸取并累计 / 源石真的进背包了 |
+
+**共同伴随 `playwright._impl._errors.TimeoutError: Page.click: Timeout 30000ms exceeded`。**
+
+### 我的判断：大概率同源，不是 5 个独立 bug
+
+`t86/t87/t88/t89` 验的都是**点某个按钮 → 弹出某张全屏卡**。
+`audit-loop` 验的也是「点一下看灵气/源石有没有真的动」。
+全部卡在 `Page.click` 超时 —— **症状指向「有东西挡住了按钮」，而不是 5 处逻辑各自坏掉**。
+
+项目里已经有 `tests/_unblock.py`，注释写得很明确：
+> 清掉挡住页面的全屏层(仪式/结算卡)。**测试里任何点击前都该先调。**
+
+所以第一个该验证的假设是：**这 5 个文件里有没有漏调 `unblock()`**，
+或者调用时机早于全屏层出现。次要假设是全屏层出现时机被 V0.9x 的改动挪动了
+（`_unblock.py` 的 `tries=8` 可能已经不够）。
+
+### 为什么不在桌面侧顺手修
+
+1. **本机与 Z8 都装不上 playwright**（`run-browser.sh` 已写明：
+   playwright 只发 glibc wheel，Android 是 bionic，装上也跑不起来）。
+   修它们需要**在浏览器里反复试**，而我没有任何一次试的机会 ——
+   只凭 CI 日志改，等于拿「看起来对」当「验证过」。
+2. 要碰 `ui.js` 的渲染/点击层 —— **与 Z8 正在做的 XX-AUDIT-005（ui.js 拆分）撞**。
+3. 5 个文件很可能同源，修法要一起看，逐条试会来回返工。
+
+### 验收
+
+```
+npm run check           rc=0        （本地能跑的范围内全绿）
+CI browser job          通过         ★ 这条才是本工单的验收
+```
+
+**在 `browser` job 变绿之前，本工单不能标 ✅。**
+
+### 顺带一条噪音
+
+CI 日志里还有 19 条 `PAGEERROR: Failed to execute 'connect' on 'AudioNode':
+cannot connect to an AudioNode belonging to a different audio context.`
+
+它**没有**让测试变红，但它是真问题：某个模块在两个 `AudioContext` 之间连节点。
+独立复核后另立工单，本工单不混进来 —— 「测试红」和「日志脏」是两件事，混在一起会互相掩盖。
+
+---
