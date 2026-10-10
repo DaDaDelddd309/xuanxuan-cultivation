@@ -16,7 +16,7 @@ export const LEGEND = {
     drops:[{ id:'scroll_2', p:0.30 }, { id:'stone_2', p:0.20 },
             { id:'yu_jian', p:0.12 }, { id:'bld_field', p:0.02 }],
     quest: { title:'红嫁衣', desc:'在青石村外的枯井找到她的嫁衣,替她走完那年的礼。',
-            target:'hongyi', reward:{ dao:800, scroll:'scroll_2' } },
+            target:'hongyi', reward:[ { dao:800, scroll:'scroll_2' }, { dao:800, item:'xi_sui' } ] },
   },
   laolao: {
     key:'laolao', name:'黑山姥姥', img:'assets/legend/laolao.jpg',
@@ -29,7 +29,7 @@ export const LEGEND = {
     drops:[{ id:'stone_4', p:0.30 }, { id:'scroll_3', p:0.22 },
             { id:'xi_sui', p:0.14 }, { id:'bld_hall', p:0.05 }],
     quest: { title:'许 愿', desc:'替一个被许愿索命的孩子还愿,找到黑山姥姥的愿牌。',
-            target:'laolao', reward:{ dao:2400, scroll:'scroll_3' } },
+            target:'laolao', reward:[ { dao:2400, scroll:'scroll_3' }, { dao:2400, item:'yu_jian' } ] },
   },
   baize: {
     key:'baize', name:'白泽', img:'assets/legend/baize.jpg',
@@ -44,7 +44,7 @@ export const LEGEND = {
     // 白泽不攻击,见到即得机缘
     peaceful:true,
     quest: { title:'知 者', desc:'白泽知道一个你一直想问的答案。代价是它也要问你一个。',
-            target:'baize', reward:{ dao:0, scroll:'scroll_5', special:'ask' } },
+            target:'baize', special:'ask', reward:[ { dao:0, scroll:'scroll_5' }, { dao:300, item:'fu_yin' } ] },
   },
   dangkang: {
     key:'dangkang', name:'当康', img:'assets/legend/dangkang.jpg',
@@ -58,7 +58,7 @@ export const LEGEND = {
             { id:'bld_well', p:0.15 }, { id:'bld_field', p:0.10 }],
     peaceful:true,
     quest: { title:'追 豕', desc:'当康往山里去。你若追得上,就知道它在躲什么。',
-            target:'dangkang', reward:{ dao:1600, scroll:'scroll_4', special:'chase' } },
+            target:'dangkang', special:'chase', reward:[ { dao:1600, scroll:'scroll_4' }, { dao:1900, item:'stone_4' } ] },
   },
   qingqiong: {
     key:'qingqiong', name:'青穹', img:'assets/legend/qingqiong.jpg',
@@ -71,7 +71,7 @@ export const LEGEND = {
     drops:[{ id:'stone_5', p:0.42 }, { id:'scroll_5', p:0.25 },
             { id:'bld_barracks', p:0.14 }, { id:'bld_market', p:0.10 }],
     quest: { title:'不 回 头', desc:'青穹不会回头。你也不能。',
-            target:'qingqiong', reward:{ dao:6000, scroll:'scroll_5', special:'noLook' } },
+            target:'qingqiong', special:'noLook', reward:[ { dao:6000, scroll:'scroll_5' }, { dao:6300, item:'stone_5' } ] },
   },
   jiangu: {
     key:'jiangu', name:'剑骨', img:'assets/legend/jiangu.jpg',
@@ -84,7 +84,7 @@ export const LEGEND = {
     drops:[{ id:'stone_3', p:0.36 }, { id:'scroll_3', p:0.20 },
             { id:'jiangu_sword', p:0.06 }],
     quest: { title:'第 三 百 一 柄', desc:'让剑骨演完那一剑。看完再决定要不要杀他。',
-            target:'jiangu', reward:{ dao:1800, scroll:'scroll_3', special:'watch' } },
+            target:'jiangu', special:'watch', reward:[ { dao:1800, scroll:'scroll_3' }, { dao:2100, item:'stone_3' } ] },
   },
   shijiang: {
     key:'shijiang', name:'墓前石将', img:'assets/legend/shijiang.jpg',
@@ -97,7 +97,7 @@ export const LEGEND = {
     drops:[{ id:'stone_4', p:0.38 }, { id:'scroll_4', p:0.24 },
             { id:'bld_tower', p:0.10 }],
     quest: { title:'半 句 话', desc:'补完石将背上那句话。它会告诉你墓主是谁。',
-            target:'shijiang', reward:{ dao:2600, scroll:'scroll_4', special:'words' } },
+            target:'shijiang', special:'words', reward:[ { dao:2600, scroll:'scroll_4' }, { dao:2900, item:'beiwen' } ] },
   },
   dengshi: {
     key:'dengshi', name:'灯尸', img:'assets/legend/dengshi.jpg',
@@ -110,7 +110,7 @@ export const LEGEND = {
     drops:[{ id:'scroll_1', p:0.26 }, { id:'stone_1', p:0.28 },
             { id:'bld_field', p:0.03 }],
     quest: { title:'引 路', desc:'替灯尸找到那座找不到的坟。',
-            target:'dengshi', reward:{ dao:500, scroll:'scroll_1' } },
+            target:'dengshi', reward:[ { dao:500, scroll:'scroll_1' }, { dao:500, item:'stone_2' } ] },
   },
 };
 export const LEGEND_LIST = Object.values(LEGEND);

@@ -120,16 +120,25 @@ export const QUEST = {
   grant(rw, path, questKey) {
     const got = { dao:0, scroll:null, item:null, special:null, gear:null, text:[] };
     if (!rw && !questKey) return got;
-    if (rw.dao) { Cult.get().dao += rw.dao; got.dao = rw.dao; got.text.push(`道行 +${rw.dao}`); }
-    if (rw.scroll) {
-      const sc = SCROLLS[rw.scroll];
-      if (sc) { Bag.add(rw.scroll, 1); got.scroll = rw.scroll;
+    // ⚠️ 支线的 `reward` 现在是 `[结局1, 结局2]` 数组(XX-NET-003);
+    //    叙事线那边 `STORY.finish` 已经先按 path 取好了单对象(ARC_REWARD),
+    //    所以两种形状都得认 —— 只按数组处理会打断叙事线,只按对象处理会打断支线。
+    const r = Array.isArray(rw) ? (rw[path - 1] || null) : rw;
+    if (r && r.dao) { Cult.get().dao += r.dao; got.dao = r.dao; got.text.push(`道行 +${r.dao}`); }
+    if (r && r.scroll) {
+      const sc = SCROLLS[r.scroll];
+      if (sc) { Bag.add(r.scroll, 1); got.scroll = r.scroll;
         got.text.push(`${sc.name} ×1`); }
     }
-    if (rw.item) { Bag.add(rw.item, 1); got.item = rw.item;
-      got.text.push(`${(STONES[rw.item]||GOODS[rw.item]||BUILDINGS[rw.item]||{name:rw.item}).name} ×1`); }
-    if (rw.special) { got.special = rw.special; Cult.get().dao += path===1?0:300;
-      if (path===2) got.text.push('道行 +300'); }
+    if (r && r.item) { Bag.add(r.item, 1); got.item = r.item;
+      got.text.push(`${(STONES[r.item]||GOODS[r.item]||BUILDINGS[r.item]||{name:r.item}).name} ×1`); }
+    // 特殊结局交互只决定 UI 弹哪个问答(白泽问答、石将补字…),
+    // **不再附带道行** —— 原来那条 `path===2 ? +300 : 0` 已折进各自的 reward 表,
+    // 留在这里会对结局二双算。
+    if (questKey) {
+      const qd = LEGEND[questKey] && LEGEND[questKey].quest;
+      if (qd && qd.special) got.special = qd.special;
+    }
     // —— 装备掉落(XX-EQUIP-005)——
     // 只从**支线结案**掉,绝不进砍杀局普通池:拿到就是拿到了,不会被刷爆。
     // gearFromSource 反查 gear 表的 `from` 字段,不在这里硬编码 8 条支线名 ——
@@ -147,7 +156,7 @@ export const QUEST = {
   specialPrompt(key) {
     const l = LEGEND[key];
     if (!l) return null;
-    switch (l.quest.reward.special) {
+    switch (l.quest.special) {   // special 已提到 quest 层(reward 变成 [p1,p2] 数组,XX-NET-003)
       case 'ask': return {
         title:'知 者',
         q:'「你修这道,是为了什么?」',
