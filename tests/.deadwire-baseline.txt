@@ -43,3 +43,51 @@ js/xiuxian/seed.js :: fingerprint
 # 没有一个用 $ —— 但它是 dom.js 的公开三件套之一,删了会让下一个视图模块
 # 又各抄一份 createElement。**建议接一个视图用上,而不是删。**
 js/xiuxian/ui/dom.js :: $
+
+# ── XX-WORLD 分阶段落地(Z8 侧,2026-10-10)────────────────────────
+#
+# ⚠️ 这一组**不是**「忘了接线」。阶段 0 的设计就是「纯数据先落地、零风险」:
+#    world-data-regression.mjs:84 反过来断言 world.js **不得** import 新目录,
+#    「接了就算跳阶段」。消费方在后续阶段接线。
+#
+# 📌 到期提醒不在本文件,而在 tests/lint-deps.mjs 的 STAGED 注册表:
+#      types.js   → XX-WORLD-004 阶段 1(区域上地图)
+#      nodes.js   → XX-WORLD-004 阶段 1(visibleNodes 接入 UI)
+#      regions.js → XX-WORLD-004 阶段 1(区域着色与危险度)
+#      network.js → XX-WORLD-005 阶段 2(Dijkstra 赶路)
+#    那边到期会打印提醒(不阻断)。**不要在本文件另建一套到期机制** ——
+#    已经有的机制只应有一份,重复登记等于制造两个真相。
+#
+# 契约层常量:整个扩展的类型单一真源,UI/逻辑层只读不猜。
+js/xiuxian/world/types.js :: DAY_PHASE
+# legacy 契约守卫:n0..n10 的 id/type/x/y/name/home/shop/pill 必须逐字不变,
+# story.js 的 5 条叙事线与 quest.js 的 8 条支线硬引用它们。这是迁移的生命线,
+# 它天生只由测试消费 —— 产品代码不需要「验证自己没被改」。
+js/xiuxian/world/nodes.js :: verifyLegacyIntact
+# 阶段 1 接线后由 UI 调用(地图可见节点),当前阶段刻意不接。
+js/xiuxian/world/nodes.js :: visibleNodes
+# 阶段 1 接线后校验区域覆盖,当前阶段刻意不接。
+js/xiuxian/world/regions.js :: verifyRegionCoverage
+# 阶段 2 接线后校验路网,当前阶段刻意不接。
+js/xiuxian/world/network.js :: verifyNetwork
+
+# ── world.js 的三个遗留导出(2026-10-10 复核)────────────────────
+#
+# 复核结论:三者**产品侧确实零调用**(逐个 grep 确认,命中全在注释里),
+# 但都不能直接删,理由各不相同 —— 写下来是为了不让下一个人重新查一遍。
+#
+# 真角色:network.js 的 roadsFromLegacy(legacyEdges) 以它的输出为输入契约,
+# 用来保证「转换结果与旧行为**完全等价**」(cost 恒为 1、BFS 跳数最短、
+# 不触发遭遇)。删了它就没有可对比的基准,等价性断言失去参照。
+js/xiuxian/world.js :: buildEdges
+
+# 🟡 待删,但现在不能删 —— 被接口稳定性断言持有:
+#    world-data-regression.mjs:86 断言 world.js 的对外接口仍含
+#    buildEdges / homeNode / rollEnemy 这三个名字(「接口变了但工单没改,
+#    调用方零改动的承诺就不成立」)。那个测试是 Z8 写的,
+#    删导出等于**改接口**,必须与 Z8 协同,不能单边动手。
+#    homeNode 本身是多余的一行封装(worldgen.js 内已有 nodes.find(n => n.home));
+#    rollEnemy 已由 runcfg.js 的 runConfigFor() 接管。
+#    → 跟踪:见 XX-AUDIT-030
+js/xiuxian/world.js :: homeNode
+js/xiuxian/world.js :: rollEnemy
