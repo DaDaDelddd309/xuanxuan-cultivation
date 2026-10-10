@@ -149,6 +149,71 @@ console.log(`\n[XX-PLAY-006 连带] 灵田密度按类型而非按 id(${N} 个�
      unknownType === 0, `${unknownType} 个种子缺类型`);
 }
 
+// —— 支线锚点:同一个病根的第四处(XX-PLAY-011)——
+//
+// quest.js 的完成条件原来写的是 `where:['n10','n1']` 这种 **id**。
+// 修之前实测 200 个种子:玩家**照提示去了正确的地方**,支线却结不了案 ——
+// 灯市 46%、姥姥 47.5%、红嫁衣 59.5%、青穹 64%、剑骨 64%、挡伥 67.5%。
+// 两条 boss 线还反着来:查 visited['n8'],而 n8 真是妖巢的只有 3.5%
+// ⇒ 打赢妖巢不结算,逛到一片编号 n8 的野地反而结算。
+//
+// 这里驱动**真实的 QUEST.progress()**(不自己复算逻辑),两条都断言:
+//   ① 做对了必须 100% 结得上   —— 否则玩家被卡死
+//   ② 只去错地方必须 0% 结得上 —— 否则白送
+console.log(`\n[XX-PLAY-011] 支线锚点按类型(${N} 个种子)`);
+{
+  const { QUEST, QUEST_COND } = await import('../js/xiuxian/quest.js');
+  const { Cult } = await import('../js/xiuxian/index.js');
+  const idAnchored = Object.entries(QUEST_COND).filter(([, c]) => c.type === 'visit' || c.type === 'boss');
+
+  // 先做结构断言,再进循环。
+  // 不加守卫的话,一旦有人把 types 删掉(退回 id 锚定),下面这行会抛
+  // TypeError **崩掉整个门禁** —— 退出码虽然非 0,但崩掉的门禁看不到
+  // 「到底是哪条支线出的问题」,也没法把其它断言的结果一起报出来。
+  // 崩 ≠ 断:门禁应该好好地报红,不是摔。
+  const missingTypes = idAnchored.filter(([k, c]) => c.type === 'visit' && (!Array.isArray(c.types) || !c.types.length));
+  ok('每条 visit 支线都声明了 types(锚点是类型,不是 id)',
+     missingTypes.length === 0, missingTypes.map(([k]) => k).join(','));
+
+  let stuck = [], freebie = [];
+  const perQuest = new Map();
+  for (let i = 0; i < N && missingTypes.length === 0; i++) {
+    regenerate('xxplay011-' + i);
+    for (const [key, c] of idAnchored) {
+      const types = c.type === 'boss' ? ['boss'] : (c.types || []);
+      if (!types.length) continue;
+      if (!perQuest.has(key)) perQuest.set(key, { ok: 0, bad: 0 });
+      const rec = perQuest.get(key);
+
+      // ① 做对了:该类型的点全去过
+      Cult.get().visited = { n0: true };
+      for (const ty of types) for (const n of WORLD.nodes) if (n.type === ty) Cult.get().visited[n.id] = true;
+      Cult.commit();
+      QUEST.s = { active: [key], done: {}, choices: {} };
+      if (QUEST.progress(key) === 1) rec.ok++; else stuck.push(`${key}@seed${i}`);
+
+      // ② 只去过**错类型**的地方
+      Cult.get().visited = { n0: true };
+      for (const n of WORLD.nodes) if (!types.includes(n.type)) Cult.get().visited[n.id] = true;
+      Cult.commit();
+      QUEST.s = { active: [key], done: {}, choices: {} };
+      if (QUEST.progress(key) === 1) { rec.bad++; freebie.push(`${key}@seed${i}`); }
+    }
+  }
+  const table = [...perQuest.entries()].map(([k, v]) =>
+    `      ${k.padEnd(10)} 做对 ${v.ok}/${N} · 误结算 ${v.bad}/${N}`).join('\n');
+  console.log(table);
+  ok('支线做对了必定结得上(玩家不会被卡死)',
+     stuck.length === 0, `${stuck.length} 次结不上,首个 ${stuck[0]}`);
+  ok('支线没做够时不能白送(只去错地方一律 0)',
+     freebie.length === 0, `${freebie.length} 次误结算,首个 ${freebie[0]}`);
+
+  // 防退化:条件里不许再冒出节点 id —— id 是生成器的内部产物。
+  const withIds = Object.values(QUEST_COND).filter(c => c.where || /\bn\d+\b/.test(c.tip || ''));
+  ok('完成条件与任务描述里都没有节点 id', withIds.length === 0,
+     Object.keys(withIds).join(','));
+}
+
 console.log(`\n通过 ${pass} / 失败 ${fail}`);
 if (failed.length) { console.log('\n失败明细:'); for (const f of failed) console.log('  ✗ ' + f); }
 process.exit(fail ? 1 : 0);

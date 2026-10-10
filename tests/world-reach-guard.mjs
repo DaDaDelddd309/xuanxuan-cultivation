@@ -20,9 +20,14 @@
 // 它查什么:
 //   §1 提取到的引用 id 在 nodes.js 里真实存在
 //   §2 每个引用 id 在路网中从家可达(ignoreBlock)
-//   §3 引用 id 覆盖了 story / quest 两个来源,且都不是空集(防「提取器坏了」)
+//   §3 提取器自检 + quest.js 必须零 id 引用(XX-PLAY-011 防回退)
 //   §4 三个 verify 仍全绿(承接 WORLD-001 的验收)
 //   §5 门禁自身反向自检
+//
+// 【2026-10-10 改动】quest.js 的支线锚点已从 id 改成类型(XX-PLAY-011),
+//   它现在**一个节点 id 都不引用**。§3 因此拆成两条互不替代的断言:
+//   story.js 仍要提得出(证明提取器没坏)+ quest.js 必须提不出(防回退)。
+//   「提取到 0 条」分不清是正则坏了还是真的没有了,必须两头各钉一条。
 //
 // 它不查:类型锚点(那是 story-anchor-regression 的事)、
 //         区域划分(world-data-regression 的事)。
@@ -63,10 +68,19 @@ console.log('\n=== [1] 现场提取引用清单(不硬编码) ===');
   console.log(`  story.js 引用 ${storyIds.length} 个: ${storyIds.join(' ')}`);
   console.log(`  quest.js 引用 ${questIds.length} 个: ${questIds.join(' ')}`);
 
-  // §3 防「提取器坏了」—— 一个都没提到,只可能是正则写错了,
-  // 而不是「项目里真的没人引用节点」。这种静默失灵最难查。
-  t('story.js 确实引用了节点(提取器没坏)', storyIds.length >= 5, `只提到 ${storyIds.length} 个`);
-  t('quest.js 确实引用了节点(提取器没坏)', questIds.length >= 5, `只提到 ${questIds.length} 个`);
+  // §3 防「提取器坏了」。⚠️ 这里原来写的是 `questIds.length >= 5`,
+  //    理由是「一个都没提到只可能是正则写错了」。XX-PLAY-011 修完之后,
+  //    quest.js **真的**一个 id 都不引用了 —— 那正是修复生效的样子,
+  //    却被这条自检判成「提取器坏了」而报红。
+  //
+  //    教训:「提取到 0 条」有两种可能(正则坏了 / 真的没有了),
+  //    单看数量分不出来。所以拆成两条互不替代的断言:
+  //      · story.js 仍引用 ≥5 个 ⇒ 证明**提取器本身是好的**(它在有 id 的文件上确实提得出)
+  //      · quest.js 必须引用 **0** 个 ⇒ 把「支线不再用 id 锚定」钉死,防回退
+  //    这样任何一边出问题都能被看见,而不是笼统地报「提取器坏了」。
+  t('story.js 确实引用了节点(证明提取器本身没坏)', storyIds.length >= 5, `只提到 ${storyIds.length} 个`);
+  t('quest.js 已不再引用任何节点 id(XX-PLAY-011 防回退)', questIds.length === 0,
+    `又冒出 ${questIds.length} 个: ${questIds.join(' ')}`);
 
   var ALL_REFS = [...new Set([...storyIds, ...questIds])];
   console.log(`  合计需守护 ${ALL_REFS.length} 个节点`);
@@ -111,12 +125,19 @@ console.log('\n=== [2] 每个引用节点在路网中从家可达(无封锁) ★
 
 console.log('\n=== [3] 护栏覆盖度不许变窄(防悄悄失效) ===');
 {
-  // 钉一个字面下限:即使有人重构掉提取器,少于这个数就报红。
-  // 数字来源:2026-10-10 实测 story=7 个 / quest=7 个 / 去重后合计 10 个。
-  t('引用节点总数不少于 10 个(实测基线)', ALL_REFS.length >= 10, `实测 ${ALL_REFS.length}`);
-  // 剧情护栏至少要覆盖 boss 与 secret 两类 —— 那是 XX-WORLD-007 的核心语义
+  // ⚠️ 这里原来钉的是「去重后合计 ≥ 10」,依据是
+  //   「story=7 个 / quest=7 个 / 去重后 10 个」。
+  //   但 quest.js 那 7 个 id 正是 XX-PLAY-011 判定为错、已经全部删掉的
+  //   —— 照着旧数字报红,等于**拿 bug 当基线**:修好了反而要改测试来迁就。
+  //   改成:绝对下限下调到 7(= story.js 现在的覆盖面),
+  //   并把「护栏必须覆盖 boss 与 secret」单独钉死 —— 那是 XX-WORLD-007 的核心语义,
+  //   比一个笼统的总数更能说明「覆盖面没变窄」。
+  t('引用节点去重后不少于 7 个(XX-PLAY-011 后基线;quest 贡献已按设计归零)',
+    ALL_REFS.length >= 7, `实测 ${ALL_REFS.length}: ${ALL_REFS.join(' ')}`);
   const types = ALL_REFS.map(id => (NODE_BY_ID.get(id) || {}).type).filter(Boolean);
   t('引用节点覆盖多种类型(不全是野地)', new Set(types).size >= 3, [...new Set(types)].join(','));
+  t('护栏仍覆盖 boss(妖巢)与 secret(秘境)—— XX-WORLD-007 的核心语义',
+    types.includes('boss') && types.includes('secret'), [...new Set(types)].join(','));
 }
 
 console.log('\n=== [4] 承接 WORLD-001:三个 verify 仍全绿 ===');

@@ -2,6 +2,7 @@
 // 每只传说妖一条支线,每条叙事线一个结案选择。
 // 设计:任务不打断,只在修仙阁里显示进度。完成后弹结算。
 import { SAVE_KEYS } from './save-keys.js';
+import { WORLD } from './world.js';           // 支线按**类型**锚定,不再按 id(XX-PLAY-011)
 import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY } from './story.js';
 import { Cult } from './index.js';
@@ -14,16 +15,45 @@ import { gearFromSource, GEAR } from '../game/gear.js';   // 「结案对象 →
 const K = SAVE_KEYS.quest;
 
 // 支线完成条件表:不同妖,不同的结法
+//
+// 【XX-PLAY-011】锚点从**节点 id** 改成**节点类型**。
+//
+// 为什么原来那样不行:条件写的是 `where:['n10','n1']` 这种 id,而 id 由
+// worldgen 按 (y,x) 排序**逐种子重发**(worldgen.js:237)。
+// 实测 200 个种子,玩家**照提示去了正确的地方**、支线却结不了案的比例:
+//
+//   dengshi  46.0%   laolao 47.5%   hongyi 59.5%
+//   qingqiong 64.0%  jiangu  64.0%  dangkang 67.5%
+//
+// 两条 boss 线尤其荒唐:它查 `p.visited['n8']`,而 n8 真是妖巢的种子只有
+// **3.5%** —— 于是玩家**打赢妖巢**它不结算,反倒**逛到一片恰好编号 n8 的野地**
+// 它就结算了。同一个行为("去了该去的地方"),结果掷骰子。
+//
+// tip 里原来还把原始 id 直接报给玩家看('村外枯井(n10)与邻道(n1)'),
+// 经 ui/story.js 上屏。id 是内部实现,不该出现在任务描述里,一并去掉。
 export const QUEST_COND = {
-  hongyi:  { type:'visit',  where:['n10','n1'],  need:2, tip:'村外枯井(n10)与邻道(n1)' },
-  laolao:  { type:'visit',  where:['n5','n7'], need:2, tip:'黑风岭与险地,愿牌散落之处' },
+  hongyi:  { type:'visit',  types:['field'], need:2, tip:'村外野道上的那口枯井' },
+  laolao:  { type:'visit',  types:['elite'], need:2, tip:'黑风岭一带的险地,愿牌散落之处' },
   baize:   { type:'peace',  key:'baize',       tip:'在秘境遇见白泽' },
-  dangkang:{ type:'visit',  where:['n2','n1'], need:2, tip:'跟着白牛,它往山里去' },
-  qingqiong:{type:'boss',  where:['n8'],      tip:'古战场,青穹每次都会经过' },
-  jiangu:  { type:'visit',  where:['n8'],      need:1, tip:'断剑冢,看它演完那一招' },
+  dangkang:{ type:'visit',  types:['field'], need:2, tip:'跟着白牛,它往山里去' },
+  qingqiong:{type:'boss',  tip:'古战场遗迹,青穹每次都会经过' },
+  jiangu:  { type:'visit',  types:['boss'],  need:1, tip:'断剑冢,看它演完那一招' },
   shijiang:{ type:'tomb',   key:'shijiang',   tip:'走进墓里,到石将跟前' },
-  dengshi: { type:'visit',  where:['n10','n3'], need:2, tip:'村外(n10)与南道(n3)的坟场' },
+  dengshi: { type:'visit',  types:['field'], need:2, tip:'村外的坟场' },
 };
+
+/**
+ * 当前世界里属于这些类型的节点。
+ * 读不到世界时返回空数组 —— 「不知道」不等于「当成没有」
+ * (同一个理由见 story.js 的 _nodeTypeOk:信息缺失 ≠ 证据)。
+ */
+function nodesOfTypes(types) {
+  try {
+    const w = WORLD;
+    if (!w || !w.nodes) return [];
+    return w.nodes.filter(n => types.includes(n.type));
+  } catch { return []; }
+}
 
 export const QUEST = {
   s: { active: [], done: {}, choices: {} },   // active:[key], done:{key:{path,at}}, choices:{arc:1|2}
@@ -79,11 +109,22 @@ export const QUEST = {
     if (!this.s.active.includes(key)) return 0;
     const p = Cult.get();
     if (c.type === 'visit') {
-      const n = c.where.filter(w => p.visited[w]).length;
-      return Math.min(1, n / c.need);
+      // 按**类型**取当前世界里该去的那些点,不再查写死的 id(XX-PLAY-011)
+      const nodes = nodesOfTypes(c.types);
+      if (!nodes.length) return 0;                       // 读不到世界/该类不存在 → 不推进,也不误判
+      // 需求数不得超过这张图里该类节点的**实际数量**。
+      // 不封顶会造出「永远完不成」的支线:险地(elite)每图只有 1~3 个,
+      // 而 laolao 要 2 个 —— 只出 1 个险地的图里,这条线就永久卡死。
+      // 取 min 的代价是难度随图浮动,换来的是「任何种子都走得完」。
+      const need = Math.min(c.need, nodes.length);
+      const n = nodes.filter(x => p.visited[x.id]).length;
+      return Math.min(1, n / need);
     }
     if (c.type === 'peace') return STORY.met(c.key) ? 1 : 0;
-    if (c.type === 'boss')  return p.visited['n8'] ? 1 : 0;
+    // boss 线看的是**真正的妖巢**被走过没有。原来查 visited['n8'],
+    // 而 n8 真是妖巢的种子只有 3.5% —— 打完妖巢不结算,
+    // 逛到一片编号 n8 的野地反而结算。
+    if (c.type === 'boss')  return nodesOfTypes(['boss']).some(x => p.visited[x.id]) ? 1 : 0;
     if (c.type === 'tomb') return TOMB.s.done ? 1 : 0;   // 石将那条线在墓里结
     return 0;
   },
