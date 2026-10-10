@@ -8,9 +8,13 @@
 //   · 原先这里是 11 个节点的硬编码表,换种子地图纹丝不动 —— 假随机。
 //   · 现在由 worldgen 保证不变量:全连通 / 秘境≤4步 / Boss非死角 / 青石村固定起点。
 //
-// ★ 对外接口一字未改,ui.js 等调用方零改动:
-//   NODE_TYPES / ENEMY_POOL / buildEdges / WORLD
-//   nodeById / neighbors / homeNode / rollEnemy / travel / pathBetween
+// ★ 对外接口(V0.97 拆分后**已变更**,不是"一字未改"):
+//     仍在用: NODE_TYPES / ENEMY_POOL / WORLD / nodeById / neighbors / travel / pathBetween
+//     已无人调用(只剩测试在用,见 tests/lint-deadwire.mjs):
+//         buildEdges / homeNode / rollEnemy
+//   —— 遭遇派发已由 runcfg.js 的 runConfigFor() 接管,不再经由 rollEnemy。
+//   —— 上面那句"ui.js 等调用方零改动"是 V0.97 当时的写法,重写后已经不成立了,
+//      留在这里会让人以为这三个函数仍在服务 ui.js。**改代码前先看这一行。**
 
 import { generate, GRID, DENSITY, MAX_SECRET_DEPTH } from './worldgen.js';
 import { getMaster, setMaster } from './seed.js';

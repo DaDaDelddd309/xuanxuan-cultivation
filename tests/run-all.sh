@@ -56,6 +56,11 @@ npm run lint || fail=$((fail+1))
 # 「每次跑基线都能看见有没有新增死导出」,而不是为了拦路。
 node tests/lint-deadexport.mjs || true
 
+# 断头路检测(XX-AUDIT-027):查「产品侧零调用、只有测试在调」。
+# 与 lint-deadexport 互补 —— 后者的 C1 把 tests/ 当 root,所以这类对它隐形。
+# 同为 report-only:间接调用查不到,直接拦会误伤。
+node tests/lint-deadwire.mjs || true
+
 # —— 5. 元检查:tests/ 下不该有「存在但没被跑」的测试 ——
 #
 # 这套东西反复出问题,根因都是同一个:测试文件存在,但没人接进基线。

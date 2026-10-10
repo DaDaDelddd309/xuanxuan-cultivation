@@ -1,0 +1,45 @@
+# 断头路基线 —— 人工确认过、**不是**缺陷的条目
+#
+# 格式:  <声明文件> :: <导出名>
+#
+# 收录标准:该导出**产品侧零调用、只有测试在调**,但经人工判定**应当保留**。
+# 由 tests/lint-deadwire.mjs 读取;新增候选不会因为写在这里就自动通过,
+# 必须先人工看一遍再写进来 —— 写错一行等于永久放过一个真断头路。
+#
+# ── 已判定为「合理的对外接口面」 ──────────────────────────────
+
+# 数据模块的键名列表:外部消费(UI 渲染、存档面板、后续工单)需要它。
+# 本轮还没接 UI 不等于该删 —— gear.js 是 XX-EQUIP 的单一真源,键表属于它。
+js/game/gear.js :: AFFIX_KEYS
+js/game/gear.js :: GEAR_IDS
+
+# 装备完整性校验器。查的是 **GEAR 表自身**的词条等级/稀有度是否合法,
+# 不是读档校验 —— 存档只存 id,id 白名单在 core/save.js:sanitize() 里
+# (save.js 不 import gear.js 是刻意的:它是��早加载的模块,反向依赖会把
+# 整个游戏层拖进 UI 层依赖链)。所以它天然只由数据层测试消费。
+js/game/gear.js :: validateGear
+
+# 空装备档:新建存档时的默认值。与 save.js:defaults() 里的字面量对应,
+# 两份必须一致(由 gear-regression 的存档契约段断言),故不合并。
+js/game/gear.js :: emptyLoadout
+
+# 合成配方表的别名。craft.js:91 明写「配方表(测试与外部消费用这个名字)」——
+# 是刻意开的口子,不是忘了接线。真表 RECIPES 未导出,测试需要一个稳定名。
+js/xiuxian/craft.js :: CRAFT_RECIPES
+
+# 刷怪模式的读写器。功能本身在 spawner.js 内部工作
+# (85/117/137/154 行都在读这个模块级变量),只是读写器暂未对外暴露。
+# 接入 XX-WORLD-005 赶路层时预计会用上(赶路遭遇要有稳定的 spawn 模式)。
+js/game/spawner.js :: getSpawnMode
+js/game/spawner.js :: setSpawnMode
+
+# 局内配置读取器与种子指纹。属于 Z8 的 RNG 确定性工作,
+# 由 tests/test-runcfg.mjs / test-seed.mjs 做种子往返断言;
+# 接线到战斗是 XX-EQUIP-004 之后的下一批,本轮不删。
+js/xiuxian/runcfg.js :: getRunMod
+js/xiuxian/seed.js :: fingerprint
+
+# DOM 快捷函数。ui/ 下各模块目前统一 import { esc, toast },
+# 没有一个用 $ —— 但它是 dom.js 的公开三件套之一,删了会让下一个视图模块
+# 又各抄一份 createElement。**建议接一个视图用上,而不是删。**
+js/xiuxian/ui/dom.js :: $
