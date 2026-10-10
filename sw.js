@@ -47,6 +47,9 @@ const XX = [
   // ui.js 又 import 了 runcfg —— 4 个文件全在静态 import 图上,一个都不能少。
   'js/xiuxian/seed.js', 'js/xiuxian/worldgen.js', 'js/xiuxian/runcfg.js',
   'js/xiuxian/vendor/rot-rng.js',
+  // XX-PLAY-012:换世重置。ui.js 的「换一世」调它,它在 ui.js 的静态 import 图上
+  // —— 不进清单的话,离线状态下换一世会因取不到模块而白屏。
+  'js/xiuxian/newlife.js',
   // 修仙阁 UI 拆分(XX-AUDIT-005)。ui.js 拆出去之后,ui.js import 这些文件,
   // 它们就在 ui.js 的**静态 import 图**上 —— 原生 ESM 全有或全无,
   // 离线拉不到任意一个就是整页白屏。dom.js 是共享 DOM 辅助(esc/toast),

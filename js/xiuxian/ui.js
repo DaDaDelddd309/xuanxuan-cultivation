@@ -28,6 +28,7 @@ import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBrea
 import { ARTS, canEnlighten, enlighten } from './arts.js';
 import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES, regenerate, WORLD_INFO } from './world.js';
 import { runConfigFor, setActive, clearActive } from './runcfg.js';   // 2026-10-10 接线:抵达节点即定本局参数
+import { resetWorldScope } from './newlife.js';   // XX-PLAY-012:换世时重置节点作用域
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
@@ -505,13 +506,28 @@ export const Hall = {
         const w = regenerate(Seed.cur);
         // 换世 = 整张地图换了,本局参数随之失效,回到默认(field)而不是留上局的。
         clearActive();
+        // 【XX-PLAY-012】节点作用域的状态也得跟着换。
+        //   clearActive() 只清 runcfg 的本局参数 —— 位置、足迹、领地、篝火、灵田、营地
+        //   全都锚在**具体节点 id** 上,而 id 逐种子重发。实测 200 组换世:
+        //   玩家站的节点 61% 变了类型、24.5% 从「青岚秘境」变成无名野地;
+        //   而旧 visited 整张表带过去,会把新妖巢算成「已去过」,
+        //   依赖 visited 的剧情与支线于是自动放行 —— 玩家没打过,系统说打过。
+        const reset = resetWorldScope();
         Cult.commit();
         // XX-FIX-003:Cult.commit() 只写修仙状态的键,profile.seed 会停在旧值。
         // 运行时读种子走的是独立键 xx_seed_v081,所以**不影响玩法**,
         // 只是存档码里那个种子名显示成旧的。这里补一次 Profile 收集。
         try { Profile.collect(mods); } catch (e) { console.warn('[seed-sync]', e); }
         this.render();
-        toast(`新的一世:${Seed.cur} · ${w.nodes.length} 个节点`); break;
+        // 提示要说清「这一世把什么清了」—— 不说就是**静默删档**。
+        const lost = [];
+        if (reset.cleared.visited) lost.push('足迹');
+        if (reset.cleared.land) lost.push(`领地 ${reset.cleared.land} 处`);
+        if (reset.cleared.fires) lost.push(`篝火 ${reset.cleared.fires} 处`);
+        if (reset.cleared.placed) lost.push(`灵田 ${reset.cleared.placed} 处`);
+        toast(`新的一世:${Seed.cur} · ${w.nodes.length} 个节点`
+          + (lost.length ? ` · 已重置${lost.join('、')}并回到青石村` : ''));
+        break;
       }
       case 'copycode': {
         const ta = document.getElementById('xx-code');

@@ -214,6 +214,72 @@ console.log(`\n[XX-PLAY-011] 支线锚点按类型(${N} 个种子)`);
      Object.keys(withIds).join(','));
 }
 
+// —— 换世重置(XX-PLAY-012)——
+//
+// `setseed` 原来只清 runcfg 的本局参数,位置/足迹/领地/篝火/灵田/营地
+// 全是**锚在节点 id 上**的,而 id 逐种子重发。实测 200 组换世:
+// 站的节点 61% 变了类型、24.5% 从「青岚秘境」变成无名野地;
+// 旧 visited 整张表带过去还会把新妖巢算成「已去过」。
+//
+// 这里每次都先造一个「逛遍全图 + 占满产业」的上辈,再换世,逐项验清干净。
+console.log(`\n[XX-PLAY-012] 换世时节点作用域必须重置(${N} 组种子)`);
+{
+  const { CAMP } = await import('../js/xiuxian/camp.js');
+  const { Cult } = await import('../js/xiuxian/index.js');
+  const { BUILD } = await import('../js/xiuxian/build.js');
+  const { resetWorldScope } = await import('../js/xiuxian/newlife.js');
+  const bad = { home: 0, visited: 0, boss: 0, land: 0, fires: 0, placed: 0, camp: 0 };
+
+  for (let i = 0; i < N; i++) {
+    // —— 上一世:把节点作用域填满 ——
+    regenerate('nl-old-' + i);
+    Cult.get().visited = Object.fromEntries(WORLD.nodes.map(n => [n.id, true]));
+    Cult.get().current = WORLD.nodes[3].id;
+    Cult.commit();
+    BUILD.s = {
+      placed: [{ bid: 0, nodeId: WORLD.nodes[1].id, workers: [] }],
+      fires: [{ nodeId: WORLD.nodes[2].id }],
+      land: [WORLD.nodes[0].id],
+      tierLv: 1, incomeAt: 0, pacts: { signed: 0, allyAt: 0 },
+    };
+    CAMP.s.nodeId = WORLD.nodes[2].id;
+
+    // —— 换世 ——
+    regenerate('nl-new-' + i);
+    resetWorldScope();
+
+    const home = WORLD.nodes.find(n => n.home);
+    const cs = Cult.get();
+    if (cs.current !== home.id) bad.home++;
+    const vis = Object.keys(cs.visited || {});
+    if (vis.length !== 1 || !cs.visited[home.id]) bad.visited++;
+    // 新妖巢绝不能出现在「已探索」里 —— 那等于替玩家打过了
+    if (vis.some(id => id !== home.id && (WORLD.nodes.find(n => n.id === id) || {}).type === 'boss')) bad.boss++;
+    if (BUILD.s.land.length) bad.land++;
+    if (BUILD.s.fires.length) bad.fires++;
+    if (BUILD.s.placed.length) bad.placed++;
+    if (CAMP.s.nodeId) bad.camp++;
+  }
+  const row = (label, n) => ok(`换世后${label}`, n === 0, `${n}/${N} 次未清干净`);
+  row('玩家回到青石村', bad.home);
+  row('足迹只剩家', bad.visited);
+  row('足迹里没有妖巢(不能替玩家打过了)', bad.boss);
+  row('领地清空', bad.land);
+  row('篝火清空', bad.fires);
+  row('灵田清空', bad.placed);
+  row('营地解扎', bad.camp);
+
+  // 边界反向:不是节点作用域的东西**不许**被清掉。
+  // 「换一世」不是「删档」—— 修为/道行/见过哪些妖都该留着。
+  regenerate('nl-keep-final');
+  Cult.get().dao = 12345;
+  Cult.get().realmIdx = 2;
+  Cult.commit();
+  resetWorldScope();
+  ok('换世不清修为与道行(不是删档)', Cult.get().dao === 12345 && Cult.get().realmIdx === 2,
+    `dao=${Cult.get().dao} realmIdx=${Cult.get().realmIdx}`);
+}
+
 console.log(`\n通过 ${pass} / 失败 ${fail}`);
 if (failed.length) { console.log('\n失败明细:'); for (const f of failed) console.log('  ✗ ' + f); }
 process.exit(fail ? 1 : 0);
