@@ -36,9 +36,16 @@ export const FACTIONS = [
 // ───────────────────────────────────────────────────────────
 
 /**
- * 5 个初始区域。danger 与 build.js:255 的 DENS 逐一对齐 ——
- * 这是刻意的:迁移时 `fieldBonus()` 可以先退回按区域查 danger,
- * 行为不变;等节点都带上 region 字段,再彻底删掉那张表。
+ * 5 个初始区域。danger 的真实定义是「**成员节点 DENS 的最大值**」——
+ * 不是逐节点对齐,那张 11 行的 DENS 表是节点级的,区域是聚合。
+ * 5 个区域实测全部满足该规则,由 `verifyRegionDanger()` 守门,
+ * 所以 `fieldBonus()` 退回按区域查 danger 时行为仍然一致。
+ *
+ * ⚠️ 这里**没有**地图坐标(原 mapRect 已删)。V0.97 起地图按种子生成:
+ *   实测 8 个种子 → 8 种布局(n2 在 seed=1 落在 (1,2),在 seed=42 落在 (1,4))。
+ *   任何手写矩形都只对某一个种子成立 —— 原值在当前默认种子下就有
+ *   12/15 个节点落在框外,换种子更是全错。
+ *   区域色块改由 `regionRects()` 在渲染时按真实落点推导。
  *
  * @type {import('./types.js').Region[]}
  */
@@ -66,7 +73,6 @@ export const REGIONS = [
 
     sect: null,               // 无宗门。玩家的起步区。
 
-    mapRect: { x:2, y:6, w:44, h:52 },
   },
 
   {
@@ -92,7 +98,6 @@ export const REGIONS = [
 
     sect: null,
 
-    mapRect: { x:26, y:4, w:50, h:34 },
   },
 
   {
@@ -123,7 +128,6 @@ export const REGIONS = [
       recruit: true,
     },
 
-    mapRect: { x:44, y:34, w:26, h:28 },
   },
 
   {
@@ -149,7 +153,6 @@ export const REGIONS = [
 
     sect: null,
 
-    mapRect: { x:52, y:30, w:34, h:32 },
   },
 
   {
@@ -158,7 +161,10 @@ export const REGIONS = [
     col: '#8a7a9a',
     danger: 3,
     faction: 'f_gucha',
-    nodes: ['n8', 'n6'],                     // 古战场遗迹(n8)+ 东北哨点(n6)
+    // n6 望驿台曾被误列在这里。nodes.js:153 里它的 region 是 r_luoyun(官道分岔),
+    // 而且它同时出现在 r_luoyun.nodes —— 一个节点占两个区域会让 NODE_REGION
+    // 靠「后写覆盖先写」决定归属,与节点自身声明矛盾。已按 nodes.js 为准移出。
+    nodes: ['n8'],                           // 古战场遗迹(n8)
     desc: '三百万柄断剑插在地上。风一吹,它们就一起响。',
 
     resources: [
@@ -175,7 +181,6 @@ export const REGIONS = [
 
     sect: null,
 
-    mapRect: { x:62, y:14, w:34, h:44 },
   },
 ];
 
@@ -227,7 +232,15 @@ export function regionView(regionId, ctx = {}) {
   if (!r) return { region:null, danger:0, passable:false, reason:'未知区域' };
 
   const isNight = !!ctx.isNight;
-  const mul = isNight ? (r.dayNight?.nightDangerMul ?? 1.35) : (r.dayNight?.dayYieldMul ?? 1.0);
+  // 危险度只认**危险度倍率**。
+  // 原来这里白天乘的是 dayNight.dayYieldMul —— 那是**产出**倍率
+  // (types.js:103 写得很清楚),拿它缩放 danger 的后果:
+  // 青岚秘境白天 2 × 1.1 = 2.2、古战场 3 × 1.05 = 3.15,
+  // 「白天出丹多」被翻译成了「白天更凶」。
+  // 产出与危险本就该能反向调(白天更安全但夜里更凶),两个字段互不干涉。
+  const mul = isNight
+    ? (r.dayNight?.nightDangerMul ?? 1.35)
+    : (r.dayNight?.dayDangerMul ?? 1.0);
 
   // 封锁:静态 blockade(带 until)优先,其次是动态 roadStates
   const blk = r.blockade;
@@ -271,4 +284,101 @@ export function verifyRegionCoverage() {
   const orphanNodes = Object.keys(LEGACY_DENS).filter(n => !covered.has(n));
   const orphanDens = [...covered].filter(n => !(n in LEGACY_DENS));
   return { ok: orphanNodes.length === 0, orphanNodes, orphanDens };
+}
+
+/**
+ * 区域归属唯一性 + 与节点自身声明一致。
+ *
+ * `verifyRegionCoverage()` 用 Set 去重,**看不见重复**:一个节点被写进两个
+ * 区域时,覆盖集合照样是那 11 个,ok 照样 true,重复彻底隐形。而 NODE_REGION
+ * 是 `flatMap` 建的,重复节点会被**后写的区域静默夺走**,解析结果与
+ * nodes.js 里 `region:` 字段矛盾 —— 这正是 n6 的遭遇。
+ *
+ * 断言两条:
+ *   1. 任一节点最多属于一个区域;
+ *   2. REGIONS 里的归属 === nodes.js 里该节点的 `region` 字段(nodes.js 为准)。
+ *
+ * @param {Object.<string,string>} nodeRegionById nodeId → regionId(nodes.js 的说法)
+ * @returns {{ok:boolean, duplicated:Array<{node:string, regions:string[]}>, mismatched:Array<{node:string, inRegions:string, inNodes:string}>}}
+ */
+export function verifyRegionMembership(nodeRegionById = {}) {
+  const seen = new Map();
+  for (const r of REGIONS) for (const n of r.nodes) {
+    if (!seen.has(n)) seen.set(n, []);
+    seen.get(n).push(r.id);
+  }
+  const duplicated = [...seen]
+    .filter(([, rs]) => rs.length > 1)
+    .map(([node, regions]) => ({ node, regions }));
+
+  const mismatched = [];
+  for (const [node, rs] of seen) {
+    const declared = nodeRegionById[node];
+    // nodes.js 没表态(新节点可能尚未归区)时不报,免得把正常推进当错误
+    if (declared && declared !== rs[0]) {
+      mismatched.push({ node, inRegions: rs[0], inNodes: declared });
+    }
+  }
+  return { ok: duplicated.length === 0 && mismatched.length === 0, duplicated, mismatched };
+}
+
+/**
+ * 区域危险度 === 成员节点 DENS 的最大值。
+ *
+ * 这是区域 danger 的**唯一口径**,让 `fieldBonus()` 之类按区域查危险度的
+ * 代码与节点级 DENS 保持行为一致,而不是靠「手填的时候记得对齐」。
+ * 5 个区域实测:1/1/2/2/3,全部等于各自成员的最大值。
+ *
+ * @returns {{ok:boolean, bad:Array<{region:string, danger:number, expected:number}>}}
+ */
+export function verifyRegionDanger() {
+  const bad = [];
+  for (const r of REGIONS) {
+    const vals = r.nodes.map(n => LEGACY_DENS[n]).filter(v => v !== undefined);
+    if (!vals.length) continue;               // 全是新节点,没有可比基准
+    const expected = Math.max(...vals);
+    if (r.danger !== expected) bad.push({ region: r.id, danger: r.danger, expected });
+  }
+  return { ok: bad.length === 0, bad };
+}
+
+/**
+ * 区域色块的几何 —— **渲染时按真实落点推导**,不再有静态坐标。
+ *
+ * 地图按种子生成,手写矩形注定只对一个种子成立(实测 8 种子 8 布局)。
+ * 这里取每个区域**当前可见节点**的包围盒再外扩 `pad`,换种子自动跟随。
+ *
+ * 已知取舍:包围盒是近似,区域之间**会重叠**(节点在网格上交错时尤其明显)。
+ * 这是有意的 —— 诚实的近似好过一张精确但骗人的图。渲染层用低透明度
+ * 填充 + 虚线描边表达,重叠读作「势力交壤」。
+ *
+ * @param {Object[]} nodes   当前可见节点(需含 .id)
+ * @param {(n:Object)=>{x:number,y:number}} posOf 节点 → 百分比坐标(与 ui 的 pos() 同一把尺)
+ * @param {number} [pad]     外扩百分比,默认 7
+ * @returns {Array<{region:Object, rect:Object, members:Object[]}>} 无可见成员的区域不返回
+ */
+export function regionRects(nodes, posOf, pad = 7) {
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const out = [];
+  for (const region of REGIONS) {
+    const members = region.nodes.map(id => byId.get(id)).filter(Boolean);
+    if (!members.length) continue;            // n11+ 未开启时它们本就不在图上
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of members) {
+      const p = posOf(n);
+      if (p.x < x0) x0 = p.x;  if (p.x > x1) x1 = p.x;
+      if (p.y < y0) y0 = p.y;  if (p.y > y1) y1 = p.y;
+    }
+    out.push({
+      region,
+      members,
+      rect: {
+        x: Math.max(0, x0 - pad),
+        y: Math.max(0, y0 - pad),
+        w: Math.min(100, x1 + pad) - Math.max(0, x0 - pad),
+        h: Math.min(100, y1 + pad) - Math.max(0, y0 - pad),
+      },
+    });
+  }
+  return out;
 }

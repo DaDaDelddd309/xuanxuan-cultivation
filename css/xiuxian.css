@@ -1,6 +1,11 @@
 /* ===== 修仙层 UI(独立作用域,不污染原版) ===== */
 :root{
   /* ---- 颜色 ---- */
+  /* 区域色(XX-WORLD-004):真正的颜色是**数据** —— regions.js 里每个区域的
+     region.col,由 ui/map.js 按元素以内联 style 注入并覆盖本值。
+     这里给一个中性默认,是为了让 --xx-rgn-col 在任何时刻都有定义:
+     未被注入时(比如单测直接读 CSS)也不会让 color-mix() 整体失效。 */
+  --xx-rgn-col:var(--xx-paper-faint);
   /* ⚠️ 原来这几个是自我引用(var(--xx-paper) 赋给 --xx-paper),
      浏览器判为无效 → 变量消失 → 修仙阁整体掉回默认色。
      现在直接从 palette.css 引用真正的令牌。 */
@@ -827,3 +832,38 @@
    成长游戏的核心快感之一就是知道下一个能得到什么。 */
 .xx-art-cond{font-size:9.5px;line-height:1.5;color:rgba(232,220,196,.55);
   margin-top:4px;letter-spacing:0}
+
+/* ===== 区域层(XX-WORLD-004 阶段 1) =====
+   色块压在连线下面(z-index 1 > .xx-edge 的 0)、节点下面(z-index 5)。
+   pointer-events:none —— 色块是**背景**,绝不能吃掉节点的点击。
+   矩形由 ui/map.js 按当前种子现算,这里不写死任何坐标。 */
+/* 区域/势力自身的颜色是**数据**(regions.js 的 region.col),经 --xx-rgn-col
+   由 ui/map.js 传入,不在这里写死 —— 改配色只改数据,不必动 CSS。
+   但文字色与危险度色属于主题语义,一律走令牌(lint-tokens 盯着这件事)。 */
+.xx-rgn{position:absolute;z-index:1;pointer-events:none;
+  border:1px dashed color-mix(in srgb, var(--xx-rgn-col) 55%, transparent);
+  border-radius:3px;
+  background:color-mix(in srgb, var(--xx-rgn-col) 9%, transparent)}
+.xx-rgn-cur{border-style:solid;
+  border-color:color-mix(in srgb, var(--xx-rgn-col) 85%, transparent)}
+.xx-rgn-nm{font-family:"Songti SC",serif;font-size:11px;letter-spacing:1px;
+  color:color-mix(in srgb, var(--xx-rgn-col) 78%, var(--xx-paper-base));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xx-rgn-unknown{color:var(--xx-paper-faint);letter-spacing:3px}
+.xx-rgn-sub{display:flex;gap:5px;align-items:center;margin-top:2px}
+.xx-rgn-fa{font-size:9px;color:var(--xx-paper-faint);white-space:nowrap}
+
+/* 危险度三档:直接借用项目既有语义色 —— 玉(平)/金(险)/朱砂(凶),
+   和战斗条、状态提示同一套读法,玩家不用重新学一遍颜色。 */
+.xx-dg{font-size:9px;letter-spacing:.5px;white-space:nowrap}
+.xx-dg-1{color:var(--xx-jade)}
+.xx-dg-2{color:var(--xx-gold)}
+.xx-dg-3{color:var(--xx-cinnabar)}
+
+/* 图例:色块上已写了名字,这里补横向对照。 */
+.xx-legend{margin:10px auto 0;max-width:400px;padding:0 2px}
+.xx-lg-row{display:flex;align-items:center;gap:6px;padding:3px 0;
+  font-size:11px;color:var(--xx-paper-dim)}
+.xx-lg-dot{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
+.xx-lg-nm{flex:none;min-width:4.6em}
+.xx-lg-fa{flex:1;color:var(--xx-paper-faint);font-size:10px}

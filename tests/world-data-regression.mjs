@@ -6,10 +6,13 @@
 //
 // 本门禁守三件事:
 //   §1 三个 verify 全绿(n0-n10 完好 / 11 个 legacy 节点全归区域 / 路网自洽)
-//   §2 FEATURE_FLAGS 六个开关全 false —— 阶段 0 不允许有半个功能冒出来
+//   §2 FEATURE_FLAGS 只允许「已落地阶段」的开关打开 —— 阶段 0 是全 false,
+//      阶段 1(XX-WORLD-004)后是 regions=true 其余五个仍关。不许跳阶段,
+//      也不许永远钉死 false:阶段 1 一上线就假红的门禁,大家会习惯性忽略它。
 //   §3 world.js 一字未改 —— 这条工单的核心承诺,也是最容易在后续 PR 里破掉的
 //
-// 它不查(越界):渲染、寻路、遭遇 —— 那是 XX-WORLD-004/005/006 的事。
+// 它不查(越界):寻路、遭遇 —— 那是 XX-WORLD-005/006 的事。
+// 区域**色块几何**归 XX-WORLD-004,但跨种子自洽属于数据层不变量,在 §4 里。
 //
 // 退出码:0 = 通过;非 0 = 不通过
 import { readFileSync } from 'fs';
@@ -17,7 +20,9 @@ import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv, join } from 'path';
 import { NODES, LEGACY_IDS, FEATURE_FLAGS, visibleNodes, verifyLegacyIntact }
   from '../js/xiuxian/world/nodes.js';
-import { REGIONS, verifyRegionCoverage } from '../js/xiuxian/world/regions.js';
+import { REGIONS, verifyRegionCoverage, verifyRegionMembership, verifyRegionDanger, regionRects }
+  from '../js/xiuxian/world/regions.js';
+import { generate } from '../js/xiuxian/worldgen.js';
 import { ROADS, verifyNetwork } from '../js/xiuxian/world/network.js';
 import { DAY_PHASE } from '../js/xiuxian/world/types.js';
 
@@ -61,11 +66,20 @@ console.log('\n=== [1] 三个 verify(README §3.1 说的阶段 0 完整性保障
     '若新节点也可达,说明它们被硬连进了路网 —— 那是阶段 1+ 才该做的事');
 }
 
-console.log('\n=== [2] FEATURE_FLAGS 必须全 false(阶段 0 不许半个功能冒头) ===');
+console.log('\n=== [2] FEATURE_FLAGS 只能按阶段逐个开,不许跳阶段 ===');
 {
-  const on = Object.entries(FEATURE_FLAGS).filter(([, v]) => v !== false);
-  t(`六个开关全 false(实测 ${Object.keys(FEATURE_FLAGS).length} 个)`,
-    on.length === 0, on.length ? '被打开: ' + on.map(([k, v]) => `${k}=${v}`).join(', ') : '');
+  // 阶段 0 断言的是「全 false」,但那是**阶段 0 的**承诺,不是永久承诺。
+  // XX-WORLD-004 落地阶段 1 后 regions 必须为 true,其余五个必须还关着。
+  // 所以这里改成断言「**开着的开关恰好等于已落地的阶段清单**」——
+  // 白名单跟着工单走,而不是永远钉死 false(那会让阶段 1 一上线就假红,
+  // 而假红的门禁比没门禁更坏:大家会习惯性地忽略它)。
+  const EXPECT_ON = ['regions'];        // 阶段 0 = [] ; 阶段 1(WORLD-004) = ['regions']
+  const on = Object.keys(FEATURE_FLAGS).filter(k => FEATURE_FLAGS[k] !== false);
+  t(`开着的开关恰好是 ${EXPECT_ON.length ? EXPECT_ON.join(',') : '(无)' }(实测 ${Object.keys(FEATURE_FLAGS).length} 个开关)`,
+    on.length === EXPECT_ON.length && EXPECT_ON.every(k => on.includes(k)),
+    on.length !== EXPECT_ON.length
+      ? `被打开: ${on.join(',') || '(无)'} —— 开关必须跟着已落地阶段走,跳阶段发布要拆开`
+      : '');
   t('开关集合没被加塞', Object.keys(FEATURE_FLAGS).length === 6,
     `实测 ${Object.keys(FEATURE_FLAGS).join(',')}`);
   // visibleNodes 是「按开关过滤后」的入口 —— newNodes 关着时必须只剩 11 个
@@ -113,6 +127,59 @@ console.log('\n=== [4] 数据自洽(不依赖 verify,防 verify 自己写错) ==
     r.nodes.filter(n => !NODES.some(x => x.id === n)).map(n => `${r.id}→${n}`));
   t('区域里没有幽灵节点', ghostInRegion.length === 0, ghostInRegion.slice(0, 3).join('; '));
 
+  // ── 归属唯一性(XX-WORLD-004 挖出) ──
+  // verifyRegionCoverage 用 Set 去重,**看不见重复**:一个节点被写进两个区域时,
+  // 覆盖集合照样是那 11 个,ok 照样 true。而 NODE_REGION 是 flatMap 建的,
+  // 重复节点被**后写的区域静默夺走** —— n6 就这样在 r_luoyun 与 r_guzhan 之间
+  // 翻了面,解析结果与 nodes.js 的 region 字段矛盾。
+  const mem = verifyRegionMembership(Object.fromEntries(NODES.map(n => [n.id, n.region])));
+  t('没有节点同时属于两个区域', mem.duplicated.length === 0,
+    mem.duplicated.map(d => `${d.node}∈[${d.regions.join('+')}]`).join('; '));
+  t('区域归属与 nodes.js 的 region 字段一致', mem.mismatched.length === 0,
+    mem.mismatched.map(m => `${m.node}: 区域表=${m.inRegions} vs nodes.js=${m.inNodes}`).join('; '));
+
+  // ── 危险度口径 ──
+  // region.danger 必须是「成员 DENS 的最大值」。这条让按区域查危险度的代码
+  // 与节点级 DENS 行为一致,而不是靠手填时记得对齐。
+  const dng = verifyRegionDanger();
+  t('区域危险度 = 成员 DENS 最大值', dng.ok,
+    dng.bad.map(b => `${b.region}: ${b.danger}≠${b.expected}`).join('; '));
+
+  // ── 色块几何:跨种子自洽(XX-WORLD-004 的核心不变量) ──
+  // 地图按种子生成。若色块几何来自任何静态坐标,换个种子就会整片错位 ——
+  // 而错位不会报错,只会让玩家看到「节点在自己区域外面」。这条跨 12 个种子断言:
+  // 每个区域的**每个可见成员都必须落在自己那块色块内**。
+  // 反向验证记录:把 regionRects 换成 regions.js 里原来的静态 mapRect,
+  // 本条在默认种子下就会报 12/15 个节点在框外(见 git history)。
+  const SEEDS = [1, 2, 3, 7, 42, 99, 1234, 20261010, 777, 31337, 5, 10086];
+  let outside = 0, blockCount = 0;
+  for (const seed of SEEDS) {
+    const g = generate(seed);
+    const xs = g.nodes.map(n => n.x), ys = g.nodes.map(n => n.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const sx = x1 > x0 ? 86 / (x1 - x0) : 0, sy = y1 > y0 ? 52 / (y1 - y0) : 0;
+    // 复刻 ui.js vMap 的 pos() —— 同一把尺,否则测的不是渲染用的几何
+    const posOf = n => ({ x: 7 + (n.x - x0) * sx, y: 9 + (n.y - y0) * sy });
+    // visibleNodes() 只当**id 白名单**,坐标一律取自 generate(seed) ——
+    // NODES 的 x/y 与生成布局有 7/11 个节点对不上(n1: NODES(2,1) vs 生成(5,1)),
+    // 拿 NODES 的坐标配 WORLD 的边界换算会静默错位,而且不报错。
+    const allow = new Set(visibleNodes().map(n => n.id));
+    const vis = g.nodes.filter(n => allow.has(n.id));
+    for (const { rect, members } of regionRects(vis, posOf)) {
+      blockCount++;
+      for (const n of members) {
+        const p = posOf(n);
+        if (p.x < rect.x || p.x > rect.x + rect.w || p.y < rect.y || p.y > rect.y + rect.h) outside++;
+      }
+    }
+  }
+  t(`色块跨 ${SEEDS.length} 个种子包住全部成员(实测 ${blockCount} 块)`,
+    outside === 0, `${outside} 个节点落在自己区域框外 —— 色块几何不是按真实落点算的`);
+  // 只查**属性定义**,不查注释:注释里必须留着「为什么删掉它」的解释。
+  t('数据层不再有静态地图坐标', !/\bmapRect\s*:/.test(R('js/xiuxian/world/regions.js')),
+    '静态坐标在按种子生成的地图上必然过期,几何一律现算');
+
   // 路的两个端点都必须是真节点 —— verifyNetwork 查了,这里独立再查一次,
   // 是为了钉住「verify 自己写错」这种情况(它是从同一份数据推出来的)
   const known = new Set(ids);
@@ -137,9 +204,9 @@ console.log('\n=== [5] 本门禁自身没失效(P1-7 反向自检) ===');
 }
 
 if (fail === 0) {
-  console.log('\n✅ 大世界阶段 0 数据层通过:三个 verify 全绿、六个开关全关、world.js 未改');
+  console.log('\n✅ 大世界数据层通过:三个 verify 全绿、开关按阶段逐个开、world.js 未改');
   process.exit(0);
 } else {
-  console.log(`\n❌ ${fail} 项不达标 —— 阶段 0 的数据层有静默错误`);
+  console.log(`\n❌ ${fail} 项不达标 —— 数据层有静默错误`);
   process.exit(1);
 }

@@ -98,24 +98,38 @@ while (stack.length) {
 //   · 必须写清「哪个工单、哪个阶段接它」
 //   · 阶段一旦落地,该条**必须删掉** —— 否则就变成了永久豁免,而豁免是腐烂的起点
 // 到期没删时,本门禁会打印提醒(不阻断),让「该接线的还没接」重新变得可见。
+// 只剩阶段 2 的了:types/nodes/regions 已随 XX-WORLD-004 接线,自己过期了。
 const STAGED = {
-  'js/xiuxian/world/types.js':   'XX-WORLD-004 阶段 1:区域上地图时接线',
-  'js/xiuxian/world/nodes.js':   'XX-WORLD-004 阶段 1:visibleNodes 接入 UI',
-  'js/xiuxian/world/regions.js': 'XX-WORLD-004 阶段 1:区域着色与危险度',
   'js/xiuxian/world/network.js': 'XX-WORLD-005 阶段 2:Dijkstra 赶路',
+};
+
+// 【纯类型声明文件】—— 与 STAGED 是两回事,别混为一谈
+//
+// STAGED 说的是「**有计划地还没接线**」,阶段一到就该删条目。
+// TYPE_ONLY 说的是「**运行期本来就不该有谁 import 它**」——纯 typedef 模块,
+// 引用只存在于 JSDoc 的 `import('./types.js')` 里,而 JSDoc 是注释,
+// 注释在打包/运行期被擦除,所以依赖图上它永远是孤立点。
+// 把它塞进 STAGED 会撒谎:它不会在某个阶段「接上线」,那条 ⚠️ 过期提醒
+// 也会永远响,提醒一响就等于没提醒。
+const TYPE_ONLY = {
+  'js/xiuxian/world/types.js': '大世界类型契约。引用只在 JSDoc import() 里,运行期无人 import 是**正确状态**',
 };
 const dead = [...graph.keys()].filter(k => k !== ENTRY && !seen.has(k)).sort();
 const deadStaged = dead.filter(d => STAGED[d]);
-const deadReal = dead.filter(d => !STAGED[d]);
+const deadTypes = dead.filter(d => TYPE_ONLY[d]);
+const deadReal = dead.filter(d => !STAGED[d] && !TYPE_ONLY[d]);
 if (deadReal.length) {
   console.log(`  ❌ ${deadReal.length} 个模块从 ${ENTRY} 不可达(写好了但没人用):`);
   deadReal.forEach(d => console.log(`     ${d}`));
   bad++;
 } else {
-  console.log(`✅ 无死代码(${graph.size} 个模块全部从入口可达${deadStaged.length ? `,${deadStaged.length} 个阶段化暂存` : ''})`);
+  console.log(`✅ 无死代码(${graph.size} 个模块全部从入口可达${deadStaged.length ? `,${deadStaged.length} 个阶段化暂存` : ''}${deadTypes.length ? `,${deadTypes.length} 个纯类型模块` : ''})`);
 }
 for (const d of deadStaged) {
   console.log(`  ⏳ 暂存(按计划未接线): ${d}  ← ${STAGED[d]}`);
+}
+for (const d of deadTypes) {
+  console.log(`  📐 类型声明(运行期无 importer 属正常): ${d}  ← ${TYPE_ONLY[d]}`);
 }
 
 // 白名单自身也要能过期:阶段早就到了却还挂着,提醒一次
@@ -128,7 +142,7 @@ for (const [p, why] of Object.entries(STAGED)) {
 // ---------- 3. 孤儿(无人 import) ----------
 const imported = new Set([...graph.values()].flat());
 const orphan = [...graph.keys()].filter(k => k !== ENTRY && !imported.has(k));
-const orphanReal = orphan.filter(o => !STAGED[o]);
+const orphanReal = orphan.filter(o => !STAGED[o] && !TYPE_ONLY[o]);
 if (orphanReal.length) {
   console.log(`  ❌ ${orphanReal.length} 个模块无人 import:`);
   orphanReal.forEach(d => console.log(`     ${d}`));

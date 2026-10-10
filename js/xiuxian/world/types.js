@@ -101,6 +101,9 @@ export const DAY_PHASE = /** @type {const} */ ({
  *                    与 items.js DAY.bonus() 的 1.35 保持一致 —— 同一套昼夜经济学,
  *                    不要让地图和背包各算各的。
  * @property {number}     [dayNight.dayYieldMul]     白天产出倍率,默认 1.0
+ * @property {number}     [dayNight.dayDangerMul]     白天危险倍率,默认 1.0
+ *                    ⚠️ 与 dayYieldMul 是**两回事**,别互相顶替:
+ *                    「白天出丹多」不等于「白天更凶」。只影响产出/危险各自一条线。
  * @property {string[]}   [dayNight.closedTypes]      入夜后关闭的节点类型(如 outpost)
  * @property {boolean}    [dayNight.nightOnly]        该区域只在夜晚可进入(如某些幻境)
  *
@@ -121,9 +124,11 @@ export const DAY_PHASE = /** @type {const} */ ({
  *                                  clock.js 已有绝对日刻度(CLOCK.absoluteDay()),
  *                                  用它才能和昼夜对齐;存墙钟时间会与离线推算打架。
  *
- * —— 视觉(可选,UI 层消费)——
- * @property {number}     [mapRect]  地图占位 {x,y,w,h},百分比 0..100。
- *                                 v1 不做真实地图投影,只用来给区域画色块/边框。
+ * —— 视觉 ——
+ * ⚠️ 这里**刻意没有** mapRect。V0.97 起地图按种子生成(实测 8 种子 8 布局),
+ *    静态矩形只对某一个种子成立,且与节点真实落点无关。
+ *    区域色块的几何由 regions.js 的 `regionRects()` 在渲染时推导,
+ *    数据层只保留语义(name/danger/faction/resources),不碰坐标。
  */
 
 /**
