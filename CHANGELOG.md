@@ -1,5 +1,73 @@
 # 更新日志
 
+## v099s · 修一个已经上线的 P0：离线时修仙阁会白屏（2026-10-11）
+
+**玩家能感知的**：如果你在离线状态下打开游戏，且游戏进入过修仙阁所在的地图 ——
+它会白屏。这类 bug 平时看不见，只在「飞行模式 + 该模块被 fetch 过」时发作。
+
+### 是什么
+
+`js/xiuxian/world/network.js` 与 `js/xiuxian/world/types.js` **不在 `sw.js` 的预缓存清单里**。
+离线时 SW 取不到这两个文件，import 链断掉，整个模块加载失败。
+
+实测线上（`https://dadadelddd309.github.io/xuanxuan-cultivation/sw.js`）：
+
+```
+const V = 'xuanxuan-v099r';
+world/network.js 出现次数: 0     ← 确认这个 P0 当时就在生产环境里
+```
+
+### 为什么没人发现
+
+不是「忘了加」，是**那条检查本地根本跑不到**：
+
+- `lint-precache.mjs` 只查**一个方向**（清单里有、磁盘没有）
+- 另一个方向（磁盘有、清单没有）**只存在于 `.github/workflows/ci.yml` 的一段内联 `node -e` 里**
+
+所以本地 `npm run check` 永远是绿的。这个红在 main 上连挂三个提交
+（`6b89551` / `0475e80` / `4dad804`），没有任何人在开发机上被告知过。
+
+> 「检查存在，但只存在于一个大多数人跑不到的地方」——
+> 和 `XX-AUDIT-014` 原话「浏览器测试不在任何自动执行路径上」是同一个病，只是方向反了。
+
+### 做了什么
+
+- `sw.js` 补进 `js/xiuxian/world/network.js` 与 `types.js`
+- 新增 `tests/lint-precache-reverse.mjs`，**接进 `npm run lint`** —— 现在本地跑得到
+- `ci.yml` 改成调同一个文件，消除两处重复实现
+
+**反向验证**：把 `network.js` 条目抽掉 → 该 lint 报红（exit 1）；放回去 → 绿（exit 0）。
+
+### 为什么补这两个「还没接线」的文件
+
+它们当时确实还没接线 —— `world/` 四个文件里只有这两个运行时消费者为 0
+（`planRoute` / `verifyNetwork` 只被 `tests/` 调用），所以「不会被 fetch、不会白屏」。
+
+但 `XX-WORLD-005` 马上就要把 `planRoute` 接进 `ui.js` travel 分支 ——
+**那正是它们被 fetch 的那一刻**。阶段 0 落地的意义就是「代码库始终完整可运行」，
+提前进预缓存比等接完再补安全：漏补的后果是离线白屏。
+
+### 顺带修的两个浏览器测试脚本自身崩掉的问题
+
+这两个只能在 CI 上跑（playwright 无 bionic wheel），所以本地一直看不到：
+
+- `full79.py`：`NameError: name 'os' is not defined` ——
+  同一文件另一处用的是 `__import__('os')` 内联写法，说明作者当时知道 `os` 没 import，
+  只在一处打了补丁，漏了另一处。
+- `audit-reach.py`：`TypeError: <lambda>() takes 2 positional arguments but 3 were given` ——
+  `ok`/`warn` 只接 2 个参数，下面的调用却传了 3 个。
+  它在第 50 行就崩了，**后面 6 条断言一条都没跑到** ——
+  也就是说「玩家在正常流程里到底能不能拿到坐骑」这个审计，从来没被真正验证过。
+
+### ⚠️ 还没修的
+
+浏览器测试 `t86` / `t87` / `t88` / `t89` / `audit-loop` **在 CI 上仍然是红的**，
+且本机装不上 playwright 无法复现与验证。已立 **XX-AUDIT-033** 承接。
+
+**不要因为这一版就以为 CI 已经绿了 —— `browser` job 还红着。**
+
+---
+
 ## v099r · 合并方统一升版（2026-10-11）
 
 按 `VERSION-CONVENTION.md` §2「合并后由合并方统一升版」。本版并入 **Z8 侧 5 个提交**

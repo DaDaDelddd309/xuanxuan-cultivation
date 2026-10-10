@@ -1,5 +1,11 @@
 from playwright.sync_api import sync_playwright
-import time, json
+# 2026-10-11(XX-AUDIT-014):补 os。
+#   下面第 4 行 CHROME=os.environ.get('XX_CHROME') 用了 os,却只有 `import time, json`。
+#   同一行往下第 11 行的 goto 用的是 `__import__('os')` 内联写法 ——
+#   当初作者显然知道 os 没 import,只在**一处**打了补丁,漏了上面这处。
+#   浏览器测试只能在 CI 上跑(playwright 无 bionic wheel),本地永远看不到,
+#   于是这个 NameError 一路红到 main 上。
+import os, time, json
 HIDE_HALL = "()=>{document.querySelector('.xx-screen')?.remove();" + "document.getElementById('screens').style.display='none';}"
 CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 errs=[]; fails=[]

@@ -15,8 +15,13 @@ with sync_playwright() as p:
     pg.goto('http://127.0.0.1:%s/'%os.environ.get('XX_TEST_PORT','8894'),wait_until='networkidle')
     pg.evaluate("()=>localStorage.clear()"); pg.reload(wait_until='networkidle'); time.sleep(2)
     unblock(pg)
-    ok=lambda n,c: print(('  ✅ ' if c else '  ❌ ')+n) or (None if c else fails.append(n))
-    warn=lambda n,c: print(('  ⚠️ ' if not c else '  · ')+n) or (None if not c else warns.append(n))
+    # 2026-10-11(XX-AUDIT-014):第三个参数 d 是「失败时才打印的详情」,
+    #   与 tests/*.mjs 里 t() 的约定一致(`${d ? '  — ' + d : ''}`)。
+    #   本文件下面第 50/52 行按三参调用,而这两个 lambda 原本只接两个,
+    #   于是 audit-reach 在 CI 上直接 TypeError 退出,后面 6 条断言一条都没跑到 ——
+    #   也就是说「玩家拿不到坐骑」这个审计结论**从来没被真正验证过**。
+    ok=lambda n,c,d='': print(('  ✅ ' if c else '  ❌ ')+n+(('  — '+str(d)) if (d and not c) else '')) or (None if c else fails.append(n))
+    warn=lambda n,c,d='': print(('  ⚠️ ' if not c else '  · ')+n+(('  — '+str(d)) if (d and not c) else '')) or (None if not c else warns.append(n))
 
     unblock(pg); pg.click('#btn-cult'); time.sleep(1.5)
 
