@@ -9,12 +9,19 @@
 // 其中「局外节点倾向接入局内刷怪与掉落」是玩家可见改动,却一直挂在 v099q 上),
 // 加上桌面侧 XX-AUDIT-025 与 P1-2 基线增量。
 // 按 VERSION-CONVENTION §2,本行是版本号唯一真源,其余三处由 lint-version 校验。
-// v099s(2026-10-11)· XX-AUDIT-014。
-//   修一个**已经上线**的 P0:js/xiuxian/world/{network,types}.js 不在预缓存清单里,
-//   离线时取不到 → import 链断 → 白屏。实测线上 sw.js 里这两个文件计数为 0。
-//   必须再升一版:已经缓存 v099r 的客户端不会因为同版本号而更新 sw.js。
-const V = 'xuanxuan-v099s';
-const BUILD = '20261011-0120';
+// v099t(2026-10-11)· 合并方统一升版(第二次合)。
+//
+// 本次并入桌面侧 XX-AUDIT-014:修一个**已经上线**的 P0 ——
+//   js/xiuxian/world/{network,types}.js 不在预缓存清单里,离线时取不到
+//   → import 链断 → 白屏。实测线上 sw.js 里这两个文件计数为 0。
+//
+// 加上 Z8 侧 XX-PLAY-015:upgrades.js 种类子集内的加权抽取(权重此前是死代码,
+//   神通权重从 5 拉到 100000 卡位构成都不变),并新增 18 项门禁。
+//
+// ⚠️ 这次是**两边都升到 v099s 之后的撞车**(VERSION-CONVENTION §2 警告过的情况):
+//   合并方按规则再升一格 → v099t。已缓存 v099s 的客户端必须靠这个版本号差才能更新 sw.js。
+const V = 'xuanxuan-v099t';
+const BUILD = '20261011-0135';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
