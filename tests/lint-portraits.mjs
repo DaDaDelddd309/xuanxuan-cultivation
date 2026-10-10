@@ -14,16 +14,23 @@
 // 调色板依据(不是拍脑袋,是从 12 张定稿插画反推的,见 css/palette.css 头注释):
 //   中性灰(暗) 87.0% · 暖调(纸/金) 13.0% · 蓝 0% · 绿 0% · 饱和色 0%
 import { readFileSync, existsSync, readdirSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv, join } from 'path';
 const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
 const DIR = join(ROOT, 'assets/portrait');
 
-let fail = 0;
+let fail = 0, skip = 0;
 const ok = (n, c, d = '') => {
   if (c) console.log(`  ✓ ${n}`);
   else { fail++; console.log(`  ❌ ${n} ${d}`); }
+};
+// 「没检查」与「查出问题」是两件事,必须分开记账(XX-AUDIT-028)。
+// 混在一起的后果实测过:三星缺 Pillow,采样器返回 2 并明写「这不是风格超标」,
+// 而这里原先用 execFileSync —— 非零就抛,于是「跑不了」被报成「立绘超标」。
+const skipNote = (n, d = '') => {
+  skip++;
+  console.log(`  ⚠️  ${n}${d ? ' :: ' + d : ''}`);
 };
 
 console.log('\n[1] 数量:每个角色一张独立立绘');
@@ -67,16 +74,27 @@ console.log('\n[3] 调色板:真采样(饱和度与亮度必须落在实测区�
 // 照样混了进来,肉眼看只是「有点红」。现在改成真的采样。
 const meas = join(ROOT, 'tools/art/measure_style.py');
 if (existsSync(meas)) {
-  try {
-    const out = execFileSync('python3', [meas, '--gate'], { encoding: 'utf8' });
-    for (const line of out.trim().split('\n')) console.log('  ' + line);
-    ok('全部立绘落在实测调色板区间内', !out.includes('FAIL'));
-  } catch (e) {
-    ok('采样器可运行', false, String(e.message).slice(0, 120));
+  // ⚠️ 必须用 spawnSync 而不是 execFileSync:后者非零退出就抛,
+  //    拿不到退出码就分不清「超标(1)」和「跑不了(2)」。
+  const r = spawnSync('python3', [meas, '--gate'], { encoding: 'utf8' });
+  const out = ((r.stdout || '') + (r.stderr || '')).trim();
+  for (const line of out.split('\n')) if (line.trim()) console.log('  ' + line);
+  const code = r.status;
+  if (code === 0) {
+    ok('全部立绘落在实测调色板区间内', true);
+  } else if (code === 1) {
+    ok('全部立绘落在实测调色板区间内', false, '采样器报超标,明细见上');
+  } else if (code === 2) {
+    skipNote('调色板本项未检查(采样器缺依赖)', '不是「超标」;按上方提示装上依赖即可自动恢复');
+  } else {
+    skipNote('调色板本项未检查(采样器起不来)',
+      r.error ? r.error.message.slice(0, 120) : `非预期退出码 ${code}`);
   }
 } else {
+  // 采样器本身是入库文件,它不见了 = 有人删了,那是仓库缺陷,不是「没检查」。
   ok('tools/art/measure_style.py 存在', false, '缺采样器,调色板这项等于没查');
 }
 
-console.log(`\nlint-portraits: ${fail ? 'FAIL' : 'PASS'} (${fail ? fail : 'ok'})`);
+console.log(`\nlint-portraits: ${fail ? 'FAIL' : 'PASS'} (${fail ? fail : 'ok'}`
+  + `${skip ? `, ${skip} 项未检查` : ''})`);
 process.exit(fail ? 1 : 0);
