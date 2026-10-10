@@ -58,10 +58,27 @@ console.log('=== [2] musicBus 必须挂低通滤波 ===');
 
 console.log('=== [3] 音效区的短促方波不应被误改 ===');
 {
-  // shoot/hurt/click/no/synergy 用 square 是**正确**的(短促高频)。
-  // 本门禁不禁止它们,只确保没被一刀切全改成 triangle。
+  // ⚠️ 2026-10-10 改动这条门禁的**范围**,不是削弱它。
+  //
+  // 本条的本意:防止 XX-AUDIT-022 修 BGM 蜂鸣时,把音效区的方波
+  // 「一刀切」全改成 triangle(那样 BGM 修好了,音效却变得软塌塌)。
+  // 所以它要守的是**别一刀切**,不是「每个音效都必须永远是 square」。
+  //
+  // 原写法把 `click` 也钉死了,于是挡住了正当修复:
+  // 玩家报「点进去修仙阁有蜂鸣声」「阴间特效音」——
+  // 根因是 1900 Hz 这个音高 × 每个按钮都播一次(screens.js 统一绑定),
+  // 不是「方波=嗡」。1900 Hz 方波确实刺耳,已改成 760→500 triangle。
+  //
+  // 所以下面保留下来的三条,守的是「战斗音效的方波没被顺手抹掉」。
+  // UI 点击音**不再**被钉死 —— 它是纯装饰音,允许为了听感调整。
   t('shoot 仍是 square(短促音效,合理)', /shoot\(\)[^\n]*square/.test(SRC));
-  t('click 仍是 square(短促音效,合理)', /click\(\)[^\n]*square/.test(SRC));
+  t('hurt 仍是 square(受伤要有冲击力)', /hurt\(\)[^\n]*square/.test(SRC));
+  t('no 仍是 square(拒绝音要有存在感)', /no\(\)[^\n]*square/.test(SRC));
+  t('synergy 仍是 square(联动爆发)', /synergy\(\)[\s\S]{0,120}square/.test(SRC));
+  // UI 点击音:不钉波形,但钉住「不能又被调回刺耳的高频方波」。
+  t('click 不是高频方波(1900Hz 蜂鸣已被投诉)',
+    !/click\(\)[^\n]*type:\s*'square'/.test(SRC),
+    'click 回到 square 高频 = 那个投诉会原样复现');
 }
 
 console.log('=== [4] 噪声塑形仍在(_noise 的滤波不能被删) ===');

@@ -259,27 +259,31 @@ export const Hall = {
       case 'meditate': {
         // addExp 返回的是 {levels, broke},不是数字。
         // 之前直接 `${g}` 插值 → 吐纳 [object Object] 点修为(每次点必现)。
-        const r = addExp(s, 40);
+        // 产出走 Cult.killYield —— 与砍杀**同一条公式**(XX-NET-004)。
+        // 原来这里写死 40/200:炼气期 1 次吐纳 = 16 只妖的修为、333 只妖的道行,
+        // 砍杀直接失去意义;化神期又反过来完全没用。数字不能各写各的。
+        const M = Cult.killYield(s, Cult.MEDITATE_AS_KILLS);
+        const r = addExp(s, M.exp);
         // ⚠️ XX-FIX-017:道行**每次吐纳都给**,原来它被写在了下面的 `if (yr)` 里。
         // 而 CHRONICLE.action() 只在「跨年那一 tick」返回对象(见 chronicle.js 契约注释),
         // 于是 +200 道行一年才发一次 —— 跨一次年要点 3650 下,实测道行永远是 0。
         // 给资源和报事件是两件事,不该共用一个分支。
-        Cult.get().dao += 200;
+        Cult.get().dao += M.dao;
         // 修炼狂(XX-ARCH-006):连续修炼 30 天。休息一次就断,断点记在 rest 里。
         const _ms = Cult.get();
         _ms.medStreak = (_ms.medStreak || 0) + 1;
         if (_ms.medStreak >= 30) { Cult.titles.track('streak', 1); _ms.medStreak = 0; }
         const yr = CHRONICLE.action();
         if (yr) {
-          toast(`吐纳 · 修为 +40 · 道行 +200 · 第${yr.year}年:${yr.ev}`);
+          toast(`吐纳 · 修为 +${M.exp} · 道行 +${M.dao} · 第${yr.year}年:${yr.ev}`);
         } else {
           // 跨层要报出来,否则玩家点了没反应还以为坏了
           if (r.levels > 0) {
             toast(r.broke
-              ? `吐纳 · 道行 +200 · 已达 ${realmTitle(s)}圆满,可冲击突破`
-              : `吐纳 · 修为 +40 · 道行 +200 · 精进至 ${realmTitle(s)}`);
+              ? `吐纳 · 道行 +${M.dao} · 已达 ${realmTitle(s)}圆满,可冲击突破`
+              : `吐纳 · 修为 +${M.exp} · 道行 +${M.dao} · 精进至 ${realmTitle(s)}`);
           } else {
-            toast('吐纳 · 修为 +40 · 道行 +200');
+            toast(`吐纳 · 修为 +${M.exp} · 道行 +${M.dao}`);
           }
         }
         // 原来这个分支既不 commit 也不 render —— 页面要切页签才刷新,

@@ -33,7 +33,13 @@ const DEFS = {
   death()   { this._tone({ type: 'sawtooth', f0: 320, f1: 50, dur: 0.65, gain: 0.5 }); },
   victory() { [523, 659, 784, 1046].forEach((f, i) => this._tone({ type: 'triangle', f0: f, dur: 0.2, gain: 0.34, when: i * 0.11 }));
               this._tone({ type: 'sine', f0: 2093, dur: 0.35, gain: 0.18, when: 0.46 }); },
-  click()   { this._tone({ type: 'square', f0: 1900, f1: 1400, dur: 0.035, gain: 0.16 }); },
+  // 2026-10-10 从 square 1900→1400 改成 triangle 760→500。
+  // 理由:玩家报「进修仙阁/点吐纳有蜂鸣声」「阴间特效音」。
+  // 根因不是「方波=嗡」——0.035 秒的方波确实是「哒」——
+  // 根因是**1900 Hz 这个音高**加上**每个按钮都播**(screens.js 统一绑定),
+  // 叠起来就是持续刺耳的高频电子蜂鸣,和水墨修仙的调性完全两回事。
+  // triangle 无奇次谐波、基频降到 760,听感接近木头轻叩,不再扎耳。
+  click()   { this._tone({ type: 'triangle', f0: 760, f1: 500, dur: 0.045, gain: 0.12 }); },
   no()      { this._tone({ type: 'square', f0: 120, f1: 82, dur: 0.16, gain: 0.45 }); },
   dash()    { this._noise({ dur: 0.15, gain: 0.5, f: 420, f1: 3600, q: 0.7, type: 'highpass', atk: 0.04 }); },
   evolve()  { // 上行五声琶音 + 双八度泛音 + 低音铺底,总时长约 0.6s,比 levelup 隆重

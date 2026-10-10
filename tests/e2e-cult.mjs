@@ -177,19 +177,28 @@ console.log('\n[8] 灵伴在局内:真的动、真的捡');
 // ---- XX-FIX-017 防回归:吐纳必须给道行 ----
 // 背景:道行曾经被写进 `if (yr)` 分支,而 CHRONICLE.action() 只在跨年那一 tick
 // 返回对象 —— 于是 +200 道行一年才发一次,实测道行永远是 0。
-// 这条断言盯的是**行为**:点一次吐纳,道行必须 +200。
+// 这条断言盯的是**行为**:点一次吐纳,道行必须真的涨。
+//
+// 2026-10-10 改法:原来写死 `=== 200`。吐纳改成复用 Cult.killYield 之后,
+// 再钉一个魔法数就等于「以后调平衡必假红」。现在对着**公式**断言:
+// 期望量 = killYield(当前境界, MEDITATE_AS_KILLS)。
+// 真正要防回归的是「道行必须 > 0」,不是「恰好等于某个数」。
 {
   const { Cult } = await import('../js/xiuxian/index.js');
   guard('回到境界页', () => { Hall.tab = 'realm'; Hall.render(); });
+  const want = Cult.killYield(Cult.get(), Cult.MEDITATE_AS_KILLS);
+  ok('吐纳的期望产出本身为正(否则这条断言没有意义)', want.dao > 0 && want.exp > 0,
+     `dao=${want.dao} exp=${want.exp}`);
   const before = Cult.get().dao;
   guard('点一次吐纳', () => Hall.act('meditate'));
   const after = Cult.get().dao;
-  ok('吐纳给了道行', after - before === 200, `+${after - before}(应为 200)`);
+  ok('吐纳给了道行', after - before === want.dao,
+     `+${after - before}(公式期望 +${want.dao})`);
   ok('吐纳没把道行扣成负数', after >= 0, `dao=${after}`);
   const again0 = Cult.get().dao;
   guard('再点一次吐纳', () => Hall.act('meditate'));
-  ok('第二次也给道行(不是只有第一次)', Cult.get().dao - again0 === 200,
-     `+${Cult.get().dao - again0}`);
+  ok('第二次也给道行(不是只有第一次)', Cult.get().dao - again0 === want.dao,
+     `+${Cult.get().dao - again0}(期望 +${want.dao})`);
 }
 
 console.log(`\ne2e-cult: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);

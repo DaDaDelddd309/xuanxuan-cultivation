@@ -6,7 +6,7 @@
 import { SAVE_KEYS } from './save-keys.js';
 import { Save } from '../core/save.js';
 import { Bus } from '../core/engine.js';
-import { defaultCultivation, addExp, canBreakthrough, doBreakthrough, combatPower, realmTitle } from './realms.js';
+import { defaultCultivation, addExp, canBreakthrough, doBreakthrough, combatPower, realmTitle, layerCost } from './realms.js';
 import { defaultArts, enlighten, canEnlighten } from './arts.js';
 import { Nemesis, DEFEAT, Titles, BGM } from './relations.js';
 import { unlock as unlockAudio, play as playBGM } from './assets.js';
@@ -34,6 +34,29 @@ export const Cult = {
     try { localStorage.setItem(CKEY, JSON.stringify(this.s)); } catch {}
   },
 
+  /** 一次「吐纳」折合几只妖的产出(XX-NET-004)。
+   *  4 = 一次吐纳约等于砍死 4 只,作为「不想打架时的兜底」——
+   *  低于它,吐纳就只是个空按钮;高于它,砍杀失去意义。
+   *  这个数是**设计旋钮**,连同 killYield 一起改。 */
+  MEDITATE_AS_KILLS: 4,
+
+  /**
+   * 「击杀 N 只」换算成修为与道行 —— **唯一的产出公式**(XX-BAL-001 / XX-NET-004)。
+   *
+   * 为什么必须抽出来:修仙阁的「吐纳」本来自己写死了 40 修为 / 200 道行,
+   * 与境界完全无关,于是两头都坏 ——
+   *   炼气期 1 次吐纳 = 16 只妖的修为、333 只妖的道行 → 砍杀彻底失去意义
+   *   化神期 1 次吐纳 = 40 修为(1 只妖 ≈ 2500)  → 吐纳彻底失去意义
+   * 两套系数各走各的,谁也看不见谁。现在吐纳改为**按几只妖的量换算**,
+   * 口径永远一致,以后改 LAYER_COST 两边自动跟着走。
+   */
+  killYield(s, kills) {
+    const baseCost = layerCost('qi', 1) || 50;
+    const myCost   = layerCost(s.realm, 1) || baseCost;
+    const realmMul = Math.pow(myCost / baseCost, 0.63);
+    return { exp: Math.round(kills * 2.5 * realmMul), dao: Math.round(kills * 0.6) };
+  },
+
   // 局内结束 → 局外结算:修为、道行、丹药
   settle({ kills, time, realmLayer, realmIdx = 0 }) {
     const s = this.s;
@@ -53,12 +76,9 @@ export const Cult = {
     //
     // 指数 0.63:略低于 1(1.0 = 严格同比例,后期会平得没有挑战感),
     // 使后期每个大境界约 26~65 局,而不是几万局。
-    const baseCost = layerCost('qi', 1) || 50;
-    const myCost   = layerCost(s.realm, 1) || baseCost;
-    const realmMul = Math.pow(myCost / baseCost, 0.63);
-    const gain = Math.round(kills * 2.5 * realmMul);
+    const { exp: gain, dao } = this.killYield(s, kills);
     const r = addExp(s, gain);
-    s.dao += Math.round(kills * 0.6);
+    s.dao += dao;
     s.totalKills += kills;
     // 丹药小概率掉落
     if (Math.random() < 0.12 && s.realm === 'qi') {
