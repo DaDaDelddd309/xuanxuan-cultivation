@@ -4,8 +4,8 @@
 // 原有割草玩法完全不受影响;新系统是「局外」层,单局结束后才结算。
 
 import { SAVE_KEYS } from './save-keys.js';
-import { Save } from '../core/save.js';
-import { Bus } from '../core/engine.js';
+import { Save } from '../core/save.js?v=17';
+import { Bus } from '../core/engine.js?v=17';
 import { defaultCultivation, addExp, canBreakthrough, doBreakthrough, combatPower, realmTitle, layerCost } from './realms.js';
 import { defaultArts, enlighten, canEnlighten } from './arts.js';
 import { Nemesis, DEFEAT, Titles, BGM } from './relations.js';

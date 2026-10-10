@@ -19,7 +19,19 @@ globalThis.window = {};
 globalThis.Audio = function(){ this.play=()=>Promise.resolve(); this.pause=()=>{}; };
 
 import * as C from '../js/game/collatz.js';
-import * as S from '../js/game/spawner.js';
+// ⚠️ 这个 `?v=18` **不是装饰,去掉它这份测试会红**(2026-10-11 实测)。
+//
+// 本文件下面会 `await import('../js/ui/hud.js')` 去验证计时器后缀,
+// 而 hud.js 内部是按 `../game/spawner.js?v=18` 加载 spawner 的。
+// 这里若写成无戳,ESM 就按 URL 建两份模块记录 —— `S.setCollatzTrajectory()`
+// 写的那份,`HUD` 读的是**另一份**,后缀整个消失,渲染成「48:40」。
+//
+// 这跟本仓踩过的那个产品 bug 是**同一个**,只是搬到了测试里:
+//   `import './spawner.js'` 和 `import './spawner.js?v=18'`
+//   在浏览器和 Node 里都是两个模块实例,模块级 `let` 各存各的。
+// 戳必须跟生产一致 —— 改这里之前先确认 js/main.js 现在用的是哪个戳。
+// lint-module-identity 现在也扫 tests/ 目录了(产品侧 ❌ / 测试侧 ⚠️)。
+import * as S from '../js/game/spawner.js?v=18';
 
 let pass = 0, fail = 0;
 const failed = [];
