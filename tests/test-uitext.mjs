@@ -166,6 +166,39 @@ console.log('\n[5] 修仙阁 13 个页签:正文不得含代码特征');
   }
 }
 
+// ————————————————————————————————————
+console.log('\n[4] 玩家可见文案不得泄漏节点 id（XX-PLAY-013）');
+{
+  // 「界面上显示的是不是人能读的字」这道缝,还漏着一类:
+  // **内部编号被原样印给玩家**。
+  //
+  //   传送提示原来写的是 `阵旗发动,至「${nodeId}」。耗 120 道行。`
+  //   玩家看到的是「阵旗发动,至「n8」」—— n8 是 worldgen 的内部编号,
+  //   逐种子重发、玩家无从对应,印出来只是噪音。
+  //   quest.js 的任务描述报「村外(n10)」是同一类(XX-PLAY-011 已修)。
+  //
+  // 判据不写死具体文件:凡是把**名字里带 nodeId/nid 的变量**直接插进
+  // 模板串的,一律要求经过一个取地名的包装(_nodeName 之类)。
+  // 用 codeMask 剥注释 —— 注释里写着 `${nodeId}` 的说明不算(踩过 6 次的坑)。
+  const { codeMask } = await import('./lib-uimod.mjs');
+  const ID_VAR = /\$\{[^}]*\b(nodeId|nid|node\.id)\b[^}]*\}/;
+  const leaks = [];
+  for (const f of UI_FILES) {
+    const src = readFileSync(ROOT + '/' + f, 'utf8');
+    let m; try { m = codeMask(src); } catch { continue; }
+    for (const s of m.strings) {
+      if (s.q !== '`') continue;                       // 只看会拼出字符串的模板串
+      const body = src.slice(s.start + 1, s.end - 1);
+      if (!ID_VAR.test(body)) continue;
+      // 例外:经过取名包装的不算(_nodeName(nodeId) / esc(node.name) 这种)
+      if (/_nodeName\(|node\.name|\.name\s*\}/.test(body)) continue;
+      leaks.push(`${f}:${src.slice(0, s.start).split('\n').length}  ${body.slice(0, 70)}`);
+    }
+  }
+  ok('玩家可见文案里没有裸节点 id（应显示地名）', leaks.length === 0,
+     leaks.length ? `${leaks.length} 处:\n        ` + leaks.join('\n        ') : '');
+}
+
 console.log(`\ntest-uitext: ${fail ? 'FAIL' : 'PASS'} (${pass}/${pass + fail})`);
 if (failed.length) { console.log('失败项:'); failed.forEach(f => console.log('  - ' + f)); }
 process.exit(fail ? 1 : 0);

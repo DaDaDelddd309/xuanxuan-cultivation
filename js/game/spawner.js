@@ -3,8 +3,25 @@ import { spawnEnemy, ENEMY_TYPES, combatState } from './enemies.js?v=17';
 import { Director, P } from './director.js';   // 生成预算导演(V0.99 工单 XX-SPAWN-001)
 
 import { PAL } from '../core/palette.js';
+import { modAt as _collatzMod } from './collatz.js';   // XX-MATH-001
 const MAX_E = 180;          // 同屏普通怪上限(CONTRACT v2.1 §4:200→180,超过不刷普通怪)
 const TAU = Math.PI * 2;
+
+// —— XX-MATH-001:Collatz 难度调制 ——
+//
+// 局内难度原本是时间的**线性**函数(dmgMultAt = 1 + t/240)。加上这条之后,
+// 曲线的形状变成「长长的收敛段 + 突然的爆发」,玩家的体感从「越来越难」
+// 变成「正在收敛,或者正在爆发」—— 而且**可学习**:奇数步永远爆发。
+//
+// 🔒 **默认中性**:`_traj` 为 null 时系数恒为 1.0。
+// 这不是偷懒,是它能安全接进来的前提 —— 不激活就等于没接,
+// 现有每一个测试的行为都不受影响,回滚也只是把这一行删掉。
+let _traj = null;
+/** 由 ui.arrive() 在开局时按种子注入;传 null 即回到中性。 */
+export function setCollatzTrajectory(t) { _traj = t || null; }
+export function getCollatzTrajectory() { return _traj; }
+/** 当前时刻的难度调制系数 ∈ [0.85, 1.25];未激活恒为 1。 */
+export function collatzModAt(t) { return _traj ? _collatzMod(_traj, t) : 1; }
 
 // 阶段刷怪池:[类型, 权重] —— 0-60s 纸妖/夜枭 → 120s 加骨卫/蛛妖 → 240s 加金刚力士/火药童子 → 360s 加铁甲龟/青灯鬼火
 const POOLS = [
@@ -49,8 +66,9 @@ function curveAt(t, points, tail = 0) {
   return points[points.length - 1][1];
 }
 
-export function hpMultAt(t) { return curveAt(t, HP_POINTS, NORMAL_HP_TAIL); }
-export function eliteHpMultAt(t) { return curveAt(t, ELITE_HP_POINTS, ELITE_HP_TAIL); }
+// XX-MATH-001:曲线形状 × Collatz 调制系数(未激活时系数=1,行为不变)
+export function hpMultAt(t) { return curveAt(t, HP_POINTS, NORMAL_HP_TAIL) * collatzModAt(t); }
+export function eliteHpMultAt(t) { return curveAt(t, ELITE_HP_POINTS, ELITE_HP_TAIL) * collatzModAt(t); }
 
 // 低基础血量怪的后期保底:600s 时至少 735HP,保证进化武器单发也不能随手秒掉。
 export function minOrdinaryHpAt(t) {
@@ -66,7 +84,7 @@ export function spawnHpMultAt(typeId, t, { elite = false, horde = false } = {}) 
   const curve = normalCurve * (horde ? 0.75 : 1);
   return Math.max(curve, floor);
 }
-function dmgMultAt(t) { return 1 + t / 240; }
+function dmgMultAt(t) { return (1 + t / 240) * collatzModAt(t); }   // XX-MATH-001
 function spdMultAt(t) { return 1 + Math.min(0.3, t / 2000); }
 
 let endless = false;

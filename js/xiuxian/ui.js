@@ -29,6 +29,10 @@ import { ARTS, canEnlighten, enlighten } from './arts.js';
 import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES, regenerate, WORLD_INFO } from './world.js';
 import { runConfigFor, setActive, clearActive } from './runcfg.js';   // 2026-10-10 接线:抵达节点即定本局参数
 import { resetWorldScope } from './newlife.js';   // XX-PLAY-012:换世时重置节点作用域
+// XX-MATH-001:局内难度曲线的 Collatz 调制。方向是 修仙阁 → 砍杀,
+// js/game/* 不反向依赖 js/xiuxian/*,由 lint-deps 的 Tarjan 复核,不会成环。
+import { setCollatzTrajectory } from '../game/spawner.js';
+import { runSeedFor } from '../game/collatz.js';
 import { SPINE } from './spine.js';   // V0.99 主线骨架:把散模块的产出汇到一处
 import { applyBg, nodeIllustUrl, tabIllustUrl, warmup } from './illust.js';
 import { CHARACTERS, TITLES, WORLD as LORE } from './lore.js';
@@ -614,6 +618,14 @@ export const Hall = {
     let mineN = 0;
     try { mineN = (FAMILY.s && FAMILY.s.mines) ? FAMILY.s.mines.length : 0; } catch (e) { console.warn('[runcfg]', e); }
     setActive(runConfigFor(id, mineN));
+    // XX-MATH-001:同一时刻定下这一局的「气质」——
+    // 用 (种子, 出发点) 派生一条 Collatz 轨迹,后面局内每一步的难度都跟着它走。
+    // 未激活时 spawner 的调制系数恒为 1.0,行为与不接这一层完全一致。
+    try {
+      const sp = nodeById(id);
+      const r = runSeedFor(`${Seed.cur}|${id}|${sp ? sp.type : '?'}`);
+      setCollatzTrajectory(r.traj);
+    } catch (e) { console.warn('[collatz]', e); setCollatzTrajectory(null); }
     // —— 叙事推进:这条线该不会该露头 ——
     const beats = STORY.arrive(id);
     for (const b of beats) {

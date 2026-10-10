@@ -407,6 +407,22 @@ export const BUILD = {
     const n = w.nodes.find(x => x.id === id);
     return n ? n.type : 'field';
   },
+  /**
+   * 节点 id → 地名。**给玩家看的文案一律走这里**,不许直接插 id。
+   *
+   * 【XX-PLAY-013】原来 teleportTo 的提示直接印 id:
+   *   「阵旗发动,至「n8」。耗 120 道行。」
+   * `n8` 是 worldgen 的内部编号,逐种子重发、玩家无从对应,印出来只是噪音
+   * —— 和 quest.js 任务描述里报「村外(n10)」同一类毛病(XX-PLAY-011 已修)。
+   *
+   * 回退用「那处」而不是 id:读不到世界时,宁可说得含糊,
+   * 也不能把内部编号漏给玩家。
+   */
+  _nodeName(id) {
+    const w = this._world;
+    const n = w && w.nodes ? w.nodes.find(x => x.id === id) : null;
+    return (n && n.name) || '那处';
+  },
   setWorld(w) { this._world = w; },
 
   // —— 阵法旗传送点 ——
@@ -423,7 +439,7 @@ export const BUILD = {
     s.current = nodeId;
     s.visited[nodeId] = true;
     Cult.commit();
-    return { ok:true, msg:`阵旗发动,至「${nodeId}」。耗 ${cost} 道行。` };
+    return { ok:true, msg:`阵旗发动,至「${this._nodeName(nodeId)}」。耗 ${cost} 道行。` };
   },
 
   // —— 同盟契约 ——
