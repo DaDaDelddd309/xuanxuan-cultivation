@@ -8,7 +8,7 @@ const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 因为它们作用范围不同,不算冲突。
 import { readFileSync, readdirSync } from 'fs';
 const R=__ROOT__+'/css';
-let bad=0;
+let bad=0, extra=0;
 // 0) 注释必须闭合 —— V0.95 踩过:插入时漏了 */,后面 3000 多字符
 //    (含 .xx-skills.on)全被当成注释,回合制技能栏点不到,
 //    而 node --check 和所有语法检查都通过。
@@ -63,4 +63,21 @@ for (const f of readdirSync(R).filter(x=>x.endsWith('.css'))) {
   }
 }
 console.log(bad?`\nCSS 同属性重复: ${bad} 处`:'✅ 无 CSS 同属性重复定义');
-process.exit(bad?1:0);
+
+// ── 2026-10-10:禁止把 image-rendering:pixelated 加回 img ──────────────
+// 背景:这条规则原来写成 `canvas, img`,把最近邻采样套到了全站所有 <img> 上。
+// 实测依据:assets/** 里一个 PNG 都没有,全是 jpg/webp 水墨插画;
+// 真正的像素图在 js/pix/ 画在 canvas 上,且已在 JS 里设 imageSmoothingEnabled=false。
+// 后果:立绘原图 720×964 被 .xx-bn-img 压到 34×44(21 倍缩小),
+// 最近邻等于「720 个像素里挑 34 个」,水墨笔触糊成噪点。
+// 这类错肉眼看代码看不出来,只能靠资源清单断言钉住。
+{
+  const css = readFileSync(R + '/style.css', 'utf8');
+  const bad = [...css.matchAll(/([^{}\n]*\bimg\b[^{}\n]*)\{([^}]*image-rendering\s*:\s*(pixelated|crisp-edges)[^}]*)\}/g)];
+  console.log(bad.length
+    ? `  ❌ 有 ${bad.length} 处把 pixelated/crisp-edges 加到了 img 上: ${bad.map(m=>m[1].trim()).join(' | ')}`
+    : '  ✅ 没有 img 被套上 pixelated(插画必须平滑缩放)');
+  extra += bad.length;
+}
+
+process.exit((bad+extra)>0?1:0);

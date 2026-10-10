@@ -48,7 +48,21 @@ body {
 }
 #app { position: fixed; inset: 0; }
 #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-canvas, img { image-rendering: pixelated; image-rendering: crisp-edges; }
+/* ⚠️ 这里原来写的是 `canvas, img`。`img` 必须拿掉(2026-10-10)。
+ *
+ * 实测依据(不是推测):
+ *   · 全站 assets 目录里 一个 PNG 都没有,只有 jpg / webp;
+ *     所有 <img> 指向的都是 AI 生成的水墨插画(portrait / legend / mob / illust / bg)。
+ *   · 真正的像素图在 `js/pix/`,画在 <canvas> 上,而且它们已经在 JS 里
+ *     设了 `imageSmoothingEnabled = false`(bestiary.js:55/171)——
+ *     **根本不需要这条 CSS**。
+ *
+ * 有害在哪:立绘原图 720×964,叙事线列表里被 `.xx-bn-img` 压到 **34×44**
+ * —— 21 倍缩小。最近邻采样在这个倍率下等于「720 个像素里挑 34 个」,
+ * 立绘会糊成噪点/摩尔纹,水墨笔触全丢。
+ *
+ * 所以:`pixelated` 只留给 canvas,img 用浏览器默认的平滑缩放。 */
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 .hidden { display: none !important; }
 
 /* ---------- 竖排书法工具类(结算/菜单右侧题字用) ---------- */

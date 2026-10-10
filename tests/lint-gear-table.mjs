@@ -143,6 +143,32 @@ console.log('\n=== [7] 装备显示名不得混入拉丁字母 ===');
   const badFrom = froms.filter(f => !/^[a-z_]+$/.test(f));
   ok('from 保持拉丁 id(gearFromSource 的反查键,不可汉化)', badFrom.length === 0,
      `异常: ${badFrom.join(', ')}`);
+
+  // 装备名必须真的来自那只妖 —— **看的是显示名,不是 key 的读音**。
+  //
+  // 踩过一次(2026-10-10):`jian gu 刃` 当时被我改成「剑孤刃」,
+  // 而 legend.js 里那只妖的 name 是**剑骨**(全仓 20 处「剑骨」,「剑孤」只有我那 1 处)。
+  // 错因:我按 key `jiangu` 的读音写的,而不是查角色的显示名。
+  // 「不许有拉丁字母」那条抓不到这种错 —— 剑孤、剑骨都是中文。
+  const legendSrc = read('js/xiuxian/legend.js');
+  const nameOf = {};
+  for (const m of legendSrc.matchAll(/key:\s*'(\w+)', name:\s*'([^']+)'/g)) nameOf[m[1]] = m[2];
+
+  // 名字对不上但**确有理由**的，逐条写清楚，不靠「看起来没问题」放过
+  const ALLOW = {
+    hongyi:  '红嫁衣 —— 装备是嫁衣本身，不是「女鬼」；取「红」字',
+    laolao:  '姥姥的簪 —— 取「姥姥」这个称呼，不写全称「黑山姥姥」',
+    dengshi: '灯柿 —— 原作者(Z8 的 XX-EQUIP-002)所写，未改动；存疑见 TICKETS',
+  };
+  for (const m of src.matchAll(/name:\s*'([^']+)'[^}]*?from:\s*'(\w+)'/g)) {
+    const nm = m[1], from = m[2], real = nameOf[from];
+    ok(`${from}: from 能在图鉴里找到这只妖`, !!real, `legend.js 没有 key '${from}'`);
+    if (!real) continue;
+    const shared = [...nm].filter(c => real.includes(c)).length;
+    ok(`${from}: 装备名用字来自角色名「${real}」`, shared >= 2 || ALLOW[from],
+       `装备名「${nm}」与角色名「${real}」只共用 ${shared} 个字`
+       + (ALLOW[from] ? '' : `；若有理由请写进 lint 的 ALLOW 表`));
+  }
 }
 
 if (fail === 0) {

@@ -121,7 +121,7 @@ export const GEAR = {
     affixes: { speed: 2, dashCd: 2, critDmg: 1 },
   },
   jiangu_blade: {
-    name: '剑孤刃', slot: 'hand', rarity: 3, from: 'jiangu',
+    name: '剑骨刃', slot: 'hand', rarity: 3, from: 'jiangu',
     desc: '剑不该有名字。有了名字,就有人会叫它回来。',
     affixes: { knockback: 2, might: 2, pierce: 1 },
   },
