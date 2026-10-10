@@ -159,6 +159,15 @@ export function damageEnemy(g, e, amount, o = {}) {
   const dmg = Number.isFinite(rawDamage) ? Math.max(1, Math.round(rawDamage)) : 1;
   e.hp = Math.max(0, e.hp - dmg);
   g.stats.dmg = (Number.isFinite(g.stats.dmg) ? g.stats.dmg : 0) + dmg;
+  // —— 吸血(XX-EQUIP-004)——
+  // 挂在**唯一**伤害入口上,不散落到各调用点,免得漏掉某个武器/词条。
+  // ⚠️ 排除 `o.dot`:灼烧/区域跳伤是持续伤害,不是玩家直接输出。
+  //    若让它也触发吸血,「找一只精英站着被灼烧」就比主动开打更优 —— 数值上奖励被动挨打。
+  //    联动伤害(o.synergy)算玩家主动触发的,保留。
+  if (st && st.lifestealPct > 0 && !o.dot) {
+    const heal = dmg * st.lifestealPct;
+    if (heal > 0 && g.player.heal) g.player.heal(heal);
+  }
   e.flashT = crit ? 0.15 : 0.11;
   e.hitT = crit ? 0.18 : 0.12;
   const kb = (o.kb !== undefined ? o.kb : 1) * e.kbMult;

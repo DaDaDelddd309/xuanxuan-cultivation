@@ -62,11 +62,13 @@ export class Player {
     this.shieldRegen = 0;
     this.reflectRatio = 0;
     this._g = null;
-    this.bonuses = {
+    this.bonusesBase = {
       mightMult: 1, cdMult: 1, hpFlat: 0, hpMult: 1, speedMult: 1,
       magnetFlat: 0, xpMult: 1, goldMult: 1, armorFlat: 0, areaMult: 1, regenFlat: 0,
-      damageTakenMult: 1,
+      damageTakenMult: 1, lifestealPct: 0,
     };
+    // 纯净基线 —— recalc() 每局/每级都从这里重建,避免装备加成被反复累加
+    this.bonuses = { ...this.bonusesBase };
     this.charBonus = {
       cdMult: c.cdMult || 1,
       magnetFlat: c.magnet || 0,
@@ -81,6 +83,30 @@ export class Player {
   }
 
   recalc() {
+    // —— 装备加成并入 bonuses(XX-EQUIP-004)——
+    // ⚠️ 之前 `main.js` 算完 `loadoutBonus()` 挂在 `this.gearBonus` 上,
+    //    而 recalc() 全程只读 `this.bonuses` —— **gearBonus 在本文件出现 0 次**,
+    //    也就是说整套装备的加成(含词条)全部悬空,一件都没生效。
+    //    症状极隐蔽:数据层、存档、UI 全都正常,只是战斗里数字不变。
+    //    现在每局 startRun 存一次 gearBonus,这里在重算时并进来。
+    //
+    // ⚠️ 必须从**基线**重建,不能就地累加:
+    //    recalc() 每次升级都会调一遍,就地 `+=` / `*=` 会让装备加成
+    //    每升一级就被再叠一次 —— 线性甚至指数膨胀,而且很难查。
+    //    所以 bonusesBase 是纯净模板,bonuses 是「基线 + 装备」的当次结果。
+    if (this.bonusesBase) {
+      const g = this.gearBonus || {};
+      const B = this.bonusesBase;
+      this.bonuses = { ...B };
+      // 乘算类相乘、加算类相加 —— 与 gear.js 的 loadoutBonus 同一口径
+      for (const k of ['mightMult', 'cdMult', 'speedMult', 'xpMult', 'goldMult',
+                       'areaMult', 'hpMult', 'damageTakenMult']) {
+        if (g[k] !== undefined) this.bonuses[k] *= g[k];
+      }
+      for (const k of ['hpFlat', 'armorFlat', 'magnetFlat', 'regenFlat', 'lifestealPct']) {
+        if (g[k] !== undefined) this.bonuses[k] += g[k];
+      }
+    }
     const b = this.bonuses, c = this.char;
     const oldMax = this.stats ? this.stats.maxHp : 0;
     // 等级成长：每级三维提升，缓解后期乏力
@@ -106,6 +132,10 @@ export class Player {
       crit: this.charBonus.crit, critDmg: this.charBonus.critDmg,
       damageTakenMult: Number.isFinite(takenMult) ? Math.max(0.25, takenMult) : 1,
       regen: b.regenFlat,
+      // 吸血(XX-EQUIP-004):damageEnemy 结算后按造成伤害的比例回血。
+      // 没有这一行,enemies.js 里的 st.lifestealPct 永远是 undefined,
+      // 整套「饮血」词条会变��又一个装了没人用的死属性。
+      lifestealPct: Math.max(0, Number(b.lifestealPct) || 0),
     };
     if (!Number.isFinite(this.hp)) this.hp = this.stats.maxHp;
     if (oldMax && this.stats.maxHp > oldMax) this.hp += this.stats.maxHp - oldMax;
@@ -184,6 +214,21 @@ export class Player {
 
   dashCd() { return Math.max(0, this.dash.cd); } // HUD 冷却显示用
   dashReady() { return this.dash.cd <= 0; }
+
+  /**
+   * 回血。吸血(XX-EQUIP-004)与「回春」都要走它,不要各处直接改 `hp` ——
+   * 直接改会漏掉护盾与上限,也会让「实际回了多少」无从记账。
+   * @returns {number} 实际回上的量
+   */
+  heal(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    if (!Number.isFinite(this.hp) || this.hp <= 0) return 0;   // 死了不回
+    if (!Number.isFinite(this.stats.maxHp)) return 0;
+    const before = this.hp;
+    this.hp = Math.min(this.stats.maxHp, this.hp + n);
+    return this.hp - before;
+  }
 
   takeDamage(amount) {
     if (!Number.isFinite(this.hp)) this.hp = Number.isFinite(this.stats.maxHp) ? this.stats.maxHp : 1;
