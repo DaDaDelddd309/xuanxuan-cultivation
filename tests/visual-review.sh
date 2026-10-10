@@ -16,7 +16,9 @@
 # 用法: bash tests/visual-review.sh [输出目录]
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${1:-/tmp/visual-review}"
+# 2026-10-10：默认输出原本写死 /tmp —— Termux 没有 /tmp，直接 mkdir 会失败。
+# 改用 ${TMPDIR:-/tmp}，桌面与 Termux 都能跑。
+OUT="${1:-${TMPDIR:-/tmp}/visual-review}"
 mkdir -p "$OUT"
 
 PY="$(command -v python3 || echo python3)"
