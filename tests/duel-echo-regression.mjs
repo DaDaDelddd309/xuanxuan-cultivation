@@ -24,6 +24,7 @@ globalThis.document = { addEventListener() {}, removeEventListener() {},
 globalThis.window = {};
 
 const { STORY, ARCS } = await import('../js/xiuxian/story.js');
+const { playArc } = await import('./helpers/play-arc.mjs');
 const { Duel } = await import('../js/xiuxian/duel.js');
 
 let pass = 0, fail = 0; const failed = [];
@@ -31,17 +32,6 @@ const ok = (n, c, d = '') => {
   if (c) pass++; else { fail++; failed.push(n + (d ? ' :: ' + d : '')); console.log(`  ❌ ${n} ${d}`); }
 };
 
-/** 真实走完一条线并结案,不留任何注入状态 */
-function playArc(key, path) {
-  const arc = ARCS[key];
-  STORY.reset();
-  STORY.start(key);
-  for (const b of arc.beats) {
-    if (b.room) STORY.arriveRoom(b.room);
-    else STORY.arrive(b.node);
-  }
-  return STORY.finish(key, path, () => ({ text: [] }));
-}
 
 /**
  * 造一个与 start() 同构的 S。

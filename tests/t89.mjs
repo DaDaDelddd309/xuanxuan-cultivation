@@ -2,6 +2,12 @@ globalThis.document={addEventListener(){},createElement:()=>({style:{},classList
 globalThis.window={};globalThis.Audio=function(){this.play=()=>Promise.resolve();this.pause=()=>{}};
 const store={};globalThis.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=v,removeItem:k=>delete store[k]};
 const S=await import('../js/xiuxian/story.js');
+
+// ⚠️ XX-WORLD-007:这里原来写死 `S.STORY.arrive('n8')` 三次。
+//    地图 V0.97 起按种子生成,默认种子下 n8 实测是 field 不是 boss,
+//    类型判定会正确拒绝 → tomb 线一环都推不动 → s.done.tomb 为 undefined
+//    → 后面 `s.done.tomb.path` 直接崩。t89 因此**从来没跑完过**。
+const { walkSurface } = await import('./helpers/play-arc.mjs');
 const Q=await import('../js/xiuxian/quest.js');
 const I=await import('../js/xiuxian/items.js');
 const T=await import('../js/xiuxian/tomb.js');
@@ -73,7 +79,7 @@ t('拓片不能卖', I.GOODS.beiwen.noSell===true);
 console.log('\n=== 叙事线最后一环在墓里 ===');
 W(); S.STORY.see('shijiang');
 S.STORY.start('tomb');
-S.STORY.arrive('n8');S.STORY.arrive('n8');S.STORY.arrive('n8');
+walkSurface('tomb');
 t('地表走3环', S.STORY.s.beat.tomb===3);
 t('地表不该结案', S.STORY.readyFinish('tomb')===false);
 Q.QUEST.autoTake();
@@ -111,7 +117,7 @@ t('重复点不再发奖', (()=>{T.TOMB.finish(1);return Cult.get().dao===d1;})(
 
 console.log('\n=== 结局2:此生无悔 ===');
 W(); S.STORY.see('shijiang'); S.STORY.start('tomb');
-S.STORY.arrive('n8');S.STORY.arrive('n8');S.STORY.arrive('n8');
+walkSurface('tomb');
 T.TOMB.enter(); T.TOMB.move('qd'); T.TOMB.settle('qd'); T.TOMB.move('sj'); T.TOMB.settle('sj');
 Q.QUEST.autoTake();
 const d2=Cult.get().dao;
@@ -125,12 +131,12 @@ t('两结局奖励不同', f1.reward.scroll!==f2.reward.scroll);
 t('碑文刻成结局2的样子', (T.TOMB.epitaph()||'').includes('此生无悔'));
 t('碑文两结局不同', (()=>{
   W(); S.STORY.see('shijiang'); S.STORY.start('tomb');
-  S.STORY.arrive('n8');S.STORY.arrive('n8');S.STORY.arrive('n8');
+  walkSurface('tomb');
   T.TOMB.enter();T.TOMB.move('qd');T.TOMB.settle('qd');T.TOMB.move('sj');T.TOMB.settle('sj');
   T.TOMB.finish(2);
   const a=T.TOMB.epitaph();
   W(); S.STORY.see('shijiang'); S.STORY.start('tomb');
-  S.STORY.arrive('n8');S.STORY.arrive('n8');S.STORY.arrive('n8');
+  walkSurface('tomb');
   T.TOMB.enter();T.TOMB.move('qd');T.TOMB.settle('qd');T.TOMB.move('sj');T.TOMB.settle('sj');
   T.TOMB.finish(1);
   return a!==T.TOMB.epitaph();
@@ -170,7 +176,7 @@ t('没有存档时是初始态', (()=>{T.TOMB.load();return T.TOMB.s.in===false 
 
 console.log('\n=== 奖励只发一次 ===');
 W(); S.STORY.see('shijiang'); S.STORY.start('tomb');
-S.STORY.arrive('n8');S.STORY.arrive('n8');S.STORY.arrive('n8');
+walkSurface('tomb');
 T.TOMB.enter();T.TOMB.move('qd');T.TOMB.settle('qd');T.TOMB.move('sj');T.TOMB.settle('sj');
 const daoA=Cult.get().dao;
 T.TOMB.finish(1);

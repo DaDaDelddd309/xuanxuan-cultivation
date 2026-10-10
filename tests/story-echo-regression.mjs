@@ -31,24 +31,12 @@ const ok = (n, c, d = '') => {
   if (c) pass++; else { fail++; failed.push(n + (d ? ' :: ' + d : '')); console.log(`  ❌ ${n} ${d}`); }
 };
 
-/**
- * 把一条线从 start 一路推到最后一环。
- * 真实调用 start/arrive/arriveRoom/finish —— 不注入状态(AGENTS.md §0A 第 2 问)。
- *
- * ⚠️ 必须按 beat 自带的键分派:地面上的线走 arrive(node),
- * 墓里的(「半句话」最后一环 room:'sj')走 arriveRoom —— 走错入口那条线根本推不动,
- * 断言会以「没回声」的形式误报成产品缺陷。
- */
-function playArc(key, path) {
-  const arc = ARCS[key];
-  STORY.reset();
-  STORY.start(key);
-  for (const b of arc.beats) {
-    if (b.room) STORY.arriveRoom(b.room);
-    else STORY.arrive(b.node);
-  }
-  return STORY.finish(key, path, () => ({ text: [] }));
-}
+// playArc 见 helpers/play-arc.mjs —— 原来这里有一份本地副本,写的是
+// `STORY.arrive(b.node)`。XX-WORLD-007 之后那写法推不动剧情(V0.97 起地图按种子生成,
+// beat 里的 n8 默认种子下实测是 field),于是 5 条断言同时变红,
+// 而报错长得像「回声丢了」这种产品缺陷,极易误判方向。
+// 与 duel-echo-regression 重复了同一份错误 —— 现已合并成一份实现。
+const { playArc } = await import('./helpers/play-arc.mjs');
 
 const FIRST = Object.keys(ARCS)[0];
 

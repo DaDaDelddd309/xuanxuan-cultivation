@@ -60,10 +60,19 @@ S.STORY.reset(); S.STORY.start('hongyi');
 const gA=S.STORY.arrive('n4');
 t('无关节点不触发', S.STORY.s.beat.hongyi===0 && gA.every(x=>x.arc!=='hongyi'));
 // 走完全程
+// ⚠️ XX-WORLD-007:beat 里的 node 是**写死的旧序号**,而地图 V0.97 起按种子生成
+//    (默认种子下 n8 实测是 field 不是 boss)。直接 arrive(b.node) 会被
+//    story.js 的类型判定正确拒绝 → 剧情推不完 → 后面 5 条断言连锁变红。
+//    nodeForBeat 按类型在当前世界里找真节点。见 tests/helpers/play-arc.mjs。
+const { nodeForBeat } = await import('./helpers/play-arc.mjs');
 S.STORY.reset(); S.STORY.start('hongyi');
-S.STORY.arrive(arcs[0].node);
+const used86 = new Set();
+S.STORY.arrive(nodeForBeat(arcs[0], used86)); used86.add(arcs[0].node);
 let last=null;
-for(let i=1;i<arcs.length;i++) last=S.STORY.arrive(arcs[i].node);
+for(let i=1;i<arcs.length;i++){
+  const t = nodeForBeat(arcs[i], used86); used86.add(t);
+  last = S.STORY.arrive(t);
+}
 t('最后一环有 last 标记', last&&last[0]&&last[0].last===true);
 // V0.88 起:走到最后一环不再自动结案,等玩家选结局(见 t88)
 t('看完不自动结案', !S.STORY.s.done.hongyi);
@@ -75,7 +84,12 @@ const e1=S.STORY.finish('hongyi',1,null);
 t('结局1', e1&&e1.text===arcs[arcs.length-1].epilogue);
 S.STORY.start('jiangu');
 const arcs2=S.ARCS.jiangu.beats;
-for(const b of arcs2) S.STORY.arrive(b.node);
+const used86b = new Set();
+for(const b of arcs2){
+  if(b.room){ S.STORY.arriveRoom(b.room); continue; }   // 墓内房间走另一个入口
+  const t = nodeForBeat(b, used86b); used86b.add(t);
+  S.STORY.arrive(t);
+}
 const e2=S.STORY.finish('jiangu',2,null);
 t('结局2不同', e2&&e2.text===arcs2[arcs2.length-1].epilogue2);
 
