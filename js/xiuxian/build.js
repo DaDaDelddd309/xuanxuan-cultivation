@@ -19,6 +19,9 @@ import { momochaIn } from './camp.js';
 const K = SAVE_KEYS.build;
 export const FIELD_PERIOD = 10 * 60 * 1000;   // 灵田 10 分钟一熟(按需求)
 
+/** 节点类型 → 灵田密度。口径与 regions.js 的 verifyRegionDanger() 同源。 */
+const FIELD_DENS = { village:0, field:1, secret:2, elite:2, boss:3 };
+
 export const BUILD = {
   s: {
     placed: [],        // [{bid, slot, workers:[uid], plantAt}]
@@ -249,12 +252,26 @@ export const BUILD = {
   },
 
   // —— 灵田:10 分钟一熟,受 区域怪物密度 × 族人属性 影响 ——
+  //
+  // 【2026-10-10 改口径】密度**按节点类型**查,不再按节点 id。
+  //
+  // 为什么原来按 id 是错的(和 XX-PLAY-006 同一个病根):
+  //   节点 id 由 worldgen 按 (y,x) 排序**逐种子重发**(worldgen.js:237)。
+  //   实测 200 个种子:n1~n16 的**类型全部随种子变**,只有 n0 恒为家的 village。
+  //   原表 `{n8:3, n9:0, ...}` 是照着 world/nodes.js 那张手写表写的,
+  //   于是「妖巢附近产量更高」这条设计意图,实际变成了
+  //   「**碰巧**编号是 n8 的那个节点产量高」—— 而 n8 真是妖巢的种子只有 3.5%。
+  //   默认种子下 n8 是一片野地,却按妖巢的 3 倍产灵米。
+  //
+  // 这张类型表是从 world/nodes.js 那张手写表**反推**出来的,五个类型一一对应、
+  // 无歧义(村0 / 野1 / 秘境2 / 险地2 / 妖巢3),所以是把设计意图接回去,不是改设计。
+  // 而且它与 regions.js 的 verifyRegionDanger() 同源:区域 danger 取成员密度最大值,
+  // 五区实测 1/1/2/2/3,与本表按区域聚合的结果逐一对上 —— 两处口径一致。
   fieldBonus(nodeId) {
     // 附近怪物越多 → 灵气越躁 → 产量越高(但同时更危险)
     const node = nodeId || (CAMP.s.nodeId || 'n0');
-    // 区域密度表:险地/妖巢附近灵米产量最高
-    const DENS = { n0:0, n1:1, n2:1, n3:1, n10:1, n6:1, n7:2, n5:2, n4:2, n8:3, n9:0 };
-    return 1 + (DENS[node] || 0) * 0.25;
+    const dens = FIELD_DENS[this._nodeType(node)];
+    return 1 + (dens === undefined ? 0 : dens) * 0.25;
   },
   fieldYield(bidx) {
     const inst = this.s.placed[bidx];

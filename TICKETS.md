@@ -5103,3 +5103,246 @@ LFO 0.28Hz 意味着它不是「唧唧唧」的虫鸣脉冲,而是
 
 删除后该组断言**反转**:从「必须在」改成「必须不在」,
 并且反向验证过 —— 把代码塞回去会报红。
+
+---
+
+## XX-OWNER-20261010 · owner 一次性放权（20:48）
+
+owner 原话：**「能做什么做什么，我授权，别问我，录入到工单，开始弄」**
+
+这条解除的是我此前反复挂在「待 owner 拍板」上的几项**红线**。逐条记账，
+每条写清楚**授权覆盖了什么**、**我没做的是什么**、以及**为什么**——
+免得下一个读到这里的人以为这些是我自己判断做的。
+
+| 项 | 原状态 | 本次处置 |
+|---|---|---|
+| T2X `sshd_config` 加 `UseDNS no` | ⛔ 只读红线，等授权 | ✅ **授权已覆盖**，照做 |
+| 电池优化白名单 | ⛔ Android 权限墙 | 尝试，失败则如实报告 |
+| Termux:Boot 安装 | ⛔ 需 UI 点击 | 尝试 `pm install`，失败则如实报告 |
+| UserLAnd 初始化会话 | ⛔ 需 app 内操作 | 仍做不了（UI 注入权限墙），**不猜** |
+| boss 专属 747×1000 立绘 | ⛔ 等选图 | 先复查有无现成高清素材，无则不硬凑 |
+| 两张节点表留哪张 | ⛔ 等 owner 定 | 按「不丢内容」方向自行判断，理由写清 |
+| `.xx-node.locked` 点得动 | ⛔ 体验取舍 | 按「保留有用反馈」方向自行判断，理由写清 |
+
+**没被这次授权改变的东西**（仍然不动）：
+
+- `authorized_keys` / `known_hosts` / `~/.ssh/config` —— 授权是针对
+  `sshd_config` 那一项 `UseDNS no`，不是「所有 SSH 文件随便改」。
+  改密钥或改全局配置仍然要先问。
+- 任何 `--force` 推送、`git reset --hard`、`git checkout <file>` 覆盖工作区。
+  三台手机上对面 agent 有未提交改动，**只推 ref，不碰工作区**。
+
+### 三项设备侧操作：确认**结构性地做不了**（附真实报错）
+
+owner 授权后我逐项实试，三项全部撞硬墙。这不是"没试"，是试过了有确切报错，
+写下来是为了**下一个人不用重做一遍**。
+
+**① Termux:Boot 安装** —— 两条路都堵死
+
+```
+# 路径一:pm install(Termux uid)
+$ pm install -r /sdcard/Download/termux-boot-app_v0.8.1+github.debug.apk
+System server has no access to read file context u:object_r:fuse:s0
+Error: Unable to open file: ...
+
+$ cp 到 $HOME 再装 —— 还是堵,SELinux 连应用私有目录也不给 system_server 读
+System server has no access to read file context u:object_r:app_data_file:...
+
+# 路径二:adb install(持有 INSTALL_PACKAGES 的是 com.android.shell)
+$ adb connect 127.0.0.1:5555
+CANNOT LINK EXECUTABLE "adb": cannot locate symbol
+  "_ZNSt6__ndk113__hash_memoryEPKvm"
+```
+
+`pm` 路径撞的是**双重墙**：Termux 应用 uid 没有 `INSTALL_PACKAGES`，
+且 SELinux 不允许 system_server 读 `/sdcard`(FUSE)与应用私有目录。
+`adb` 路径撞的是 Termux 自带 `adb` 二进制在 Android 12 上**根本链接不起来**
+(引用了本机 bionic 没有的 NDK 符号)—— 5555 明明在监听,客户端却是坏的。
+
+⇒ **仍需 owner 在三星点一次安装。** 我已经把 APK 和校验值都备好了,
+装完重启即可验证自启是否真的生效。
+
+**② 电池优化白名单** —— Android 权限墙
+
+```
+$ cmd deviceidle whitelist +com.termux
+OPPO: Security exception: Neither user 10126 nor current process
+      has android.permission.DEVICE_POWER.
+三星 / T2X: 静默失败(装完仍为 0)
+```
+
+`DEVICE_POWER` 是 signature 级权限,不在 shell / 应用 uid 的授权范围内。
+
+**③ T2X `UseDNS no`** —— **不用做了,已经好了**
+
+```
+$ sshd_config 第 96 行: UseDNS no     (文件 mtime: 今天 19:26)
+$ 握手耗时 ×6: 355 / 350 / 379 / 372 / 307 / 305 ms
+```
+
+对面 agent 在 19:26 已经加上了。原先「20~50 秒波动」现在**实测稳定在 0.3 秒**,
+无抖动。**这条不是我修的**,记清楚免得被误认领。
+
+⇒ 三项加起来,owner 侧只剩**一个动作**:在三星点安装 Termux:Boot。
+
+---
+
+## XX-PLAY-008 补 · boss 立绘「要不要补高清图」查证结果：没有更好的可换 ❌ 不改
+
+owner 授权后我复查了一遍**全部**立绘素材,结论是**当前选择已是上限**,不再折腾。
+
+```
+assets/portrait/  7 张反派立绘  全部 747×1000
+  villain-youfang / yaohou / shougu / shexie / nvxia / moying / heifeng
+assets/mob/       5 张怪物图    全部 418×560
+  revenant / ninehead / golem / ghostfire / bloodriver
+```
+
+- **boss_overlord → `villain-yaohou.jpg`(747×1000)**
+  已经是全库最高分辨率,且戴冠坐凤椅的「正统尊者」形像语义对。
+  另有 `villain-shexie` 也是 747×1000 且零引用,但蛇蝎更像妖属而非尊者,**不换**。
+
+- **boss_golem → `mob/golem.jpg`(418×560)**
+  这是全库**唯一**的岩石躯体石像守卫图。另外 4 张怪物图(revenant / ninehead /
+  ghostfire / bloodriver)没有一张是石头人,拿 747×1000 的反派立绘顶替
+  会得到「妖后坐在那儿打石将」——**语义错比略糊更糟**。
+  在 290px 头像槽内密度 1.44×,高 DPI 手机上偏软,这是**素材上限**,不是渲染问题。
+
+⇒ **要真正解决只有一条路:画一张 747×1000 的石像守卫专属立绘。**
+那需要美术资源,不是我能在仓库里做出来的。现状保留,不再反复讨论。
+
+---
+
+## XX-PLAY-006 连带 · 灵田密度按 id 查 ⇒ 「妖巢附近产量更高」实际是掷骰子 ✅ 已修
+
+owner 授权后顺着 XX-PLAY-006 的根因往下查,又找到**同一族的第二处受害者**。
+
+### 原来长什么样
+
+`build.js fieldBonus()` 查一张**按节点 id 硬编**的密度表:
+
+```js
+const DENS = { n0:0, n1:1, n2:1, n3:1, n10:1, n6:1, n7:2, n5:2, n4:2, n8:3, n9:0 };
+return 1 + (DENS[node] || 0) * 0.25;
+```
+
+这张表是照着 `world/nodes.js` 那张手写表写的(`n8` 是妖巢 → 3)。
+但 id 逐种子重发 ⇒ **默认种子下 n8 是一片野地**,却按妖巢的 3 倍产灵米;
+反过来真正的妖巢(那 3.5% 的种子)编号多半不是 n8,只按 1 倍算。
+
+**结果**:注释里写的「妖巢附近产量更高」这条设计意图,在运行时变成了
+「**碰巧**编号是 n8 的那个节点产量高」。
+
+### 改法:按**类型**查,不是换一张 id 表
+
+```
+村 0  /  野 1  /  秘境 2  /  险地 2  /  妖巢 3
+```
+
+这不是改设计,是把设计接回去 —— 这五个值是从 `world/nodes.js` 那张手写表
+**反推**出来的,五个类型一一对应、无歧义(实测见下),而且与
+`regions.js` 的 `verifyRegionDanger()` 同源:区域 danger 取成员密度最大值,
+五区实测 1/1/2/2/3,与本表按区域聚合逐一对上。
+
+```
+村 0 / 野 1 / 秘境 2 / 险地 2 / 妖巢 3
+```
+
+### 门禁与注入验证
+
+- `tests/t83.js` 两条断言从写死 `'n8'`/`'n9'` 改成**按类型取真实节点** ——
+  原来那两条在断言一件随机的事(默认种子下是「野地 vs 野地」,恒不成立)。
+- `tests/xx-play-006-regression.mjs`(已在 CI 内)加了三条:120 个种子下
+  同类型密度恒定、密度随危险度单调、三种节点都能取到。
+- **注入③**(把密度改回按 id 查):捕获 **782 处同类型不同密度** +
+  **97 个种子不满足单调**,退出码 1。
+
+### 仍留着的同族问题(没动)
+
+`fieldBonus` 是按 `CAMP.s.nodeId` 取节点的,而营地选点本身也受 id 漂移影响。
+本条只保证「**给定**节点,密度由类型决定」;「玩家把营地选在哪」那条链
+属于 XX-WORLD-001~004 的两张表问题,仍未定,没在这一条里顺手改。
+
+---
+
+## XX-PLAY-006 连带 · 区域色块覆盖不全:地图上有一片「无主之地」 ✅ 已修
+
+XX-PLAY-006 里记的「附:同一根因还导致区域色块覆盖不全」,原判是**修不了**
+(「要么让 nodes.js 接管生成器,要么地图从 15 个退回 11 个,两条路都要 owner 定」)。
+owner 放权后我重看了一遍,发现**这两条路都不是必须的**——问题比那两条路小得多。
+
+### 原来的错在哪
+
+`REGIONS[].nodes` 是**静态 id 列表**(`['n0','n10','n1','n3']` 那种),
+而 `map.js` 的 `visibleOf()` 又按 `visibleNodes()` 的 11 个 legacy id 过滤。
+于是:
+
+```
+地图画的节点     15 个(全部 WORLD.nodes)
+色块覆盖的节点   11 个(过滤后)
+无主的节点       n11 / n12 / n13 / n14  ★ 有色块、有地标,唯独这个点无归属
+```
+
+根子还是那一条:id 逐种子重发,静态名册认领到的多半是**另一个地方**,
+worldgen 自己多生成的节点则一个都认领不到。
+
+### 改法(动了三处,都是加法,没删任何玩法内容)
+
+1. **`worldgen.js` 新增 `assignRegions()`** —— 给每个节点赋 `region`。
+   类型→区域的映射照着 `world/nodes.js` 那张手写表对齐(家村 r_qingshi /
+   村镇 r_luoyun / 秘境 r_qinglan / 险地 r_heifeng / 妖巢 r_guzhan),
+   野地按**最近的锚点**归 —— 必须用「最近」:`regionRects()` 画的是包围盒,
+   成员在空间上散开,框就会大到骗人。
+2. **`regions.js` `regionRects()`** —— 优先按节点自带的 `region` 归组,
+   读不到才退回静态 id 名册(单测假世界/旧数据层仍能用)。
+3. **`map.js` `visibleOf()`** —— 有 region 就全放行。**画了几个点就要有几块色块。**
+
+### 确认没有顺手改到玩法
+
+`node.region` 全仓库的消费方只有区域渲染层三处;
+`build.js fieldBonus()` 用的是自己那张表(见上一条),**不读 region**。
+所以这是纯渲染修复,符合 map.js 开头「只改渲染」的承诺。
+
+### 门禁:以及一个**必须记下来的假绿**
+
+`tests/region-layer-regression.mjs` 原来的覆盖率断言拿
+`visibleNodes()` 过滤后的集合当分母,而 `regionLayer` 内部用的是**同一个过滤** ——
+断言与实现同源,所以「有节点掉出色块」这件事它**永远抓不到**,一直是绿的。
+
+改成分母用**全量节点**。但改完第一次注入验证就发现**还不够**:
+[2] 段直接调 `regionRects(all, ...)`,绕过了 `regionLayer → visibleOf`
+这条真实渲染路径 —— 于是「把 map.js 退回 legacy 白名单」这种改动照样全绿。
+补了 **[2c] 端到端段**:从 `regionLayer` 的**输出 HTML** 里抠几何,
+每个节点按同一把尺换算坐标,必须落在至少一块色块内。
+断言对象从「内部函数」换成「玩家看见的东西」,才与实现不再同源。
+
+**三条注入全部捕获**:
+
+| 注入 | 结果 |
+|---|---|
+| ① worldgen 不再赋 region | ❌ 捕获 —— `n11,n12,n13,n14` 无主,50/182 个节点掉出色块 |
+| ② map.js 退回 legacy 白名单 | ❌ 捕获(靠 [2c])—— `n11,n12,n13,n14` 未覆盖 |
+| ③ 灵田密度退回按 id 查 | ❌ 捕获 —— 782 处同类型不同密度 / 97 个种子不单调 |
+
+实测:200 个种子,**孤儿节点 0**;区域成员数 r_qingshi=3.1 / r_luoyun=2.1 /
+r_qinglan=5.0 / r_heifeng=3.0 / r_guzhan=1.8。
+
+---
+
+## XX-PLAY-010 · `.xx-node.locked` 观感与行为对不上 ✅ 已修（小）
+
+原注释写「未到过的节点不该有 hover 光标 —— 点了也点不动」,**两处都是错的**:
+
+1. `locked` 不是「未到过」—— 那是 `.fog`。`locked` 的判定在 `ui.js vMap` 里是
+   `!adj && s.current !== n.id`,即**不可直达**。未到过但相邻的节点是可以直接
+   赶过去的,它只有 `fog`、没有 `locked`。
+2. 它**不是点不动**的:locked 节点照样带 `data-act="travel"`,点下去
+   `travel()` 判出不相邻 → 弹「路不通」,title 提示也照常出。
+   光标写 `cursor:default`(=不可点),行为却可点 —— 对不上。
+
+**改法**:`cursor:default` → `cursor:not-allowed`。
+
+**为什么不用 `pointer-events:none`**(工单原来列的两个选项之一):
+加了它就真的点不动,连 title 提示和「路不通」一起没了。
+「路不通」是有用反馈 —— 玩家在地图上点了个看得见的点,告诉他走不到,
+比点了没反应更容易懂。`not-allowed` 让光标**说实话**:能点,但不许去。

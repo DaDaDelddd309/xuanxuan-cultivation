@@ -643,8 +643,20 @@
    它按「同属性」判定重复,而这两次写的是不同属性。 */
 .xx-node.fog{border-color:rgba(232,220,196,.14)}
 .xx-node.fog .xx-node-lb{color:rgba(232,220,196,.3);text-shadow:none}
-/* 未到过的节点不该有 hover 光标 —— 点了也点不动 */
-.xx-node.locked{cursor:default;opacity:.55}
+/* 【2026-10-10 订正】原来这里写的是 `cursor:default`,注释写「未到过的节点」。
+ * 两处都错:
+ *   1. `locked` 不是「未到过」—— 那是 `.fog`。`locked` 的判定在 ui.js vMap 里是
+ *      `!adj && s.current !== n.id`,即**不可直达**(非相邻且不是当前所在)。
+ *      未到过但相邻的节点是可以直接赶过去的,它只有 `fog`,没有 `locked`。
+ *   2. 它**不是点不动**的。locked 节点照样有 data-act="travel",点下去
+ *      travel() 判出不相邻,弹「路不通」;title 提示也照常出。
+ *      光标写 `default`(=不可点),行为却可点 —— 观感与行为对不上。
+ *
+ * 选 `not-allowed` 而不是加 `pointer-events:none`:
+ *   加了 pointer-events:none 就真的点不动,连 title 提示和「路不通」提示一起没了。
+ *   「路不通」是有用反馈 —— 玩家在地图上点了个看得见的点,告诉他走不到,
+ *   比点了没反应更容易懂。用 `not-allowed` 让光标**说实话**:能点,但不许去。 */
+.xx-node.locked{cursor:not-allowed;opacity:.55}
 
 /* ---- 空态(V0.95)----
    原来空页面只有一句「还没什么」,玩家不知道下一步该干嘛。

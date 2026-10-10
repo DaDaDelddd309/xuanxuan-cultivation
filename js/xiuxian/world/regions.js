@@ -359,9 +359,27 @@ export function verifyRegionDanger() {
  */
 export function regionRects(nodes, posOf, pad = 7) {
   const byId = new Map(nodes.map(n => [n.id, n]));
+
+  // 归组方式:优先用**节点自带的 region**,读不到才退回静态 id 名册。
+  //
+  // 为什么不一直用静态名册(XX-WORLD-004 补):那份名册是 ['n0','n10','n1','n3'] 这种
+  // 手写 id 列表,而 id 由 worldgen 按 (y,x) 排序**逐种子重发**(worldgen.js:237)。
+  // 实测 200 个种子,n1~n16 的类型全部随种子变 —— 名册认领到的多半是另一个地方,
+  // worldgen 自己多生成的节点则一个都认领不到,地图上就留下无主的点。
+  // worldgen 现在给每个节点都赋了 region(见 worldgen.js assignRegions),
+  // 这里的静态名册降级为**读不到 region 时的兜底**(单测假世界 / 旧数据层仍能用)。
+  const byRegion = new Map();
+  for (const n of nodes) {
+    if (!n.region) continue;
+    if (!byRegion.has(n.region)) byRegion.set(n.region, []);
+    byRegion.get(n.region).push(n);
+  }
+
   const out = [];
   for (const region of REGIONS) {
-    const members = region.nodes.map(id => byId.get(id)).filter(Boolean);
+    const members = byRegion.has(region.id)
+      ? byRegion.get(region.id)
+      : region.nodes.map(id => byId.get(id)).filter(Boolean);
     if (!members.length) continue;            // n11+ 未开启时它们本就不在图上
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const n of members) {

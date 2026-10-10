@@ -36,10 +36,18 @@ function dangerClass(d) {
  *   所以:几何必须用 WORLD.nodes 算,visibleNodes() 只配当**id 白名单**用。
  *   拿 NODES 的坐标去配 pos() 的边界换算,色块会整体错位,而且不报错。
  *
+ * 【XX-WORLD-004 补】但这个 id 白名单**不能**再用来决定「谁上色」。
+ *   地图画的是 WORLD.nodes 全部十几个点,而白名单只放行 nodes.js 的 11 个 legacy id,
+ *   于是 worldgen 多生成的那几个点谁都不认领 —— 地图上出现
+ *   「有色块、有地标,唯独这个点无主」(实测 15 个点只有 11 个有色块)。
+ *   现在 worldgen 给每个节点都赋了 region,所以:**画了几个点就要有几块色块**。
+ *   读不到 region 时(单测假世界 / 旧数据层)才退回 id 白名单。
+ *
  * @param {Object[]} nodes WORLD.nodes(实际渲染的那批)
- * @returns {Object[]} 其中开关放行的节点,坐标原样保留
+ * @returns {Object[]} 能上色的节点,坐标原样保留
  */
 function visibleOf(nodes) {
+  if (nodes.some(n => n.region)) return nodes;
   const allow = new Set(visibleNodes().map(n => n.id));
   return nodes.filter(n => allow.has(n.id));
 }

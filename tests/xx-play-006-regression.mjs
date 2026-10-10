@@ -11,6 +11,17 @@
 // 不是源码正则 —— 断言独立于被检查的实现。
 //
 // 运行: node tests/xx-play-006-regression.mjs
+//
+// build.js 会经 assets.js 摸 document(音频解锁),本门禁要驱动 fieldBonus,
+// 所以先补最小 DOM 桩 —— 与 t83 等测试同一套做法,不是新发明。
+globalThis.document = {
+  addEventListener(){}, createElement:()=>({ style:{}, classList:{add(){},remove(){}},
+    appendChild(){}, focus(){} }),
+  body:{ appendChild(){} }, getElementById:()=>null,
+};
+globalThis.window = {};
+globalThis.Audio = function(){ this.play=()=>Promise.resolve(); this.pause=()=>{}; };
+
 import { STORY, ARCS } from '../js/xiuxian/story.js';
 import { WORLD, regenerate } from '../js/xiuxian/world.js';
 
@@ -99,6 +110,44 @@ ok('前提:n0 恒为 village(家节点稳定,可继续硬指定)',
 
 console.log(`\n     类型随种子变的 id: ${drifting.length} 个 (共 ${typeDriftIds.size} 个)`);
 console.log(`     类型恒定的 id    : ${stable.map(([id, s]) => id + '=' + [...s][0]).join(' ') || '(无)'}`);
+
+// —— 同一个病根的第二处受害者:灵田密度 ——
+//
+// build.js 的 fieldBonus() 原来查一张**按 id 硬编**的密度表
+// ({n8:3, n9:0, ...}),照着 world/nodes.js 那张手写表写的。
+// id 逐种子重发 ⇒ 「妖巢附近产量更高」实际变成了「碰巧编号是 n8 的节点产量高」,
+// 而 n8 真是妖巢的种子只有 3.5%。默认种子下 n8 是片野地,却按 3 倍产灵米。
+//
+// 这里断言的是**按类型的密度表本身**:对每个种子,同类型的节点必须同密度,
+// 且密度随危险度单调递增。断言用**类型**分组,不碰 id —— 与 id 漂移正交。
+console.log(`\n[XX-PLAY-006 连带] 灵田密度按类型而非按 id(${N} 个种子)`);
+{
+  const { BUILD } = await import('../js/xiuxian/build.js');
+  let sameTypeDiffers = 0, notMonotonic = 0, unknownType = 0;
+  for (let i = 0; i < N; i++) {
+    const seed = 'xxplay006d-' + i;
+    regenerate(seed);
+    BUILD.setWorld(WORLD);
+    const byType = new Map();
+    for (const n of WORLD.nodes) {
+      const b = BUILD.fieldBonus(n.id);
+      if (byType.has(n.type)) { if (byType.get(n.type) !== b) sameTypeDiffers++; }
+      else byType.set(n.type, b);
+    }
+    const g = t2 => byType.get(t2);
+    if (g('boss') === undefined || g('village') === undefined || g('field') === undefined) {
+      unknownType++; continue;
+    }
+    // 妖巢 > 秘境/险地 > 野地 > 村
+    if (!(g('boss') > g('field') && g('field') > g('village'))) notMonotonic++;
+  }
+  ok('同一类型的节点密度恒定(密度由类型决定,不由 id 决定)',
+     sameTypeDiffers === 0, `${sameTypeDiffers} 处同类型不同密度`);
+  ok('密度随危险度单调:妖巢 > 野地 > 村落',
+     notMonotonic === 0, `${notMonotonic} 个种子不满足单调`);
+  ok('每个种子都能取到 妖巢/野地/村 三种节点做比较',
+     unknownType === 0, `${unknownType} 个种子缺类型`);
+}
 
 console.log(`\n通过 ${pass} / 失败 ${fail}`);
 if (failed.length) { console.log('\n失败明细:'); for (const f of failed) console.log('  ✗ ' + f); }

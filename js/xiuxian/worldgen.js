@@ -278,7 +278,56 @@ function decorate(nodes, edges, villageR) {
         break;
     }
   }
+  assignRegions(ordered);
   return { nodes: ordered, edges };
+}
+
+// ————————————————————————— 区域归属 —————————————————————————
+
+/**
+ * 按节点类型 + 位置,把每个节点归到一个区域(XX-WORLD-004 补)。
+ *
+ * 为什么必须在生成器里做,不能在 regions.js 里做:
+ *   `REGIONS[].nodes` 是**静态 id 列表**(['n0','n10','n1','n3'] 那种),
+ *   而 id 是 `decorate()` 开头按 (y,x) 排序逐种子重发的 ——
+ *   实测 200 个种子:n1~n16 的**类型全部随种子变**,只有 n0 恒为家的 village。
+ *   拿静态 id 去认领生成出来的节点,认到的多半是**另一个地方**;
+ *   worldgen 自己多生成的节点(n11~n16)则一个都没人认领,
+ *   于是地图上出现「有色块、有地标,唯独这个点无主」。
+ *
+ * 类型 → 区域的映射不是拍脑袋,是照着 world/nodes.js 那张手写表对齐的:
+ *   家村 r_qingshi / 村镇 r_luoyun / 秘境 r_qinglan / 险地 r_heifeng / boss r_guzhan
+ *   —— 五条都对得上那张表里同名节点的归属。
+ *
+ * field(野地)没有类型可依,按**最近的锚点**归。
+ *   这里必须用「最近」而不是随手分:`regionRects()` 画的是**包围盒**,
+ *   成员在空间上散开,框就会大到骗人 —— 精确但骗人的图比诚实的近似更糟。
+ *   距离用曼哈顿(与地图的连边规则一致),同距时取 ordered 里靠前的,
+ *   保证同一种子结果稳定可复现。
+ */
+function assignRegions(ordered) {
+  const byType = { secret: 'r_qinglan', elite: 'r_heifeng', boss: 'r_guzhan' };
+
+  // 锚点 = 区域名册上写得出名字的那几类。没有锚点就没有野地可依,
+  // 那种布局 worldgen 本来也生成不出来(家村是硬不变量)。
+  const anchors = [];
+  for (const n of ordered) {
+    if (n.home) { n.region = 'r_qingshi'; anchors.push(n); continue; }
+    if (byType[n.type]) { n.region = byType[n.type]; anchors.push(n); continue; }
+    if (n.type === 'village') { n.region = 'r_luoyun'; anchors.push(n); continue; }
+  }
+
+  for (const n of ordered) {
+    if (n.region) continue;                 // 上面已定的跳过
+    if (!anchors.length) { n.region = 'r_qingshi'; continue; }   // 兜底:不该走到
+    let best = anchors[0], bestD = Infinity;
+    for (const a of anchors) {
+      const d = Math.abs(n.x - a.x) + Math.abs(n.y - a.y);
+      if (d < bestD) { bestD = d; best = a; }   // 严格小于 ⇒ 同距取先到的,结果稳定
+    }
+    n.region = best.region;
+  }
+  return ordered;
 }
 
 // ————————————————————————— 子流获取 —————————————————————————

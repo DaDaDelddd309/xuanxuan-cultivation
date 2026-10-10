@@ -1,16 +1,27 @@
 // region-layer-regression.mjs —— 工单 XX-WORLD-004 的门禁
 //
-// XX-WORLD-004 承诺的可见效果一句话:**11 个点 → 5 片地方**(色块 + 危险度 + 势力名),
+// XX-WORLD-004 承诺的可见效果一句话:**图上每一个点都有地方可归**(色块 + 危险度 + 势力名),
 // 而且**只改渲染**。这两条都很容易悄悄破掉:
 //
 //   · 「只改渲染」破掉:哪天有人顺手在色块逻辑里塞了判定,玩家行为就变了,
 //     而这类改动不会让任何现有测试变红 —— 原来的测试只管旧地图。
-//   · 「5 片地方」破掉:区域表一改(加区域/删区域/挪节点),色块可能变 4 片或 6 片,
+//   · 「每个点都有归属」破掉:区域表一改(加区域/删区域/挪节点),色块可能变 4 片或 6 片,
 //     也可能挪到节点外面去。地图错位**不会报错**,只会让玩家看见荒诞的画面。
+//
+// 【2026-10-10 改口径】原文写的是「11 个点 → 5 片地方」。那个 11 来自
+// world/nodes.js 的 11 个 legacy 节点,而地图实际画的是 WORLD.nodes 全部
+// 十几个点 —— 于是 worldgen 多生成的那几个点谁都不认领,地图上留下
+// 「有色块、有地标,唯独这个点无主」。11 是旧数据层的遗产,不是承诺。
+//
+// ⚠️ 这里记一个**门禁自身的结构性缺陷**,别再犯:
+//   原来的覆盖率断言拿 `visibleNodes()` 过滤后的集合当分母,
+//   而 regionLayer 内部用的是**同一个过滤** —— 断言与实现同源,
+//   于是「有节点掉出色块」这件事它**永远抓不到**,一直是绿的。
+//   现在改成拿**全量节点**当分母:与实现用的过滤集无关,才是独立断言。
 //
 // 本门禁直接 import 渲染函数本身,不用正则去抠 ui.js 源码 —— 抠源码格式的门禁
 // 曾经整份失效过(lint-nodes 抠不到硬编码节点表却返回 exit 0),教训记在
-// TECHDEBT.md。跑真函数,比跑正则可靠。
+// TECHDEBT.md。跑真函数,比跑正则可靠.
 //
 // 退出码:0 = 通过;非 0 = 不通过
 import { readFileSync } from 'fs';
@@ -40,7 +51,7 @@ function posFactory(nodes) {
 }
 
 /** 门禁用的世界状态:全部已访问 / 一个都没访问。 */
-const stateAll = { current: 'n0', visited: Object.fromEntries(visibleNodes().map(n => [n.id, true])) };
+const stateAll = { current: 'n0', visited: Object.fromEntries(WORLD.nodes.map(n => [n.id, true])) };
 const stateNone = { current: 'n0', visited: {} };
 
 console.log('\n=== [1] 开关:regions 开着才铺色块,关掉必须一片空白 ===');
@@ -53,22 +64,86 @@ console.log('\n=== [1] 开关:regions 开着才铺色块,关掉必须一片空�
 }
 
 // ───────────────────────────────────────────────────────────
-console.log('\n=== [2] 11 个点 → 5 片地方 ===');
+console.log('\n=== [2] 图上每个点都有地方可归 ===');
 {
   const pos = posFactory(WORLD.nodes);
-  const vis = WORLD.nodes.filter(n => visibleNodes().some(v => v.id === n.id));
-  const rects = regionRects(vis, pos);
+  // ⚠️ 分母是**全量节点**,不是 visibleNodes() 过滤后的集合 ——
+  //   原来的断言拿过滤集当分母,而 regionLayer 内部用的也是同一个过滤,
+  //   断言与实现同源,于是「有节点掉出色块」永远抓不到。详见文件头。
+  const all = WORLD.nodes;
+  const rects = regionRects(all, pos);
   t(`恰好 5 块色块(实测 ${rects.length})`, rects.length === REGIONS.length);
   // split 在首尾各留一段:5 行 → 6 段,所以要 -1
   const legRows = regionLegend(WORLD.nodes, pos, false).split('xx-lg-row').length - 1;
   t(`图例行数与色块数一致(实测 ${legRows} 行 / ${rects.length} 块)`, legRows === rects.length);
-  t(`覆盖 ${vis.length} 个可见节点`,
-    rects.reduce((a, r) => a + r.members.length, 0) === vis.length,
+  t(`覆盖全量 ${all.length} 个节点`,
+    rects.reduce((a, r) => a + r.members.length, 0) === all.length,
     `实测 ${rects.reduce((a, r) => a + r.members.length, 0)}`);
   // 每个节点恰好落在一块色块里(区块可重叠,但成员不能缺席)
   const covered = new Set(rects.flatMap(r => r.members.map(m => m.id)));
-  t('没有一个可见节点掉出色块', covered.size === vis.length,
-    [...vis.filter(v => !covered.has(v.id)).map(v => v.id)].join(','));
+  t('没有一个节点掉出色块(本条就是 XX-WORLD-004 那个"无主之地"的守门)',
+    covered.size === all.length,
+    [...all.filter(v => !covered.has(v.id)).map(v => v.id)].join(','));
+  // 节点自带 region 必须在名册里,否则色块认不出它
+  const REGION_IDS = new Set(REGIONS.map(r => r.id));
+  const badRegion = all.filter(n => n.region && !REGION_IDS.has(n.region)).map(n => n.id);
+  t('每个节点的 region 都在 REGIONS 名册内', badRegion.length === 0, badRegion.join(','));
+}
+
+console.log('\n=== [2b] 跨种子:每个点都有归属 ===');
+{
+  // 原缺陷就是"默认种子没事、换个种子多出无主点",所以必须多种子验。
+  const SEEDS = [1, 2, 3, 7, 42, 99, 1234, 20261010, 777, 31337, 5, 10086];
+  let orphan = 0, noRegion = 0, total = 0;
+  for (const seed of SEEDS) {
+    const g = generate(seed);
+    const pos = posFactory(g.nodes);
+    const rects = regionRects(g.nodes, pos);
+    const cov = new Set(rects.flatMap(r => r.members.map(m => m.id)));
+    total += g.nodes.length;
+    for (const n of g.nodes) {
+      if (!n.region) noRegion++;
+      if (!cov.has(n.id)) orphan++;
+    }
+  }
+  t(`${SEEDS.length} 个种子 / ${total} 个节点:无一掉出色块`, orphan === 0, `${orphan} 个无主`);
+  t(`${SEEDS.length} 个种子:每个节点都带 region`, noRegion === 0, `${noRegion} 个缺 region`);
+}
+
+console.log('\n=== [2c] 端到端:真正上屏的色块必须盖住每个点 ===');
+{
+  // ⚠️ 这一段是被**注入验证逼出来的**。
+  //   上面 [2] 直接调 regionRects(all, ...),绕过了 regionLayer → visibleOf
+  //   这条真实渲染路径 —— 于是「把 map.js 退回 legacy 白名单」这种改动
+  //   [2] 全绿,而**实际渲染会退回 11 个点有颜色**。假绿。
+  //   所以这里改从 regionLayer 的**输出 HTML** 里抠几何:
+  //   每个节点按同一把尺换算坐标,必须落在至少一块色块内。
+  //   断言对象从"内部函数"换成"玩家看见的东西",与实现不再同源。
+  const pos = posFactory(WORLD.nodes);
+  const html = regionLayer(WORLD.nodes, pos, stateAll, false);
+  const rects = [...html.matchAll(/left:([\d.]+)%;top:([\d.]+)%;width:([\d.]+)%;height:([\d.]+)%/g)]
+    .map(m => ({ x:+m[1], y:+m[2], w:+m[3], h:+m[4] }));
+  t(`从 HTML 抠到 ${rects.length} 块色块(应等于 ${REGIONS.length})`, rects.length === REGIONS.length);
+
+  const uncovered = WORLD.nodes.filter(n => {
+    const p = pos(n);
+    return !rects.some(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h);
+  }).map(n => n.id);
+  t(`上屏的色块盖住全部 ${WORLD.nodes.length} 个点`, uncovered.length === 0,
+    uncovered.join(','));
+
+  // 未探索态也要一样盖住 —— 迷雾只改**文案**,不改几何。
+  // 要是哪天有人为了"不剧透"把未探区域的色块整个不画,这里会红。
+  const htmlNone = regionLayer(WORLD.nodes, pos, stateNone, false);
+  const rectsNone = [...htmlNone.matchAll(/left:([\d.]+)%;top:([\d.]+)%;width:([\d.]+)%;height:([\d.]+)%/g)]
+    .map(m => ({ x:+m[1], y:+m[2], w:+m[3], h:+m[4] }));
+  const uncoveredNone = WORLD.nodes.filter(n => {
+    const p = pos(n);
+    return !rectsNone.some(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h);
+  }).map(n => n.id);
+  t('未探索态色块数量不减(迷雾只改文案不改几何)', rectsNone.length === rects.length,
+    `${rectsNone.length} vs ${rects.length}`);
+  t('未探索态同样盖住全部点', uncoveredNone.length === 0, uncoveredNone.join(','));
 }
 
 console.log('\n=== [3] 几何必须包住成员(跨种子自洽) ===');

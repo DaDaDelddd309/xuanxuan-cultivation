@@ -114,8 +114,21 @@ t('成熟可收', !!(rd&&rd.ready&&rd.n>0));
 t('产量受属性影响', (()=>{let mn=99,mx=0;
   for(let i=0;i<80;i++){const y=B.BUILD.fieldYield(0); if(y.n<mn)mn=y.n; if(y.n>mx)mx=y.n;}
   return mx>mn})());
-t('区域密度加成', B.BUILD.fieldBonus('n8')>B.BUILD.fieldBonus('n0'));
-t('妖巢附近产量更高', B.BUILD.fieldBonus('n8')>B.BUILD.fieldBonus('n9'));
+// 【2026-10-10 改口径】灵田密度现在按**节点类型**查(见 build.js FIELD_DENS)。
+// 原来这两条断言写死 'n8'/'n9' —— 而那两个 id 的**类型逐种子漂**
+// (实测 200 个种子,n8 真是妖巢的只有 3.5%),写死等于在断言一件随机的事:
+// 默认种子下 n8 是片野地,'妖巢附近产量更高' 实际比的是「野地 vs 野地」。
+// 现在按**类型**取真实节点,断言的才是设计意图本身。
+const { WORLD } = await import(P+'world.js');
+B.BUILD.setWorld(WORLD);
+const idOfType = ty => (WORLD.nodes.find(n => n.type === ty) || {}).id;
+const ID_BOSS = idOfType('boss'), ID_VILL = idOfType('village'), ID_FIELD = idOfType('field');
+t('区域密度加成(妖巢 > 村)', B.BUILD.fieldBonus(ID_BOSS) > B.BUILD.fieldBonus(ID_VILL),
+  `boss=${ID_BOSS} village=${ID_VILL}`);
+t('妖巢附近产量更高(妖巢 > 野地)', B.BUILD.fieldBonus(ID_BOSS) > B.BUILD.fieldBonus(ID_FIELD),
+  `boss=${ID_BOSS} field=${ID_FIELD}`);
+t('村落产量最低(村 < 野地)', B.BUILD.fieldBonus(ID_VILL) < B.BUILD.fieldBonus(ID_FIELD),
+  `village=${ID_VILL} field=${ID_FIELD}`);
 
 console.log('\n=== 多篝火 ===');
 WIPE();
