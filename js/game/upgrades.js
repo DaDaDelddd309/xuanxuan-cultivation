@@ -149,6 +149,23 @@ export const ART_FAMILY = {
   move:   { speed: 0.06, cd: 0.03 }, // 身法系:移速 + 冷却
 };
 
+// —— 升星 → 局内(XX-META-004)—————————————————————————————
+// ARTSTAR.effect(id) 一直算得出 `{power, reach, extra}`,但**全仓零调用** ——
+// 于是玩家在修仙阁花金币 + 传承书升的星,对局内战斗毫无影响(死功能)。
+//
+// 这里把它接进 applyChoice 的神通分支,但**不能 import 局外的 artstar.js**:
+// game/ 反向依赖 xiuxian/ 会破 tests/test-runcfg.mjs 的单向门禁。
+// 解法与 spawner.js 的 setRunTune、pickups.js 的 setLootTune 完全一致 ——
+// 模块级默认值 + 局外显式注册的取星函数。
+const NO_ART_STAR = () => null;
+let artStarOf = NO_ART_STAR;
+
+/** 局外注入「某门神通升了几星 → 局内倍率」的取星函数(由 artstar.js 注册)。
+ *  传 null / 非函数即回到「没人升星」:倍率全 1,与接线前逐位相同。 */
+export function setArtStarSource(fn) {
+  artStarOf = typeof fn === 'function' ? fn : NO_ART_STAR;
+}
+
 /** 局内神通等级上限(和修仙阁 max=5 对齐) */
 const ART_RUN_MAX = 5;
 
@@ -194,7 +211,7 @@ export function rollChoices(g) {
     const d = WEAPONS[w.id];
     if (w.lv < d.maxLv) {
       cands.push({
-        kind: 'weapon', id: w.id, icon: d.icon, w: 10,
+        kind: 'weapon', id: w.id, icon: d.icon, w: 20,
         name: `${d.name} Lv.${w.lv + 1}`,
         desc: d.lvText[Math.min(d.lvText.length - 1, w.lv)],
       });
@@ -309,9 +326,23 @@ export function applyChoice(g, c) {
     const held = p.arts || (p.arts = {});
     const lv = (held[c.id] || 0) + 1;
     held[c.id] = lv;
+    // 升星倍率(XX-META-004):玩家在修仙阁升的星,在这里放大本门神通的每级属性增益。
+    //   power(威力)→ 放大 family 的**全部**加成
+    //   reach(范围)→ 额外放大 areaMult(范围/射程)这一路
+    //
+    // ⚠️ extra(3 星起「多一次」)**接不上,如实留空**:局内投射物数量只由武器自己的
+    //    等级表决定(js/game/weapons.js 的 `n`,进化态更是写死的常量),
+    //    player.stats 上**没有任何乘到投射物数量上的字段**。要实现它得改 weapons.js
+    //    十几处开火点、给 14 门神通造第二套开火循环 —— 那是臆造,不是接线。
+    //    门禁 tests/artstar-run-effect-regression.mjs [8] 把这个「未接线」钉住,
+    //    免得后人以为它已经生效。
+    const eff = artStarOf(c.id) || null;
+    const pw = eff && Number.isFinite(eff.power) ? eff.power : 1;
+    const reach = eff && Number.isFinite(eff.reach) ? eff.reach : 1;
     // 真实属性增益:每级按 family 给固定加成,和局内既有 stats 同一套口径。
     const fam = ART_FAMILY[c.family] || { might: 0.06 };
-    for (const [k, v] of Object.entries(fam)) {
+    for (const [k, v0] of Object.entries(fam)) {
+      const v = k === 'area' ? v0 * reach : v0 * pw;
       if (k === 'cd' || k === 'speed') p.stats[k] *= (1 + v);
       else if (k === 'area') p.stats.areaMult = (p.stats.areaMult || 1) * (1 + v);
       else if (k === 'hp') p.stats.maxHp = (p.stats.maxHp || p.hp || 100) * (1 + v), p.hp = p.stats.maxHp;

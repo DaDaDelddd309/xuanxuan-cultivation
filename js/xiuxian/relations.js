@@ -95,7 +95,17 @@ export const DEFEAT = {
 export const Titles = {
   s: { flags:{}, active:[] },
   load() {
-    try { const r = localStorage.getItem('xx_titles_v077'); if (r) this.s = JSON.parse(r); } catch {}
+    // 默认合并,不是整体替换(与 craft/merchant/index/spine 等全仓其余 load 同一口径)。
+    // 原写 `this.s = JSON.parse(r)`,是全仓**唯一**一个不做默认合并的:
+    // 存档里只要缺一个字段(比如 flags 是后加的),整个 this.s 就变成残缺对象,
+    // 之后 track() 里的 `this.s.flags[action]` 直接抛 TypeError,
+    // 称号系统永久卡死且没有任何报错出口(外层 catch 只包住 parse 那一步)。
+    try { const r = localStorage.getItem('xx_titles_v077'); if (r) this.s = { ...this.s, ...JSON.parse(r) }; } catch {}
+    // 再兜一层:存档里显式写了 null/非对象时,补回默认值,
+    // 否则 spread 会把默认值覆盖掉,故障形态和上面完全一样。
+    if (!this.s || typeof this.s !== 'object') this.s = { flags:{}, active:[] };
+    if (!this.s.flags || typeof this.s.flags !== 'object') this.s.flags = {};
+    if (!Array.isArray(this.s.active)) this.s.active = [];
     return this.s;
   },
   save() { try { localStorage.setItem('xx_titles_v077', JSON.stringify(this.s)); } catch {} },
