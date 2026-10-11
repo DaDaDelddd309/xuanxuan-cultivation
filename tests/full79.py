@@ -79,7 +79,19 @@ with sync_playwright() as p:
     ok("修仙阁仍在", pg.evaluate("()=>!document.querySelector('.xx-screen').classList.contains('hidden')"))
     # 吐纳 + 存档持久化
     unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3)
-    unblock(pg); pg.click('[data-act=meditate]'); time.sleep(0.5)
+    # 2026-10-11(XX-AUDIT-033):原来无条件 `pg.click('[data-act=meditate]')`,
+    #   但 index.js:57 的 MEDITATE_FROZEN=true 会让 ui/realm.js:56 **不渲染**该按钮
+    #   (改渲染「吐纳已冻结 —— 修为只由砍杀产出」),于是 Page.click 30s 超时,
+    #   表现为**断言全绿却退出码 1**。冻结是产品有意为之,不是回归,
+    #   所以这里跟随产品状态走,并把「冻结提示真的在」也断言上(见 realm.js:57)。
+    frozen=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return !!Cult.MEDITATE_FROZEN}")
+    if frozen:
+        ok("吐纳已冻结(产品有意关闭,按钮不渲染)", pg.evaluate("()=>!document.querySelector('[data-act=meditate]')"))
+        # 冻结后没有按钮可点,但下面要验的「刷新后 exp 不丢」仍需要一个非零值,
+        # 否则 dao==dao2 恒成立、断言变恒真。这里直接落一个非零 exp。
+        pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');Cult.get().exp=12345;Cult.commit();}")
+    else:
+        unblock(pg); pg.click('[data-act=meditate]'); time.sleep(0.5)
     # 吐纳加的是修为(exp),道行(dao)只在年表推进时才涨 —— 查 exp 才对
     dao=pg.evaluate("async()=>{const {Cult}=await import('/js/xiuxian/index.js');return Cult.get().exp}")
     pg.reload(wait_until='networkidle'); time.sleep(1.5)

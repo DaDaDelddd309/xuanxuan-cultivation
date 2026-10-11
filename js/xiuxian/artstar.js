@@ -12,6 +12,15 @@
 //   3. **有上限** —— max 由 ARTS 自带,到顶了不能无限升
 
 import { SAVE_KEYS } from './save-keys.js';
+// 把「升星 → 局内倍率」交给战斗层。方向只能是 xiuxian/ → game/(反过来会破
+// tests/test-runcfg.mjs 的单向门禁,详见 upgrades.js 里的 setArtStarSource 注释)。
+//
+// ⚠️ `?v=17` 绝对不能省:js/main.js 加载局内用的是 './game/upgrades.js?v=17'。
+//    这里若写成裸 '../game/upgrades.js',浏览器会当成**另一个模块实例**,
+//    下面的注册就注册进了没人用的那个实例 —— 升星「看着接了、实际依然无效」。
+//    这正是本项目栽过的坑(见 tests/xx-play-slot-composition-regression.mjs:25
+//    与 XX-AUDIT-027),门禁 tests/artstar-run-effect-regression.mjs [7] 会钉住它。
+import { setArtStarSource } from '../game/upgrades.js?v=17';
 const K = SAVE_KEYS.artstar;
 
 // 每星的金币消耗倍率(相对神通基础价)
@@ -32,11 +41,20 @@ export const ARTSTAR = {
 
   load() {
     try { const r = localStorage.getItem(K); if (r) this.s = { stars: {}, ...JSON.parse(r) }; } catch {}
+    this._loaded = true;
     return this.s;
   },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); } catch {} },
 
-  stars(id) { return this.s.stars[id] || 0; },
+  stars(id) {
+    // ⚠️ load() 在生产里**从来没有被调用过**:js/main.js 的 bootCult 只 load 了
+    //    Bag/CAMP/Merchant/COMPANION/... ,名单里没有 ARTSTAR。于是刷新页面后
+    //    in-memory 的 `s` 回到 {stars:{}},玩家升的星全丢,effect() 恒返回 null
+    //    —— 就算接进战斗也是空的。这里做**懒加载**:第一次读就补上,不必改 main.js。
+    //    (_loaded 是模块状态,不会随存档序列化,见 save() 只写 this.s。)
+    if (!this._loaded) this.load();
+    return this.s.stars[id] || 0;
+  },
 
   /** 升到下一星要花多少 */
   cost(id, artsMeta) {
@@ -75,7 +93,14 @@ export const ARTSTAR = {
     return { ok: true, star: c.star, note: note || null, msg: `升至 ${'★'.repeat(c.star)}` };
   },
 
-  /** 当前星数带来的局内倍率(纯数据,具体怎么用交给调用方) */
+  /** 当前星数带来的局内倍率(纯数据,具体怎么用交给调用方)
+   *
+   *  ✅ power / reach 已在 js/game/upgrades.js 的 applyChoice 神通分支生效:
+   *     power 放大 family 的每级加成,reach 额外放大 areaMult(范围/射程)。
+   *  ❌ extra(st>=3 多一次)**无处可接** —— 局内投射物数量只由武器自己的等级表
+   *     决定(weapons.js 的 `n`,进化态写死),player.stats 上没有对应字段。
+   *     要实现得改 weapons.js 十几处开火点,属于臆造。这里如实标注,不当成已生效。
+   */
   effect(id) {
     const st = this.stars(id);
     if (!st) return null;
@@ -83,7 +108,7 @@ export const ARTSTAR = {
       star: st,
       power: 1 + st * 0.12,      // 威力
       reach: 1 + st * 0.06,      // 范围/射程
-      extra: st >= 3 ? 1 : 0,     // 3 星起多一次
+      extra: st >= 3 ? 1 : 0,     // 3 星起多一次 —— ⚠️ 未接线,见上
     };
   },
 
@@ -96,3 +121,10 @@ export const ARTSTAR = {
 };
 
 export const STAR_NOTES_ALL = STAR_NOTES;
+
+// —— 接线(XX-META-004):把升星倍率交给战斗层 ————————————
+// 模块求值时就注册,而不是等到某处「记得调一下」——
+// 局内 applyChoice 每次吃神通卡都会现取,升星立刻对战斗生效。
+// 注册的是**函数**而不是当时的星数快照:玩家在修仙阁升完星直接开下一局,
+// 不需要任何额外的同步动作。
+setArtStarSource(id => ARTSTAR.effect(id));

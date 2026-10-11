@@ -6795,3 +6795,172 @@ CI 日志里还有 19 条
 「测试红」和「日志脏」是两件事，混在一起会互相掩盖。
 
 ---
+
+## XX-AUDIT-035 · 升星对战斗零影响（XX-META-004 补完）· 已修
+
+### 现象（已在生产）
+
+玩家在修仙阁花金币 + 传承书把神通升星，`ARTSTAR.up()` 返回成功、星数在 UI 上正确显示，
+但**局内战斗一点变化都没有**。`ARTSTAR.effect(id)` 全仓零生产调用。
+
+### 证据
+
+1. `js/xiuxian/artstar.js:79` 的 `effect()` 返回 `{star, power, reach, extra}`
+2. `grep -rn '\.effect('` 全仓零命中（`ARTSTAR` 只被 `ui.js` / `ui/arts.js` 消费升星与显示）
+3. `js/game/upgrades.js` 的 `applyChoice` 神通分支只按 `ART_FAMILY` 给固定加成，
+   从头到尾没有任何一处读升星
+
+### 顺带查出第二个更隐蔽的缺陷
+
+`ARTSTAR.load()` **在生产里从来没被调用过** —— `js/main.js` 的 bootCult 只 load 了
+Bag/CAMP/Merchant/COMPANION 等，名单里没有 ARTSTAR。于是刷新页面后 in-memory 的 `s`
+回到 `{stars:{}}`，**玩家升的星全丢**。就算把 `effect()` 接上也恒返回 `null`。
+修法：`stars()` 里改懒加载（`_loaded` 标记），不必动 `main.js`。
+
+### 修法与方向纪律
+
+`js/game/` **不能** import `js/xiuxian/`（`tests/test-runcfg.mjs:104` 单向门禁），
+所以沿用本项目既有注入模式（`setRunTune` / `setLootTune`），新增 `setArtStarSource(fn)`，
+由 `artstar.js` 在模块求值时注册**函数**（不是星数快照，玩家升完星直接开下一局即时生效）。
+
+`artstar.js` 的 import 必须写 `'../game/upgrades.js?v=17'` 与 `main.js` 对齐 ——
+裸路径会加载**第二个模块实例**，注册进没人用的那个实例，「看着接了、实际依然无效」。
+这是本项目栽过的坑（XX-AUDIT-027 死导出陷阱）。
+
+### `extra`（3 星起「多一次」）如实留空
+
+局内投射物数量只由武器自己的等级表 `b.n[L]` 决定（`js/game/weapons.js:38,49,65,…`），
+进化态更是写死常量（`n: 9` / `n: 13`）；`player.stats` 上
+（`maxHp might cdMult speed magnet xpMult armor areaMult crit damageTakenMult regen lifestealPct`）
+**没有任何乘投射物数量的字段**。要接得改 weapons.js 十几处开火点、给 14 门神通造第二套
+开火循环 —— 那是臆造，不是接线。已在两个文件里如实标注，并在门禁 `[8]` 把「未接线」钉死。
+
+⚠️ 连带：`STAR_NOTES` 里「剑气分三道/回旋」等文案仍**超出**当前 stat 接线能交付的效果。
+这是产品文案决策，已上报 owner。
+
+### 门禁
+
+`tests/artstar-run-effect-regression.mjs`（23 项，已接入 `npm run lint` 链的 test 段）
+只钉结构性质（「★3 时 might 高于 ★0」「随星数单调」「reach 只放大 areaMult 不乱乘」），
+不钉平衡数字（期望倍数从 `ARTSTAR.effect()` 现读，门禁不重实现公式）。
+反向注入三情景各自回退后分别红 2 项 / 12 项，工作区从未被改动（临时副本）。
+
+---
+
+## XX-AUDIT-036 · 建筑落位丢 slot，连带灵田自动下种静默失效 · 已修
+
+### 现象（已在生产，无声）
+
+玩家点第 v 号空位放建筑 → 紧接着自动触发灵田下种 → **什么也没发生**，
+既不报错也不提示，仿佛点了没反应。
+
+### 根因
+
+数组下标**就是**位置：`harvest(bidx)` / `tickField(bidx)` / `fieldYield(bidx)` /
+`js/xiuxian/ui/build.js:35` 全部用 `this.s.placed[i]` 寻址，
+全仓**没有任何一处读 `inst.slot`**。
+
+而 `place(bid, slot)` 用 `push` 无条件追加，`slot` 只当记录字段。
+于是 `js/xiuxian/ui.js:463` 那条链——
+「点第 v 号空位 → `BUILD.place(inv[0], v)` → 紧接着 `BUILD.harvest(v)`」——
+在 `placed.length ≠ v` 时取到别的建筑（被 `inst.bid!=='bld_field'` 挡下，只是静默不生效）
+或 `undefined`，灵田自动下种就此失效。
+
+### 修法
+
+`place()` 改为按请求下标 `splice(idx, 0, inst)`，`idx` clamp 到 `[0, placed.length]`；
+`remove()` 在 splice 之后 `forEach((p,k)=>p.slot=k)` 重排 slot 字段（它进了存档，
+留着错位的值只会给下一个读它的人埋坑）。
+
+### 门禁
+
+`tests/xx-village-tune-merge-regression.mjs` ②（真实执行 `BUILD`/`Bag`/`harvest`/`tickField`，
+用仓库既有 `tests/harness.mjs` 的 `install()` 桩，不是自造）。
+反向注入回退到 `push()` 后红 8 项。
+
+---
+
+## XX-AUDIT-037 · Titles 裸 JSON.parse，存档缺字段即永久卡死 · 已修
+
+### 现象
+
+称号系统一旦读到一份缺字段的存档就**永久失效**，且无任何报错出口。
+
+### 根因
+
+`js/xiuxian/relations.js:98` 是全仓**唯一**一个不做默认合并的 load：
+
+```js
+if (r) this.s = JSON.parse(r);          // ← 整体替换
+```
+
+craft / merchant / index / spine / items 全是 `{...默认, ...JSON.parse(r)}`。
+存档里只要缺一个字段（如 `flags` 是后加的），`this.s` 就变成残缺对象，
+`track()` 里 `this.s.flags[action]` 直接抛 TypeError；
+而外层 `catch {}` 只包住 `parse` 那一步，**报错被吞掉，没有出口**。
+
+### 修法
+
+改成 `{ ...this.s, ...JSON.parse(r) }`，并在 parse 之后加形状兜底：
+`this.s` 非对象则复位、`flags` 缺则补 `{}`、`active` 非数组则补 `[]`
+（存档里显式写 `null` 时 spread 会把默认值覆盖掉，故障形态与原来完全相同）。
+
+### 门禁
+
+`tests/xx-village-tune-merge-regression.mjs` ①（真实执行 `Titles.load/track/check/add`）。
+反向注入回退到裸 parse 后红 2 项。
+
+---
+
+## XX-PLAY-018 · player.js 攻击成长「总上限 ×2.84」不存在 · 注释已订正，公式待裁定
+
+### 现象
+
+`js/game/player.js` 注释声称「25 级后增量指数衰减，总上限 ≈×2.84」。
+**那个上界不存在。**
+
+### 实测（knight，`stats.might / char.might`）
+
+```
+lv=30 → 2.920    lv=40 → 3.674    lv=60 → 4.934   且无界
+```
+
+根因：`lvOver = Math.max(0, lv-25)` 只夹住了指数衰减项（该项确实收敛到 0.4，
+2.44 + 0.4 = 2.84），**主项 `(lv-1)*0.06` 线性无界**。注释把它也当成了在封顶。
+
+### 已做 / 未做
+
+- ✅ 注释订正成实测真相，并写明「要真拿到 ×2.84 该怎么改」
+- ❌ **公式数值不动**。改公式意味着后期攻击 −43%（lv=60 由 4.934 → 2.834）的重平衡，
+  且本轮跑不了浏览器测试（见下方「本轮未验证项」），不静默改平衡。
+
+**待 owner 裁定**：接受现状（封顶诉求作废），还是要真封顶（接受后期 −43%）。
+
+### 门禁
+
+`tests/xx-village-tune-merge-regression.mjs` ③：钉「注释不得再声称一个不存在的上界」
+＋「若提到 ×2.84 必须同时撤回」＋「必须写明配方与待裁定状态」，
+并断言公式数值未被夹带修改。反向注入回退旧注释后红 3 项。
+
+---
+
+## XX-PLAY-015 后续 · weapon 权重 10 → 20（owner 拍板）
+
+`js/game/upgrades.js:197` 的 `kind:'weapon'` 权重由 10 改为 20。
+背景：修复 XX-PLAY-015 那个「均匀抽样让 `w:` 全成死代码」的 bug 后，
+weapon 实测由 4.50% → 7.17%，仍明显低于均分；owner 本轮选 20。
+
+`tests/xx-play-slot-composition-regression.mjs` 已自带权重敏感性与单调性断言，随之收紧。
+
+---
+
+## 本轮未验证项（如实登记）
+
+- **`tests/run-browser.sh` 本轮没跑，也跑不了。** DEPLOY.md 第 0 步要求
+  `run-all.sh` + `run-browser.sh` 两套都过才发版；浏览器测试只能在带桌面环境的机器上跑，
+  Termux/Android 装不了（无 chromium 二进制、Termux 仓库无包、
+  pip 拿不到适配 Python 3.14 的 playwright 轮子）。
+  本轮实跑：`npm run check:full` = 0（含 lint/test/legacy/rng/e2e）、`bash tests/run-all.sh` = 0。
+  **发布前需在桌面机补跑 `run-browser.sh`。**
+
+---

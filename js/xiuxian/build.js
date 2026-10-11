@@ -152,11 +152,20 @@ export const BUILD = {
     if (!chk.ok) return chk;
     Bag.take(bid, 1);
     const b = BUILDINGS[bid];
+    // 数组下标**就是**位置 —— harvest / tickField / fieldYield / ui/build.js:35
+    // 全部用 this.s.placed[i] 寻址,没有任何一处读 inst.slot。
+    // 原实现用 push 无条件追加、只把 slot 当记录字段,于是 ui.js:463 那条链
+    // 「玩家点第 v 号空位 → BUILD.place(inv[0], v) → 紧接着 BUILD.harvest(v)」
+    // 在 placed.length ≠ v 时取到别的建筑(有 bid!=='bld_field' 挡着,只是静默不生效)
+    // 或 undefined,灵田自动下种就此静默失效。改成按请求下标插入。
+    const n = this.s.placed.length;
+    const idx = (slot === undefined || slot === null || Number.isNaN(+slot))
+      ? n : Math.max(0, Math.min(Math.trunc(+slot), n));
     const inst = {
-      bid, slot: slot ?? this.s.placed.length,
+      bid, slot: idx,
       workers: [], plantAt: 0, ready: 0, x: 0, y: 0, at: Date.now(),
     };
-    this.s.placed.push(inst);
+    this.s.placed.splice(idx, 0, inst);
     this.save();
     return { ok:true, inst, msg:`${b.name} 已放置。点它派人值守。` };
   },
@@ -164,6 +173,9 @@ export const BUILD = {
     const it = this.s.placed[i];
     if (!it) return { ok:false };
     this.s.placed.splice(i, 1);
+    // splice 让后面所有建筑的前移一位,把 slot 字段同步过来。
+    // 目前无人读它,但它进了存档 —— 留着错位的值只会给下一个读它的人埋坑。
+    this.s.placed.forEach((p, k) => { p.slot = k; });
     Bag.add(it.bid, 1);       // 拆除全额返还
     this.save();
     return { ok:true, msg:`${BUILDINGS[it.bid].name} 已拆除,材料返还。` };
