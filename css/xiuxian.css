@@ -514,6 +514,13 @@
    好处:视线不被挡,和「不打断」的调性一致 —— 它是浮字,不是弹窗。 */
 .xx-storycard{
   position:absolute;
+  /* ⚠️ pointer-events:auto 不能省 —— 和上面 .xx-ritual 是**同一个坑**(XX-BUG-C)。
+     nag.js 把浮层挪进 #xx-nag-host 统一管理,而宿主是 `pointer-events:none`,
+     该值**会被子元素继承**。叙事卡一族没写这一条时:
+     卡片照常显示,但「知道了」「其一」「其二」「补完」全部点不动,
+     点击穿透到下面的地图节点 —— 玩家点结局选项没反应,CI 上 Page.click 30s 超时。
+     nag.js 侧也做了同样的兜底(XX-QA-001),这里是第二道。 */
+  pointer-events:auto;
   left:4%;right:auto;
   top:50%;transform:translateY(-50%);
   width:min(76%,330px);

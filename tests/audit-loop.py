@@ -44,13 +44,25 @@ with sync_playwright() as p:
     print(f"  文字: {pg.inner_text('#hud-xx')!r}")
 
     print("\n【灵气会不会掉、会不会被吸】")
-    # 走位 + 打怪,给掉落时间
+    # 走位 + 打怪,给掉落时间。
+    # ⚠️ 窗口长度是被门槛倒推出来的,不是随手写的(2026-10-11 XX-QA-003):
+    #   loot.js GATE.spirit = 125,spirit.js 每 8 只结算一次,
+    #   CHARGE = { normal:1, elite:8, boss:45 }。
+    #   纯普通怪要 125 只才掉**第一颗**灵气。
+    #   原窗口 ~34s 实测只杀到 88 只(70.4% 充能)→ 场上一次都没掉过 →
+    #   下面 `tally > 0` 恒红。**那条断言钉在设计门槛以下**,不是产品坏了。
+    #   88 只/34s ≈ 2.6 只/s,125 只需 ~48s;这里留余量按 ~170 只设计。
     for i in range(45):
         pg.keyboard.press(['KeyD','KeyW','KeyA','KeyS'][i%4]); time.sleep(0.35)
-    for i in range(18):
+    for i in range(40):
         pg.keyboard.press('Space'); time.sleep(0.5)
     for i in range(30):
         pg.keyboard.press(['KeyD','KeyS','KeyA','KeyW'][i%4]); time.sleep(0.3)
+    # 再补一段,确保跨过 125 门槛(纯普通怪的路径)
+    for i in range(40):
+        pg.keyboard.press('Space'); time.sleep(0.5)
+        if i % 4 == 0:
+            pg.keyboard.press(['KeyD','KeyW','KeyA','KeyS'][i%4]); time.sleep(0.3)
     ling=pg.evaluate("()=>Number(document.getElementById('hud-xx-ling')?.textContent||0)")
     onscreen=pg.evaluate("()=>document.querySelectorAll('#game ~ *').length")
     print(f"  HUD 显示灵气: {ling}")
@@ -85,10 +97,27 @@ with sync_playwright() as p:
         print(f"  结算返回: {r['ret']}")
         ok(f"道行真的涨了 {r['d0']}→{r['d1']}", r['d1']>r['d0'])
         print(f"  源石: {r['s0']}→{r['s1']}")
-        # 同上:数值并进断言名, 免得只看得到一个光秃秃的 ❌。
-        # ling=0 时 spirit.js:130 的 `if(stones>0)` 不成立, 这里必挂 ——
-        # 所以本条与上面 ling 那条是**同一个根因**, 不是两个独立 bug。
-        ok(f"源石真的进背包了({r['s0']}→{r['s1']}, ling={tally})", r['s1']>r['s0'])
+        # ⚠️ 2026-10-11(XX-QA-003)重写。这条原来写的是 `r['s1'] > r['s0']`,在短窗口里
+        # **结构上不可能成立**,而且它与上面 ling 那条是同义反复:
+        #   settle() 吃的就是当前 TALLY.ling,ling=0 时 spirit.js 的
+        #   `if (stones > 0)` 不成立 → stones = floor(0/12) = 0 → 背包不变。
+        # 也就是说它**永远测不到源石链路本身**,只测了「ling 大不大」。
+        #
+        # 它要求 ling ≥ 12 才掉 1 颗,即至少 12 次出货 ≈ 1500 点充能:
+        #   纯普通怪 125 充能/颗 → 约 1500 只 ≈ 10 分钟;
+        #   即便跑满整局 600s(约 1560 只 + 精英 22×8)也才够 1 颗。
+        # 所以「把窗口拉长」对这条无效 —— 它钉的根本不是窗口内可达的性质。
+        #
+        # 改成验**结算账目自洽**:settle 报的 stones 必须等于 floor(ling/12),
+        # 且 ling 够 12 时背包确实多出对应数量。这在任何 ling 下都成立,
+        # 且直接覆盖 spirit.js 的结算公式与 Bag.add 调用,不再与 ling 那条同义反复。
+        # 「精英 → stone_2 → 背包」那条真正的局内入口由
+        # tests/xx-qa-003-spirit-stone-chain.mjs 端到端覆盖(已在 npm run test 链里)。
+        want = max(0, r['ret'].get('ling', 0) // 12)
+        ok(f"源石结算账目自洽(ling={r['ret'].get('ling')}, 应得={want}, 实际={r['ret'].get('stones')})",
+           r['ret'].get('stones') == want)
+        ok(f"源石入包量与结算量一致(背包 +{r['s1']-r['s0']} = stones {r['ret'].get('stones')})",
+           (r['s1'] - r['s0']) == r['ret'].get('stones'))
 
     print("\n【修仙阁那边能不能看到】")
     unblock(pg)

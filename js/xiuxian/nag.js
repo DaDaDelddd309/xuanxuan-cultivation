@@ -68,6 +68,7 @@ export const NAGER = {
   },
 
   _pump() {
+    staleBusy();                      // XX-QA-001(2):占位浮层已经没了就别再占着
     if (this._busy || !this._q.length) return;
     if (typeof mountQueued === 'function' && _host) { mountQueued(); return; }
     const job = this._q.shift();
@@ -125,6 +126,44 @@ function host() {
   return _host;
 }
 
+// ══ XX-QA-001(1):浮层的可点性 ══
+// 宿主的样式是 `pointer-events:none`,而 **pointer-events 会被子元素继承**。
+// .xx-ritual 当年踩过这个坑(XX-BUG-C),在 css/xiuxian.css 里补了 pointer-events:auto。
+// 但叙事卡一族(showStoryBeat / askPath / askStoryPath / askTombWords …)没补 ——
+// 于是卡片**看得见、点不动**:玩家点了「知道了」「其一」「其二」毫无反应,
+// 选项全部穿透到下面的地图节点上。这不是观感问题,是点了没反应。
+//
+// 纯信息横幅 .xx-banner 本来就不该吃点击(它的 CSS 里就是 none),保持不变。
+// 判据用**结构**而不是写死数值:卡里**有没有可点的动作**。
+const INTERACTIVE = '[data-p],[data-w],[data-act],button,.xx-sc-x';
+function interactive(el) {
+  try { return !!(el && el.querySelector && el.querySelector(INTERACTIVE)); }
+  catch { return false; }
+}
+
+// ══ XX-QA-001(2):「忙」这个标记原来只有计时器和点击能清 ══
+// 浮层被**别的方式**弄掉时,_busy 就永远卡住 true:
+//   · 仪式 Ritual.close() 是 classList.add('hidden'),不是 remove()
+//   · 叙事卡 / tombEnding 自己的 setTimeout(()=>el.remove(), 9000) 直接摘节点
+// 卡住的直接后果:之后每一个浮层都只进队列、不显示 ——
+// 玩家看到的正是「走完支线却弹不出叙事卡 / 结不了案 / 看不到结局选择」。
+// 判据:占位元素**还活着吗**(连着 DOM、没被 hidden、没被 display:none)。
+function occupying(el) {
+  if (!el) return false;
+  if (el.isConnected === false) return false;
+  if (el.classList && el.classList.contains('hidden')) return false;
+  if (el.style && el.style.display === 'none') return false;
+  return true;
+}
+function staleBusy() {
+  if (!NAGER._busy) return false;
+  if (occupying(NAGER._el)) return false;
+  NAGER._busy = false;
+  NAGER._el = null;
+  NAGER._onRemove = null;
+  return true;
+}
+
 // 浮层类名 → 打扰等级
 const LEVEL = [
   [/xx-storycard.*legend|xx-banner/, NAG.MID],
@@ -158,15 +197,20 @@ export function installNagger() {
 
     const h = host();
     if (!h) return orig(el);
+    staleBusy();                      // XX-QA-001(2)
     // 队里还有别人、或者正忙 → 进队列
     if (NAGER._busy || NAGER._q.length) { NAGER._q.push({ el, level: lv }); NAGER._pump(); return el; }
+    // XX-QA-001(1):宿主 pointer-events:none 会被继承下来,有可点动作的浮层必须自己拿回 auto
+    if (interactive(el)) el.style.pointerEvents = 'auto';
     h.appendChild(el);
     NAGER._busy = true;
+    NAGER._el = el;                  // XX-QA-001(2):记下占位者,staleBusy() 才有得判
     const dur = lv >= NAG.MUST ? 11000 : (lv === NAG.MID ? 4200 : 8000);
     const done = () => {
       clearTimeout(NAGER._timer);
       el.remove();
       NAGER._busy = false;
+      NAGER._el = null;
       setTimeout(() => NAGER._pump(), 320);
     };
     if (lv >= NAG.MID) el.addEventListener('click', done, { once: true });
@@ -181,12 +225,15 @@ export function mountQueued() {
   if (!job) return;
   const h = host();
   if (!h) return;
+  if (interactive(job.el)) job.el.style.pointerEvents = 'auto';   // XX-QA-001(1)
   h.appendChild(job.el);
   NAGER._busy = true;
+  NAGER._el = job.el;               // XX-QA-001(2)
   const dur = job.level >= NAG.MUST ? 11000 : (job.level === NAG.MID ? 4200 : 8000);
   const done = () => {
     clearTimeout(NAGER._timer);
     job.el.remove();
+    NAGER._el = null;
     NAGER._busy = false;
     setTimeout(() => NAGER._pump(), 320);
   };

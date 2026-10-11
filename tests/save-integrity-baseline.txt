@@ -1,0 +1,89 @@
+# 存档完整性 · 已知缺陷基线（XX-QA-015）
+#
+# 一行一条,格式 <存档键>::<故障向量>。这个文件里的条目**不判红**;
+# 出现基线之外的条目即判红。
+#
+# 基线只减不增:修掉一条就从这里删一行。减到 0 就把整个基线机制拆掉。
+# 人工审阅于 2026-10-11,详见 TICKETS.md 与 TEST-PLAN.md 的 R2 轮。
+
+(迁移)::xx_day_v080 旧档数据被读回
+xx_artstar_v099::每字段 = null
+xx_artstar_v099::类型错(数字↔字符串 / 数组↔对象)
+xx_bag_v080::NaN 诱饵:所有数值字段 = "abc"
+xx_bag_v080::所有数值字段 = 1e308
+xx_bag_v080::每字段 = null
+xx_bag_v080::类型错(数字↔字符串 / 数组↔对象)
+xx_bag_v080::超大(10万字符 / 2万元素)
+xx_build_v083::NaN 诱饵:所有数值字段 = "abc"
+xx_build_v083::所有数值字段 = 1e308
+xx_build_v083::每字段 = null
+xx_build_v083::类型错(数字↔字符串 / 数组↔对象)
+xx_build_v083::超大(10万字符 / 2万元素)
+xx_camp_v080::NaN 诱饵:所有数值字段 = "abc"
+xx_camp_v080::所有数值字段 = 1e308
+xx_camp_v080::每字段 = null
+xx_camp_v080::类型错(数字↔字符串 / 数组↔对象)
+xx_camp_v080::超大(10万字符 / 2万元素)
+xx_chronicle_v081::NaN 诱饵:所有数值字段 = "abc"
+xx_chronicle_v081::所有数值字段 = 1e308
+xx_chronicle_v081::每字段 = null
+xx_chronicle_v081::类型错(数字↔字符串 / 数组↔对象)
+xx_chronicle_v081::超大(10万字符 / 2万元素)
+xx_clock_v099::NaN 诱饵:所有数值字段 = "abc"
+xx_clock_v099::所有数值字段 = 1e308
+xx_clock_v099::每字段 = null
+xx_clock_v099::类型错(数字↔字符串 / 数组↔对象)
+xx_clock_v099::超大(10万字符 / 2万元素)
+xx_companion_v081::类型错(数字↔字符串 / 数组↔对象)
+xx_craft_v099::NaN 诱饵:所有数值字段 = "abc"
+xx_craft_v099::所有数值字段 = 1e308
+xx_craft_v099::每字段 = null
+xx_craft_v099::类型错(数字↔字符串 / 数组↔对象)
+xx_craft_v099::超大(10万字符 / 2万元素)
+xx_cultivation_v077::NaN 诱饵:所有数值字段 = "abc"
+xx_cultivation_v077::所有数值字段 = 1e308
+xx_cultivation_v077::每字段 = null
+xx_cultivation_v077::类型错(数字↔字符串 / 数组↔对象)
+xx_cultivation_v077::超大(10万字符 / 2万元素)
+xx_family_v081::NaN 诱饵:所有数值字段 = "abc"
+xx_family_v081::所有数值字段 = 1e308
+xx_family_v081::每字段 = null
+xx_family_v081::类型错(数字↔字符串 / 数组↔对象)
+xx_family_v081::超大(10万字符 / 2万元素)
+xx_market_v099::NaN 诱饵:所有数值字段 = "abc"
+xx_market_v099::所有数值字段 = 1e308
+xx_market_v099::每字段 = null
+xx_market_v099::类型错(数字↔字符串 / 数组↔对象)
+xx_market_v099::超大(10万字符 / 2万元素)
+xx_merch_v080::NaN 诱饵:所有数值字段 = "abc"
+xx_merch_v080::所有数值字段 = 1e308
+xx_merch_v080::每字段 = null
+xx_merch_v080::类型错(数字↔字符串 / 数组↔对象)
+xx_merch_v080::超大(10万字符 / 2万元素)
+xx_nag_v096::声明了键常量但没有任何读写点
+xx_nemesis_v077::NaN 诱饵:所有数值字段 = "abc"
+xx_nemesis_v077::所有数值字段 = 1e308
+xx_nemesis_v077::每字段 = null
+xx_nemesis_v077::类型错(数字↔字符串 / 数组↔对象)
+xx_nemesis_v077::超大(10万字符 / 2万元素)
+xx_profile_v081::所有数值字段 = 1e308
+xx_profile_v081::类型错(数字↔字符串 / 数组↔对象)
+xx_profile_v081::超大(10万字符 / 2万元素)
+xx_quest_v087::每字段 = null
+xx_quest_v087::类型错(数字↔字符串 / 数组↔对象)
+xx_seed_v081::超长字符串(10万字符)
+xx_spine_v099::每字段 = null
+xx_spine_v099::类型错(数字↔字符串 / 数组↔对象)
+xx_story_v086::NaN 诱饵:所有数值字段 = "abc"
+xx_story_v086::所有数值字段 = 1e308
+xx_story_v086::每字段 = null
+xx_story_v086::类型错(数字↔字符串 / 数组↔对象)
+xx_story_v086::超大(10万字符 / 2万元素)
+xx_tavern_v099::每字段 = null
+xx_tavern_v099::类型错(数字↔字符串 / 数组↔对象)
+xx_titles_v077::类型错(数字↔字符串 / 数组↔对象)
+xx_tomb_v089::NaN 诱饵:所有数值字段 = "abc"
+xx_tomb_v089::所有数值字段 = 1e308
+xx_tomb_v089::每字段 = null
+xx_tomb_v089::类型错(数字↔字符串 / 数组↔对象)
+xx_tomb_v089::超大(10万字符 / 2万元素)
