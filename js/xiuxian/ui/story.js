@@ -20,13 +20,21 @@ import { NAGER, NAG } from '../nag.js';
 import { LEGEND } from '../legend.js';
 import { esc, toast } from './dom.js';
 
+// ⚠️ XX-QA-067:玩家曾**直接看到内部 id** ——
+//   ① 「去『jiangu』处了结」:ARCS[b].mob 是图鉴的 key,不是名字。改用 LEGEND[].name。
+//   ② 「下一处:n8」:story.js 的节点 id。而且 n8 本身还是**误导性**的 ——
+//      story.js:246-266 记录了 n8 只有约 3.5% 的种子真的是 boss,
+//      叙事靠「任意 boss 节点」兜底。所以就算把 id 换成地名,这句话也是错的。
+//      与其给一个假地名,不如不说:去掉这一行,进度条还在。
+// 参照:quest.js:32-33 早就写明「id 是内部实现,不该出现在任务描述里」并在 quest tip 里
+//   做了这件事 —— 同样的问题在叙事卡这边漏掉了。
 export function showStoryBeat(hall, b) {
     const el = document.createElement('div');
     el.className = 'xx-storycard';
     el.innerHTML = `<div class="xx-sc-n">${esc(b.name)}</div>
       <div class="xx-sc-t">${esc(b.text)}</div>
       ${b.reveal?`<div class="xx-sc-r">${esc(b.reveal)}</div>`:''}
-      ${b.last?`<div class="xx-sc-go">此线已至尽头。去「${esc(ARCS[b.arc].mob)}」处了结。</div>`:''}
+      ${b.last?`<div class="xx-sc-go">此线已至尽头。去「${esc(LEGEND[ARCS[b.arc].mob]?.name || '那处')}」处了结。</div>`:''}
       <div class="xx-sc-x">知道了</div>`;
     document.getElementById('app').appendChild(el);
     el.querySelector('.xx-sc-x').onclick = () => el.remove();
@@ -111,7 +119,6 @@ export function vQuest(hall) {
           ${act.map(a=>`<div style="margin-bottom:8px">
             <div class="xx-val" style="font-size:13px;color:var(--xx-paper)">${esc(a.name)}
               <span class="xx-dim">(${a.beat+1}/${a.total})</span></div>
-            <div class="xx-dim" style="margin-top:2px">下一处:${esc(a.next?a.next.node:'')}</div>
             <div class="xx-bar" style="margin-top:6px"><i style="width:${(a.beat/a.total)*100}%"></i></div>
           </div>`).join('')}</div>`;
       })()}

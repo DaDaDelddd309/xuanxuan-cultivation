@@ -60,7 +60,6 @@ xx_merch_v080::所有数值字段 = 1e308
 xx_merch_v080::每字段 = null
 xx_merch_v080::类型错(数字↔字符串 / 数组↔对象)
 xx_merch_v080::超大(10万字符 / 2万元素)
-xx_nag_v096::声明了键常量但没有任何读写点
 xx_nemesis_v077::NaN 诱饵:所有数值字段 = "abc"
 xx_nemesis_v077::所有数值字段 = 1e308
 xx_nemesis_v077::每字段 = null

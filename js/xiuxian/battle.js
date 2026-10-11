@@ -81,8 +81,14 @@ export function playerAct(s, e, artId) {
   e.hp = Math.max(0, e.hp - dmg);
   s.cooldown = s.cooldown || {};
   s.cooldown[artId] = artCd(s, artId);
-  // 回合数递减所有冷却
-  for (const k in s.cooldown) if (s.cooldown[k] > 0) s.cooldown[k]--;
+  // ⚠️ XX-DUEL-007:冷却递减原来**写在 playerAct 里面**。
+  //   而 duel.js 的「无牌可打 → 强制普攻」分支根本不调 playerAct ——
+  //   于是那条路上冷却永远不转正。
+  //   实测(duel-balance-invariant 的模拟):单神通玩家整场只出 1 招、
+  //   双神通玩家只出 2 招,之后全程零输入的自动战斗。
+  //   症状不是「手感差」,是**冷却冻结** —— 玩家看着自己被动挨打。
+  //   现在递减移到回合边界(见 tickCooldown),由 Duel.playerTurn 统一调一次,
+  //   无论本回合走哪条分支。
   return { art:artId, name:artName(artId), dmg, text:artFull(artId) };
 }
 
@@ -93,6 +99,12 @@ export function enemyAct(e, s) {
   if (crit) dmg = Math.round(dmg * 1.6);
   s.hp = Math.max(0, s.hp - dmg);
   return { dmg, crit, line: e.line };
+}
+
+/** 推进一个玩家回合:所有冷却 -1。**每回合必须且只能调一次。 */
+export function tickCooldown(s) {
+  s.cooldown = s.cooldown || {};
+  for (const k in s.cooldown) if (s.cooldown[k] > 0) s.cooldown[k]--;
 }
 
 export function isDead(e) { return e.hp <= 0; }

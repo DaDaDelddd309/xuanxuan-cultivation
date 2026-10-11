@@ -148,6 +148,41 @@ console.log('\n=== [4] 源码层面:不再有读错对象的比较 ===');
     '少了这个豁免,结局卡就会在预算用完后被吞掉');
 }
 
+console.log('\n=== [5] 死代码清理:预算必须真的「每局重置」 ===');
+{
+  const { codeMask } = await import('./lib-uimod.mjs');
+  const NAG_SRC = codeMask(R('js/xiuxian/nag.js')).code;
+  const MAIN_SRC = codeMask(R('js/main.js')).code;
+
+  t('nag.js 不再声明那个死键常量 xx_nag_v096',
+    !/const\s+K\s*=\s*['"]xx_nag_v096/.test(NAG_SRC),
+    '它全仓只有声明、没有读写点 —— save-integrity 把它登记成已知缺陷,已删');
+  t('nag.js 不再监听没有发射器的 xx-run-start',
+    !/addEventListener\(\s*['"]xx-run-start/.test(NAG_SRC),
+    '全仓 dispatchEvent 出现 0 次,这条监听永远不触发 —— 它让人以为预算会自己按局重置');
+
+  // ⚠️ 这条最关键:删掉那条死监听之后,真正管用的复位只剩 main.js 那一次调用。
+  //   谁再「清理」main.js 时顺手删了它,预算就永远归不了零。
+  t('【关键】main.js 里仍然有 NAGER.newRun() 的生产调用点',
+    /NAGER\.newRun\(\)/.test(MAIN_SRC),
+    '唯一的复位入口没了 —— 预算永远不归零');
+
+  // 作用域现状:**在启动 IIFE 里,不是 startRun 里**。
+  //   文件头写的语义是「一局内」,实际是「每次页面加载」——
+  //   同一页玩第二局时额度是上一局的残值。已登记 XX-QA-064,**不在本门禁判红**
+  //   (那是设计对不齐,不是守卫失效;守卫本身是对的)。
+  //   这里只把事实**打印出来**并记录,不判红 —— 判的是「守卫失效」,不是「作用域对不齐」。
+  //   XX-QA-064 修完之后这一行会变成 true,届时可以收紧成一条硬断言。
+  const inStartRun = (() => {
+    const at = MAIN_SRC.indexOf('function startRun(');
+    if (at < 0) return false;
+    const nx = MAIN_SRC.slice(at + 1).search(/\nfunction [A-Za-z_$]/);
+    return nx > 0 && /NAGER\.newRun\(\)/.test(MAIN_SRC.slice(at, at + 1 + nx));
+  })();
+  console.log(`    ℹ️  NAGER.newRun() 在 startRun 内: ${inStartRun}`
+    + (inStartRun ? '' : '  ← 现状:在启动 IIFE 里(XX-QA-064:作用域是每次页面加载,不是每局)'));
+}
+
 if (fail === 0) {
   console.log(`\n✅ XX-QA-063 通过:${pass} 项(预算守卫接上了,结局卡丢不掉)`);
   process.exit(0);

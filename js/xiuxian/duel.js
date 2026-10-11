@@ -3,7 +3,7 @@
 // 契约:只调 battle.js 的纯函数,不改动它们。
 
 import { Cult } from './index.js';
-import { makeEnemy, playerAct, enemyAct, availableArts, canUseArt, isDead, playerDead } from './battle.js';
+import { makeEnemy, playerAct, enemyAct, availableArts, canUseArt, isDead, playerDead, tickCooldown } from './battle.js';
 import { REALMS } from './realms.js';
 import { artName, artFull, superSet, isSuper } from './arts.js';
 import { BGM } from './relations.js';
@@ -125,8 +125,14 @@ export const Duel = {
     //   cfg.hpRatio 是**局内实际打剩的比例**(main.js 从 boss 身上量出来的)。
     //   没有传才回退到原来的猜测值(秘境首次遭遇 = 满血)。
     //   之前写死 0.4,导致局内砍了半天进回合制 boss 又是满血 —— 白打。
-    const autoRatio = typeof cfg.hpRatio === 'number'
-      ? Math.max(0.05, Math.min(1, cfg.hpRatio))
+    // ⚠️ NaN 防护:Math.min/Math.max 对 NaN 一律返回 NaN,
+    //   而 hpRatio 来自 main.js 对 boss.hp/boss.hpMax 的除法 ——
+    //   只要 hpMax 是 0 或 undefined,ratio 就是 NaN/1(Infinity)。
+    //   后果:isDead(NaN) 恒 false ⇒ **敌人永远打不死**,玩家必输且毫无线索。
+    //   门槛写的是「1..100 的整数」,NaN 连门槛都过不去。
+    const raw = typeof cfg.hpRatio === 'number' ? cfg.hpRatio : NaN;
+    const autoRatio = Number.isFinite(raw)
+      ? Math.max(0.05, Math.min(1, raw))
       : (cfg.node.type === 'secret' ? 1.0 : 0.4);
     e.hpMax = 100;
     e.hp = Math.max(1, Math.round(100 * autoRatio));
@@ -332,6 +338,11 @@ export const Duel = {
 
   playerTurn(preId) {
     const S = this.S; if (!S || S.over) return;
+    // ⚠️ XX-DUEL-007:无参调用 =「一个玩家回合开始」,在这里递减一次冷却。
+    //   放在这里而不是 playerAct 里,是为了让「无牌可打 → 强制普攻」
+    //   那条分支也吃到递减 —— 那条分支根本不调 playerAct。
+    //   有参调用 = 玩家点了某张牌,那是本回合的结算,不能再减一次。
+    if (!preId) tickCooldown(S.hero);
     const sk = this.root.querySelector('#xd-sk');
 
     // 预选(玩家主动点的)直接结算
@@ -346,6 +357,12 @@ export const Duel = {
         const dmg = Math.max(3, Math.round(14 - S.e.def));
         S.e.hp = Math.max(0, S.e.hp - dmg);
         this.hurt('ef'); this.paintHp();
+        // ⚠️ XX-DUEL-008:这里原来**没有 isDead 判断**,打完直接转敌方回合。
+        //   resolvePlayer 那条路(:378)是有的。于是走强制普攻把敌人打死 →
+        //   不判胜 → 继续挨打 → 玩家输。
+        //   「打死对方反而输」是这类 bug 里最恶劣的一种:它惩罚的恰恰是
+        //   技能冷却全在、只能靠普攻撑住的玩家 —— 也就是最弱势的那批人。
+        if (isDead(S.e)) { this.win(); return; }
         setTimeout(() => this.enemyTurn(), 520);
       });
       return;

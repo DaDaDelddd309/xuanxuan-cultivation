@@ -14,7 +14,18 @@
 // 设计原则:
 //   机制是玩家来玩的,不是来消耗玩家注意力的。
 //   玩家一局该被打扰 2-3 次,不是 10 次。
-const K = 'xx_nag_v096';
+//
+// ⚠️ 这里原来有一行 `const K = 'xx_nag_v096'` —— **死键**。
+//   全仓只有它自己的声明出现过一次,没有任何读写点(save-integrity 审计
+//   把这条登记成了已知缺陷:「该键名在本仓从未被读写,迁移/巡检表会误以为
+//   它有存档」)。已删。
+//
+//   为什么它一直没人发现:NAGER 根本**不需要**持久化 ——
+//   预算的语义写在文件头是「一局内」,但实际作用域是**每次页面加载**:
+//   全仓唯一的 `NAGER.newRun()` 调用点在 `main.js` 的 `(function bootCult(){…})`
+//   这个启动 IIFE 里,即开页跑一次,不是每局跑一次。见 TICKETS.md XX-QA-064。
+//   键名是早期「打算跨局累计」那版设计的残留,方案没落地,常量留了下来。
+//   这跟今天修的两处是同一个病:声明了、没接线、然后所有人以为它管用。
 
 // 打扰等级
 export const NAG = {
@@ -40,6 +51,19 @@ export const NAGER = {
   _timer: null,
 
   reset() { this.used = 0; this._q = []; this._busy = false; this._clear(); },
+  // ⚠️ **作用域提醒**:全仓唯一的调用点在 `main.js` 的启动 IIFE
+  //   `(function bootCult(){ … NAGER.newRun(); … })` 里 —— 也就是
+  //   **每次页面加载重置一次,不是每局**。
+  //   而本文件头写的语义是「一局内『打扰』次数有上限」——
+  //   两者对不上:同一页里玩第二局时,额度已经是上一局剩下的残值。
+  //   见 TICKETS.md XX-QA-064。本函数本身正确,错的是调用时机。
+  //
+  //   另外这里原来还挂过一个 window 'xx-run-start' 监听(文件下方,已删):
+  //   那条事件**没有任何发射器**(全仓 `dispatchEvent` 出现 0 次),
+  //   是一个永远不触发的复位入口。危害不在于它坏了,而在于它**看起来**
+  //   在管复位 —— 读代码的人都会以为「预算会自己按局重置」,
+  //   于是没人去核对真正那次调用在哪儿、作用域又是哪儿。
+  //   同一个病:声明了、没接线、然后所有人以为它管用。
   newRun() { this.runs++; this.used = 0; this._q = []; this._clear(); },
   _clear() {
     clearTimeout(this._timer);
@@ -100,10 +124,13 @@ export const NAGER = {
   report() { return { used:this.used, budget:this.budget, pending:this._q.length, runs:this.runs }; },
 };
 
-// 每局开始重置预算
-if (typeof window !== 'undefined') {
-  window.addEventListener('xx-run-start', () => NAGER.newRun());
-}
+// 每局开始重置预算 —— 由 `main.js` 的 `startRun` **直接调用** `NAGER.newRun()`。
+//
+// ⚠️ 这里原来是一个 window 'xx-run-start' 监听,已删。理由见 `newRun` 上方的注释:
+//   那条事件**没有任何发射器**(全仓 `dispatchEvent` 出现 0 次),它是个永远不触发的复位入口。
+//   真正管用的是 main.js 里那次直接调用 —— 删掉监听不会改变任何行为。
+//   `tests/nag-budget-guard-regression.mjs` 现在有一条断言守着那个直接调用还在,
+//   免得将来有人「清理」main.js 时顺手把它删了,而这里也已经没有监听兜底。
 
 // —— 统一拦截(V0.96)——
 // ui.js / bond.js / duel.js 等一共 13 处直接 appendChild 到 #app。

@@ -79,7 +79,11 @@ export const DEFEAT = {
       return {
         type:'ransom',
         text:`你交出全部身家,${stronger.title}收了,说:"滚吧,别让我再看见你。"`,
-        effect:{ daoLoss:0.6, hpLoss:0.3 },
+        // ⚠️ hpLoss 已删(死数据普查 #1):Cult 持久态**根本没有 hp 字段**
+        //   (血量是局内临时值),所以它不是「忘了接线」而是**无处可落**;
+        //   Boss 路径上局已经结束,秘境路径上也不跨局。
+        //   留着一个永远不生效的键,比删掉更坏 —— 它让人以为赎金有代价。
+        effect:{ daoLoss:0.6 },
         log:'人在,修为还在。钱没了。',
       };
     }
@@ -126,6 +130,10 @@ export const DEFEAT = {
       s.exp = Math.floor((s.exp || 0) * (1 - e.expLoss));
     }
     if (e.demon) cult.titles.track('demon', e.demon);
+    // 称号:effect.title 声明了从来没读过(死数据普查 #2)。称号实际走的是
+    //   track('demon', …) → check() 的「入魔值 ≥80」,跟 title 无关 ——
+    //   于是「反抗」并不像文案承诺的那样直接授予「入魔」称号。接上。
+    if (e.title && cult.titles && cult.titles.add) cult.titles.add(e.title);
     if (e.debt) s.debt = e.debt;
     if (e.daoLoss) s.dao = Math.floor(s.dao * (1 - e.daoLoss));
     cult.commit();
