@@ -78,7 +78,7 @@ with sync_playwright() as p:
     ok("拾取半径被放大(>60)", stat and stat['magnet']>60)
     ok("移速被放大", stat and stat['speed']>163)
     ok("归鹤表数值正确", stat and stat['eff']['pickup']>1.2)
-    for i in range(8): pg.keyboard.press('KeyD'); time.sleep(0.2)
+    for i in range(6): pg.keyboard.down('KeyD'); time.sleep(0.35); pg.keyboard.up('KeyD')  # 按住不放:input.js 的 move() 读 keys,keyup 就删 → press 等于没动
     st=pg.evaluate("()=>document.getElementById('hud-timer').textContent")
     ok(f"局内正常 {st}", st!='00:00')
     print("【存档持久化】")

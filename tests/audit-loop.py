@@ -172,12 +172,39 @@ with sync_playwright() as p:
     #
     # 所以断言不再赌「这一窗口能杀够 125 只」——那取决于模拟按键的手感与刷怪节奏,
     # 本质上不可靠。改成**性质断言**:门槛进度必须与真实击杀数一致。
-    for i in range(45):
-        pg.keyboard.press(['KeyD','KeyW','KeyA','KeyS'][i%4]); time.sleep(0.35)
-    for i in range(18):
-        pg.keyboard.press('Space'); time.sleep(0.5)
-    for i in range(30):
-        pg.keyboard.press(['KeyD','KeyS','KeyA','KeyW'][i%4]); time.sleep(0.3)
+    # ⚠️⚠️ 这里原来写的是 `pg.keyboard.press('KeyD')` 之类 —— **玩家从头到尾没动过**。
+    #
+    #   js/core/input.js:26 的 `Input.move()` 读的是 `this.keys`,
+    #   而 `keys` 在 `keyup` 时就被 delete(:20)。`keyboard.press()` 是
+    #   keydown+keyup 几乎同时发生,游戏循环采样时**键已经松开了** →
+    #   move() 恒返回 {x:0,y:0}。
+    #   再加上那 45 次是 D/W/A/S 四向循环 —— 就算能动,净位移也接近零。
+    #
+    #   后果不是「击杀数不稳」,而是**每一轮 CI 的 kills 都是 0** ——
+    #   战斗之后的整条链(击杀→掉落→门槛→修为→升级→Boss)**从来没被跑过一次**。
+    #   连 Space 也用错了:input.js:13 Space 是 `requestDash()`(冲刺),不是攻击。
+    #   本作**没有攻击键** —— 武器自动开火,玩家只需要**走到怪旁边**。
+    #
+    #   所以:必须 `down` → 持续 → `up`(按住不放),而且要**朝一个方向持续走**,
+    #   让它真的穿过地图去遇到怪。
+    def hold(keys, seconds):
+        for k in keys: pg.keyboard.down(k)
+        time.sleep(seconds)
+        for k in keys: pg.keyboard.up(k)
+
+    pos0=pg.evaluate("()=>{const p=window.__g&&window.__g.player;return p?{x:Math.round(p.x),y:Math.round(p.y)}:null}")
+    print(f"  开局坐标: {pos0}")
+    for d in ['KeyD','KeyS','KeyA','KeyW','KeyD','KeyS']:
+        hold([d], 2.2)                       # 每向持续 2.2s,总 13 秒真实位移
+    hold(['Space'], 0.2)                     # 冲刺一下(它确实是 Space,只是用途不同)
+    for d in ['KeyW','KeyD','KeyW','KeyA']:
+        hold([d], 1.6)
+    pos1=pg.evaluate("()=>{const p=window.__g&&window.__g.player;return p?{x:Math.round(p.x),y:Math.round(p.y)}:null}")
+    moved = bool(pos0 and pos1 and (pos0['x']!=pos1['x'] or pos0['y']!=pos1['y']))
+    print(f"  结束坐标: {pos1}")
+    # ⚠️ 这条是**防呆**:按不住键 = 玩家没动 = 后面所有战斗相关的数字都无意义。
+    #   以前没有它,kills=0 连续好几轮 CI 都没人发现,只是被当成「刷得慢」。
+    ok("玩家真的移动了(按键是按住的,不是 press)", moved, f"{pos0} → {pos1}")
     ling=pg.evaluate("()=>Number(document.getElementById('hud-xx-ling')?.textContent||0)")
     onscreen=pg.evaluate("()=>document.querySelectorAll('#game ~ *').length")
     print(f"  HUD 显示灵气: {ling}")

@@ -90,7 +90,7 @@ with sync_playwright() as p:
     unblock(pg)
     pg.click('#btn-play'); time.sleep(0.8)
     pg.click('#char-list > *'); time.sleep(2.5)
-    for i in range(8): pg.keyboard.press('KeyD'); time.sleep(0.2)
+    for i in range(6): pg.keyboard.down('KeyD'); time.sleep(0.35); pg.keyboard.up('KeyD')  # 按住不放:input.js 的 move() 读 keys,keyup 就删 → press 等于没动
     st=pg.evaluate("()=>document.getElementById('hud-timer').textContent")
     ok(f"局内正常 {st}", st!='00:00')
     print("\nJS错误:",errs if errs else "无")
