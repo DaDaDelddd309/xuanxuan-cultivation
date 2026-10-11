@@ -293,11 +293,22 @@ export const Duel = {
     } else this.turnFlash('遭 遇');
 
     setTimeout(() => {
-      const e = S.e;
-      this.say(e.title, this.foeLine(S), () => {
-        this.say(S.hero.name, this.heroLine(S), () => this.playerTurn());
-      });
+      // XX-NET-002b:开场白是**一整段对白**,不是两句 —— 拍序见 introBeats 的注释。
+      const beats = this.introBeats(S);
+      const sayAt = i => i < beats.length
+        ? this.say(beats[i][0], beats[i][1], () => sayAt(i + 1))
+        : this.playerTurn();
+      sayAt(0);
     }, 1150);
+  },
+
+  /** 开场白要出口的整段对白,按「谁说」排好序。骨架两句恒在,回声两句有才加。 */
+  introBeats(S) {
+    const beats = [[S.e.title, this.foeLine(S)], [S.hero.name, this.heroLine(S)]];
+    const fe = this.foeEchoLine(S), he = this.heroEchoLine(S);
+    if (fe) beats.push([S.e.title, fe]);
+    if (he) beats.push([S.hero.name, he]);
+    return beats;
   },
   // 开场白(XX-ARCH-009)
   // 设计原则(owner 原话):「反派死于废话多」。
@@ -329,6 +340,49 @@ export const Duel = {
     if (p && HERO_LINES_ECHO[S.cfg.foe.key]) return HERO_LINES_ECHO[S.cfg.foe.key](p);
     if (HERO_LINES[S.cfg.foe.key]) return HERO_LINES[S.cfg.foe.key];
     return `既然你要拦,那就别怪我不留情。`;
+  },
+
+  // —— 结局回声的**第二拍**(XX-NET-002b)——
+  //
+  // 病:墨影(key:'moying')是唯一 isNemesis 恒为 true 的敌人
+  //   (ui.js:777 的 boss 池只有 [['墨影','宿 敌','foe',true,'moying']]),
+  //   而 foeLine/heroLine 都把宿敌骨架句排在 echo 分支**前面**
+  //   ⇒ FOE_LINES_ECHO.moying / HERO_LINES_ECHO.moying 这四句
+  //   —— 全项目里唯一让墨影对玩家结局作出反应的文本 —— 一句都上不了屏。
+  //   外部审计的原话:「文本已经把答案写好了,机制让它到不了玩家眼前。」
+  //
+  // 为什么**不**把 echo 调回 foeLine/heroLine 里面置顶(那样四句也能上屏):
+  //   ① 「断剑冢里又添一块碑。这一块,写的是你的名字」与「墨影。我们又见面了」
+  //      是 XX-ARCH-009 那条调性骨架的锚点,也是本文件最好的两句。
+  //      一被 echo 顶掉,宿敌战的开场就从「互相点名」退化成
+  //      「他先自说自话,再报个菜名」—— 骨架不是冗余,是骨架。
+  //   ② echo 四句比骨架句长(得交代他到底知道了什么)。**顶替** = 骨架消失;
+  //      **追加** = 骨架还在,回声落在他紧跟着的那一句上。
+  //   ③ 既有门禁 tests/duel-echo-regression.mjs §4 把「宿敌句优先于结局分支」
+  //      钉成了断言。改优先级就得同时改那条断言,那不是本文件能自己决定的事。
+  //
+  // 所以取 **四拍**:骨架(敌)→ 骨架(我)→ 回声(敌)→ 回声(我)。
+  //   拍序仍然敌/我交替 —— 没有让谁连说两句,XX-ARCH-009 那条没破。
+  //   没结过 tomb/jiangu 的玩家一句都看不到:introBeats 只在真有回声时加拍。
+  //
+  // ⚠️ 去重:回声只在开场白**没能说出它**时才补第二拍。
+  //   非宿敌的 foeLine/heroLine 本来就返回 echo(那一档本就在骨架句之后),
+  //   那时再补一遍就是同一句话说两遍。
+  //   判据刻意不写死优先级表,直接比字符串:line === foeLine(S) ⇒ 已经说过了。
+  //   将来谁改了 foeLine 内部的顺序,这里会自动跟着改,不会两处说同一句。
+  foeEchoLine(S) {
+    const key = S.cfg.foe.key || '';
+    const p = S.story && S.story.done ? echoOf(S) : null;
+    if (!p || !FOE_LINES_ECHO[key]) return null;
+    const line = FOE_LINES_ECHO[key](p);
+    return line === this.foeLine(S) ? null : line;
+  },
+  heroEchoLine(S) {
+    const key = S.cfg.foe.key || '';
+    const p = S.story && S.story.done ? echoOf(S) : null;
+    if (!p || !HERO_LINES_ECHO[key]) return null;
+    const line = HERO_LINES_ECHO[key](p);
+    return line === this.heroLine(S) ? null : line;
   },
   // 出招时的短促一击 —— 不解释,只报数
   foeHitLine(S) {

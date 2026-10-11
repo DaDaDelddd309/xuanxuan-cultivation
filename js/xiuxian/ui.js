@@ -611,7 +611,7 @@ export const Hall = {
     if (!FEATURE_FLAGS.roads) return null;
     const s = Cult.get();
     if (!toId || toId === s.current) return null;
-    try { return planRoute(s.current, toId); } catch (e) { console.warn('[route]', e); return null; }
+    try { return planRoute(s.current, toId, { withPending: FEATURE_FLAGS.newNodes }); } catch (e) { console.warn('[route]', e); return null; }
   },
 
   // 给 UI 用的「多远、多久、路上会不会出事」。返回 null = 走不通。
