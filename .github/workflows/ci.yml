@@ -35,6 +35,33 @@ jobs:
       - name: 安装
         run: npm install --ignore-scripts --no-audit --no-fund
 
+      # 立绘调色板门禁(tools/art/measure_style.py)要 Pillow 才能采样。
+      # ⚠️ 这条依赖以前**从来没在 CI 上装过** —— check job 根本没有 pip 步骤。
+      #   于是 measure_style.py 每轮都以「缺依赖」退出码 2 结束,
+      #   lint-portraits 走 skipNote 报「调色板本项未检查」, **整体照样 PASS**。
+      #   也就是说:立绘明度/饱和度这道门禁在 CI 上**从来没有真正执行过**,
+      #   而它在本地是真跑的 —— 正是本文件开头写的那个病(「全绿只在我机器上成立」)。
+      - name: 安装 Python 采样依赖
+        run: pip install --quiet pillow
+
+      # 少依赖就**红**, 不许再悄悄降级成「未检查」。
+      # 退出码:0=全部合规 / 1=有超标(由 lint-portraits 自己报,这里不重复判) / 2=缺依赖 / 其他=起不来
+      - name: 确认采样器真的能跑(缺依赖即红)
+        run: |
+          set +e
+          python3 tools/art/measure_style.py --gate > /dev/null 2>&1
+          code=$?
+          set -e
+          if [ "$code" -eq 2 ]; then
+            echo "::error::measure_style.py 缺 Pillow —— 立绘调色板门禁没跑成。不接受把它降级成『未检查』后放绿。"
+            exit 1
+          fi
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+            echo "::error::measure_style.py 非预期退出码 $code —— 采样器起不来,不是超标。"
+            exit 1
+          fi
+          echo "采样器可用(退出码 $code)"
+
       - name: lint + test
         run: npm run check
 
