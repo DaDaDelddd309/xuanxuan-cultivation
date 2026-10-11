@@ -223,11 +223,22 @@ with sync_playwright() as p:
         # 点一根源石生火
         pg.evaluate("async()=>{const {CAMP}=await import('/js/xiuxian/camp.js');CAMP.s.stones=60;CAMP.s.burnUntil=Date.now()+600000;CAMP.save();}")
         unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
-        ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
-        ok("能选角色进局", tap(pg,'#char-list > *')); time.sleep(2.5)
+        # ⚠️ 这里原来直接 tap('#btn-play'),但 #btn-play 在**主菜单**上,
+        #   此刻还停在修仙阁的营地页 —— CI run 38113186513 实测:
+        #   「能开第二局」「能选角色进局」「篝火在烧时局内有护栏圈」三条一起红,
+        #   后者只是前两条的连锁(压根没进局,自然没有护栏圈)。
+        #   先退回主菜单再开局。篝火状态已 commit 进存档,重进仍生效。
+        in_run=False
+        if to_menu(pg):
+            ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
+            in_run = tap(pg,'#char-list > *'); time.sleep(2.5)
+            ok("能选角色进局", in_run)
+        else:
+            ok("能开第二局", False)
+            print("  ⚠️ 退不回主菜单,本段(篝火护栏)未验 —— 已跳过,不硬点")
         ward=pg.evaluate("()=>{const w=document.getElementById('hud-ward');if(!w)return null;const s=getComputedStyle(w);return {hidden:w.hidden,w:w.style.width,op:s.opacity};}")
         print(f"  护栏圈: {ward}")
-        ok("篝火在烧时局内有护栏圈", ward and ward['hidden'] is False and ward['w'])
+        ok("篝火在烧时局内有护栏圈", in_run and ward and ward['hidden'] is False and ward['w'])
         buf=pg.evaluate("()=>{const b=document.getElementById('hud-xx-buf');return b?{hidden:b.hidden,txt:b.innerText}:null;}")
         print(f"  增益条: {buf}")
 
