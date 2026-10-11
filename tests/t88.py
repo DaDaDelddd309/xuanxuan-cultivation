@@ -99,7 +99,7 @@ with sync_playwright() as p:
       STORY.see('dengshi'); QUEST.autoTake();
       // ⚠️ 这里原来只标了 n10 和 n3。但 n3 实测是 **secret** 不是 field,
       //   而 dengshi 支线是 {type:'visit', types:['field'], need:2} ——
-      #   凑不够 2 个 field 就永远结不了案。
+      //   凑不够 2 个 field 就永远结不了案。
       //   默认种子下 field 节点实测:n1 n2 n4 n5 n7 n8 n9 n10 n11。
       //   t87 标了 n10+n1+n3(两个 field)所以是绿的,这里漏了 n1。
       Cult.get().visited.n10=true; Cult.get().visited.n1=true; Cult.get().visited.n3=true;

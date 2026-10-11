@@ -16,18 +16,30 @@ def ok(n,c):
 def visible(pg, id): return pg.evaluate("id=>{const e=document.getElementById(id);return !!e && e.offsetParent!==null}", id)
 
 # 回到主菜单 —— 必须**闭环**,不能「点一次 + sleep 固定秒数」。
-# ⚠️ CI run 38106604992 就是死在这:只点一次 .xx-back 再 sleep(0.5),
+# ⚠️ CI run 38106604992 / 38112455634 两次死在这:只点一次 .xx-back 再 sleep(0.5),
 #   局内没真的退出来,#btn-cult 一直 not visible,
 #   pg.click 干等 30 秒超时,**后面两段(修仙阁战果 / 篝火护栏)根本没跑**。
 #   一个「看起来只是超时」的失败,实际含义是「一大片没验」。
-#   现在改成「点 → 验 #btn-cult 真的可见」,回不来就立刻判红,不再烧 30 秒。
-def to_menu(pg, tries=8):
+#
+# ⚠️ 为什么不能靠 unblock() 清场:点 #btn-quit 会弹出确认卡,而 unblock() 的做法是
+#   **直接把 .xx-ritual/.xx-storycard 节点删掉** —— 确认卡就这么被抹了,
+#   等于「点了退出、又替玩家按了取消」,于是永远退不出局。
+#   确认卡是**点掉**,不是删掉。
+# 最后兜底用 reload:道行/源石都已经 commit 进 localStorage,重载后仍在,
+#   顺便还多验了一层「结算结果真的落盘了」。
+CLICK_EXIT = "()=>{document.querySelector('.xx-back')?.click();document.getElementById('btn-quit')?.click();}"
+CONFIRM = "()=>{const b=[...document.querySelectorAll('button,[data-act]')].find(x=>/确认|确定|退出|结束|放弃/.test(x.textContent||''));if(b){b.click();return b.textContent.trim().slice(0,12)}return null}"
+def to_menu(pg, tries=6):
     for _ in range(tries):
         if visible(pg,'btn-cult'): return True
-        unblock(pg)
-        pg.evaluate("()=>{document.querySelector('.xx-back')?.click();"
-                    "document.getElementById('btn-quit')?.click();}")
-        time.sleep(0.6)
+        pg.evaluate(CLICK_EXIT)
+        time.sleep(0.5)
+        c = pg.evaluate(CONFIRM)
+        if c: time.sleep(0.6)
+    if visible(pg,'btn-cult'): return True
+    # 兜底:重载。结算已 commit,数据不会丢。
+    pg.reload(wait_until='networkidle'); time.sleep(2.0)
+    unblock(pg)
     return visible(pg,'btn-cult')
 
 def tap(pg, sel, tries=10):
@@ -213,11 +225,11 @@ with sync_playwright() as p:
         unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
         ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
         ok("能选角色进局", tap(pg,'#char-list > *')); time.sleep(2.5)
-    ward=pg.evaluate("()=>{const w=document.getElementById('hud-ward');if(!w)return null;const s=getComputedStyle(w);return {hidden:w.hidden,w:w.style.width,op:s.opacity};}")
-    print(f"  护栏圈: {ward}")
-    ok("篝火在烧时局内有护栏圈", ward and ward['hidden'] is False and ward['w'])
-    buf=pg.evaluate("()=>{const b=document.getElementById('hud-xx-buf');return b?{hidden:b.hidden,txt:b.innerText}:null;}")
-    print(f"  增益条: {buf}")
+        ward=pg.evaluate("()=>{const w=document.getElementById('hud-ward');if(!w)return null;const s=getComputedStyle(w);return {hidden:w.hidden,w:w.style.width,op:s.opacity};}")
+        print(f"  护栏圈: {ward}")
+        ok("篝火在烧时局内有护栏圈", ward and ward['hidden'] is False and ward['w'])
+        buf=pg.evaluate("()=>{const b=document.getElementById('hud-xx-buf');return b?{hidden:b.hidden,txt:b.innerText}:null;}")
+        print(f"  增益条: {buf}")
 
     print(f"\nJS错误: {errs if errs else '无'}")
     b.close()
