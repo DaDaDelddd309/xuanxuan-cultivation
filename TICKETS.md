@@ -7952,6 +7952,18 @@ echo "--- 视觉巡检完成(报告见 artifact,暂不卡门禁) ---"
 > - 造一个未跟踪的 `ZZ-UNTRACKED-PROBE.md` → 清单**逐字节相同**、`count` 不变 ✅
 > - 连跑两次 → 逐字节相同 ✅
 >
+> ⚠️ **上述自查不够,CI run `38147816912` 实测推翻过。**
+> 改用 `git ls-files` 后产物依赖**本机 `core.quotepath`**(git 默认 `true`),
+> 非 ASCII 路径被输出成八进制转义、过不了扩展名正则 → 静默剔除 4 个中文名文件。
+> 本地 180 / CI 176 → 红。修法:`git()` 一律 `-c core.quotepath=false`。
+>
+> **为什么我本地没抓到**:排查 183/179 那次分歧时,我为看清非 ASCII 路径亲手执行过
+> `git config core.quotepath false` —— 那是我为了躲上一个问题设的,
+> **它顺手替我躲掉了下一个问题**。
+>
+> 补做的自查:`core.quotepath` 取 `true` / `false` 两种值,清单必须**逐字节相同**,
+> 且 4 个中文名文件两种情况下都必须在清单里。实测通过。详见 `DECISIONS.md` 判断 9 更正。
+>
 > **顺带修正**（明说，不是顺手带过）：旧的 `walk` 会跳过「点开头」的文件，
 > 于是 `tests/.hardcoded-baseline.json`（`lint-tokens.mjs` **真正在用的 353 条基线**，已跟踪）
 > 从来没进过清单。跟踪的点开头文件是内容，现在计入 → `count` 179 → **180**。
