@@ -800,27 +800,12 @@ export const Hall = {
   },
 
   // 战败结算:不清档,四选一
+  // XX-DUEL-006:落地逻辑已提到 DEFEAT.apply(relations.js),
+  // 因为局内 Boss 战败(main.js 的 onLose)也要用同一份 ——
+  // 原来这段是本方法的私有实现,Boss 那条路根本够不着。
+  // 这里只剩「秘境视图需要重画」这一层 UI 责任。
   applyDefeat(choice) {
-    const s = Cult.get();
-    const pIdx = REALMS.findIndex(r => r.id === s.realm);
-    const foe = { title: '对手' };
-    const r = Cult.defeat.resolve(foe, s, {
-      ransom: choice === 'ransom',
-      installment: choice === 'installment',
-      resist: choice === 'resist',
-      debt: 300,
-    });
-    const e = r.effect;
-    if (e.realmDamage) {
-      // 跌一大境(至少炼气一层)
-      if (pIdx > 0) { s.realm = REALMS[pIdx - 1].id; s.layer = Math.max(1, maxLayerOf(s.realm) - 2); }
-      else s.layer = Math.max(1, s.layer - 3);
-      s.exp = 0;
-    }
-    if (e.demon) { Cult.titles.track('demon', e.demon); }
-    if (e.debt) s.debt = e.debt;
-    if (e.daoLoss) s.dao = Math.floor(s.dao * (1 - e.daoLoss));
-    Cult.commit();
+    Cult.defeat.apply(choice, '对手', Cult.get(), Cult);
     this.render();
   },
 

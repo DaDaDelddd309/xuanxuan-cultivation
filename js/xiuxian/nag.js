@@ -199,7 +199,30 @@ export function installNagger() {
     }
     // 结局/补完半句话这类「必须决策」的标记
     if (el.dataset && el.dataset.nag === 'must') lv = NAG.MUST;
-    if (lv < NAG.MUST && this.used >= this.budget) return el;   // 静默丢弃
+
+    // ⚠️ XX-QA-063:预算守卫原来写的是 `this.used >= this.budget`。
+    //
+    // 但这段在 app.appendChild 的包装函数里,`this` 是 **#app 这个 DOM 元素**,
+    // 它身上没有 used / budget 两个属性 → 两边都是 undefined →
+    // `undefined >= undefined` 是 false → **这个守卫从来没有生效过**。
+    // NAGER 里 `budget: 4` / `used: 0` 一直都在(还有 left() / report() 两个
+    // 读它的方法),只是没人读到 —— 于是本文件头写的
+    // 「一局内『打扰』次数有上限(默认 4)」这条规则从 V0.96 至今一直是装饰。
+    // (:61 和 :76 那两处的 this 是对的,它们在 NAGER 的方法里。只有这一处读错了对象。)
+    //
+    // MUST 永远豁免 —— 与 :61/:76 同一口径。结局卡、坐骑卡这些「必须决策」的,
+    // 预算再紧也得放行,否则就是刚修过的那个 P0 换形态回来。
+    if (lv < NAG.MUST && NAGER.used >= NAGER.budget) {
+      // 额度用完,而且原来这里是 `return el` —— **静默丢弃**:
+      // 玩家点了个东西、什么都没发生。这跟本项目铁律是同款毛病
+      //(「度量/反馈自己出错比没有更危险」):一个看起来像坏了的交互,
+      // 比多一条浮层糟糕得多。storycard 是**内容**,不是通知 ——
+      // 因为玩家读得多就不让他看,是本末倒置。
+      // 现在降级:直接挂在页面上,不排队、不占忙位、不自动消失。
+      // 额度限制的是「打断」,不是「看得见」。
+      if (interactive(el)) el.style.pointerEvents = 'auto';
+      return orig(el);
+    }
     if (lv >= NAG.MID) NAGER.used++;
 
     const h = host();

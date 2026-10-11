@@ -294,7 +294,21 @@ function toTurnBased(bossName) {
         //
         //   owner 报战败 P0 的截图就是这条路径 —— 而 87 局自动化一次都没打到过 Boss,
         //   所以它从来没被执行过。见 tests/duel-session-latch-regression.mjs。
-        onLose: (choice) => fromTurnBased(false, choice),
+        //
+        //   XX-DUEL-006:四个选项现在**真的兑现各自的代价**。
+        //   原来这里即使不软锁,也是四个选项行为完全一致 —— 面板上写着
+        //   「入魔值 +15」「欠下 300 道行,三年为期」「修为尽废」,点了都不作数,
+        //   那是一块纯装饰的死 UI。落地逻辑与秘境那条路共用 DEFEAT.apply。
+        onLose: (choice) => {
+          try {
+            DEFEAT.apply(choice, boss.name, Cult.get(), Cult);
+          } catch (e) {
+            // ⚠️ 结算层抛异常绝不能把玩家锁死在暂停的局里 —— 同 endRun 的自愈原则。
+            //   宁可这一局没有代价,也不能让玩家什么都点不动。
+            console.warn('[战败结算]', e);
+          }
+          fromTurnBased(false, choice);
+        },
       });
       // ⚠️ 墨盖满之后必须**退开**,否则 #tb-wash(z-index 300)会一直压着
       // .xx-duel(z-index 80) —— 回合制开了但立绘和战场全被墨挡着。
@@ -504,7 +518,7 @@ import { Ritual } from './xiuxian/ritual.js';
 import { Bond } from './xiuxian/bond.js';
 import { clearBroadcast } from './xiuxian/companion-broadcast.js';
 import { Profile, Seed } from './xiuxian/profile.js';
-import { Titles, Nemesis } from './xiuxian/relations.js';
+import { Titles, Nemesis, DEFEAT } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';
 import { CHRONICLE } from './xiuxian/chronicle.js';
 import { BUILD } from './xiuxian/build.js';
