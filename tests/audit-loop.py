@@ -9,8 +9,12 @@ from playwright.sync_api import sync_playwright
 from _unblock import unblock
 CHROME=os.environ.get('XX_CHROME') or ''   # 留空 = 用 playwright 自带的 chromium
 fails=[]
-def ok(n,c):
-    print(('  ✅ ' if c else '  ❌ ')+n)
+def ok(n,c,detail=''):
+    # ⚠️ 第三参 detail 是诊断用的(实测值)。原来签名只有 (n,c),
+    #   而我加「玩家真的移动了」和「篝火真的点着了」两条断言时按三参调用
+    #   → 整个脚本在第一条上抛 TypeError 就死了,**后面整段局内断言根本没跑**,
+    #   CI 只看到「audit-loop 失败」,看不出是工具坏了还是产品坏了。
+    print(('  ✅ ' if c else '  ❌ ')+n+(f"  — {detail}" if detail else ""))
     if not c: fails.append(n)
 
 def visible(pg, id):

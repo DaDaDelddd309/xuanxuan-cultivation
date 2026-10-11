@@ -198,6 +198,21 @@ export const Duel = {
   close() {
     this.root && this.root.classList.add('hidden');
     BGM.stop();
+    // ⚠️ XX-DUEL-005(P0):busy 必须在这里复位。
+    //
+    // busy 是 resolvePlayer(:358)置 true 的,全仓只有两处复位:
+    // :360(playerAct 返回 null 的早退)和 :378(敌攻后**活下来**才走到)。
+    // 而赢(:363)和输(:376)两条终局路径都是**先 return**,根本到不了 :378。
+    // 原来这里只清了 S,没清 busy ⇒ 它是个**单向闩**:第一场决斗一结束
+    // (不论胜负),busy 永远停在 true,而技能栏的点击闸门正是
+    // :193 `if (b && !this.busy)` ⇒ 第二场起按钮照常渲染、点击被无声吞掉,
+    // 玩家看到的是一场永远打不完的架。
+    //
+    // 为什么能拖到现在:12 轮自动化、87 局,**一次都没打到过 Boss**。
+    // 一局里通常只有一场决斗,所以「第二场」这个前提从没被满足过。
+    this.busy = false;
+    this.skipType = false;
+    clearTimeout(this._th);
     this.S = null;
   },
 

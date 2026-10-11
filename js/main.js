@@ -183,6 +183,9 @@ function endRun(victory) {
     Screens.showResult({ time: runTime, kills: s.kills, level: engine.player.level,
       gold: s.gold, spirit: sp }, {
       victory,
+      // XX-DUEL-004:败在回合制里的话,记下玩家选了哪条战败路(否则那四个按钮
+      //   在结算屏上是完全无痕的)。纯增量字段,showResult 不认也不影响现有行为。
+      defeat: lastDefeatChoice,
     endless: victory,
     onAgain: () => startRun(lastChar),
     onEndless: () => { setEndless(engine); inRun = true; HUD.show(true); Screens.hide(); engine.resume(); },
@@ -276,7 +279,22 @@ function toTurnBased(bossName) {
           if (Cult.nemesis && Cult.nemesis.s.alive) Cult.titles.track('nemesis_win', 0);
           s2give(r);
         },
-        onLose: () => { /* 交给 endRun 走死亡结算 */ },
+        // ⚠️ XX-DUEL-004(P0):这里原来是一个空函数,注释写着
+        //   「交给 endRun 走死亡结算」—— 但**全仓没有任何代码把它接过去**。
+        //   fromTurnBased(false)(本文件下方)**带着写好的死亡结算**
+        //   `p.takeDamage(999999)`,却只有一处调用点、写死 true、只在赢的路径上
+        //   (经 s2give)。也就是说 fromTurnBased(false) 从未被执行过。
+        //
+        //   后果不是崩溃,是**没有出口**:玩家输掉 Boss 战 → Duel.lose() 渲染四个
+        //   选项(反抗/暂缓/赎金/认栽,各写各的代价)→ 点任意一个 → onLose 什么都不做
+        //   → Duel.close() 把决斗层藏起来 →
+        //     inTurnBased 永远 true ⇒ toTurnBased(:228)之后每条 Boss 直接 early-return
+        //     engine.paused 永远 +1 ⇒ core/engine.js:90,整个 roguelite 循环停摆
+        //   局既不能继续也不能结束,只能刷新页面。
+        //
+        //   owner 报战败 P0 的截图就是这条路径 —— 而 87 局自动化一次都没打到过 Boss,
+        //   所以它从来没被执行过。见 tests/duel-session-latch-regression.mjs。
+        onLose: (choice) => fromTurnBased(false, choice),
       });
       // ⚠️ 墨盖满之后必须**退开**,否则 #tb-wash(z-index 300)会一直压着
       // .xx-duel(z-index 80) —— 回合制开了但立绘和战场全被墨挡着。
@@ -293,12 +311,18 @@ function toTurnBased(bossName) {
   }, wait);
 }
 
+/** 玩家在回合制里选了哪条战败路(resist/installment/ransom/ruin)。
+ *  由 fromTurnBased 写入、endRun 读走交给结算屏。
+ *  ⚠️ 零值 = 不是败在回合制里(正常死亡或通关)。 */
+let lastDefeatChoice = null;
+
 /** 回合制打完 → 交还局内 */
-function fromTurnBased(win) {
+function fromTurnBased(win, choice) {
   setTimeout(() => {
     wash('out');
     inTurnBased = false;
     engine.resume();
+    lastDefeatChoice = win ? null : (choice || null);
     if (!win) {
       // 输了:走正式死亡结算,别让玩家卡在暂停的局里(XX-BUG-B 那类)
       const p = engine.player;
