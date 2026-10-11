@@ -7273,3 +7273,33 @@ app.appendChild = function (el) {
 **要做**：把 `:195` 的 `this.used` / `this.budget` 改成 `NAGER.used` / `NAGER.budget`，
 同步翻掉那条锁现状的断言，然后在浏览器套件上确认没有新的红。
 **状态**：未做，等 owner 裁定。
+
+### XX-QA-064 · 关掉「种子化地图让剧情/支线条件不可达」整个 bug 类（已做）
+
+**这个类已经咬了两次，两次都伪装成产品缺陷：**
+
+| 出处 | 测试写法 | 真实原因 | 报出来的错像什么 |
+|---|---|---|---|
+| t89.py「叙事线已结案」 | 写死 `arrive('n8')` ×3 | 默认种子下 **n8 实测是 field**，而 tomb 线前三环声明 `nodeType:'boss'` | 「还没看完」→ 像功能坏了 |
+| t88.py「传说妖支线可结」 | 只标 `visited.n10 + n3` | **n3 实测是 secret**，而 dengshi 支线要 2 个 **field** | 「支线不可结」→ 像功能坏了 |
+
+两处的根是同一个：**「假设某个 id 的类型恒定」这个前提在 V0.97 种子化地图之后不成立了。**
+
+**已做**：
+- t89.py 改成像 node 版那样按 beat 类型找真实节点（与 `tests/helpers/play-arc.mjs`
+  的 `nodeForBeat` 同一语义，不再另写一份规则）
+- t88.py 补上 `visited.n1`（第二个 field）
+- 新门禁 `tests/xx-qa-064-arc-quest-reachability.mjs`（33 项）**逐条**验：
+  5 条剧情线每一环都能落在类型对得上的真实节点上、走完 `readyFinish` 为真、`finish` ok；
+  8 条支线把该去的点全走一遍后 `progress===1`。
+
+**门禁自己的两处修正（记下来当反面教材）**：
+1. 第一版判红说 `laolao` 需要 2 个 elite 而世界里只有 1 个 → **我错了**。
+   `quest.js:119` 早就写了 `Math.min(c.need, nodes.length)`，注释里连这个例子都点名了，
+   产品是**故意**让 need 跟着图缩的。是我拿原始 need 去卡它 —— **本项目第 13 次同类坑：
+   度量工具自己比被检查对象更武断。** 已改成让 `progress()` 自己算，判据取自被检查对象自身。
+2. 反向注入用的是**产品代码**而不是门禁自己：把 `Math.min(c.need, nodes.length)`
+   改回 `c.need` → 门禁立刻在 `laolao` 上转红；还原 → 全绿。
+
+**本轮版本号**：按 VERSION-CONVENTION「只改测试 → 不升版本号」，
+`V` 保持 `xuanxuan-v099z`。

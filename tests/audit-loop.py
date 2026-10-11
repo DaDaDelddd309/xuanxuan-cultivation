@@ -185,27 +185,34 @@ with sync_playwright() as p:
            (r['s1'] - r['s0']) == r['ret'].get('stones'))
 
     print("\n【修仙阁那边能不能看到】")
-    ok("能退回主菜单(修仙阁入口可见)", to_menu(pg))
-    pg.click('#btn-cult'); time.sleep(1.5)
-    after=pg.evaluate("""async()=>{
-      const {Cult}=await import('/js/xiuxian/index.js');
-      const {Bag}=await import('/js/xiuxian/items.js');
-      return {dao:Cult.get().dao, stone:(Bag.s.items||{})['stone_1']||0};
-    }""")
-    print(f"  砍杀后:道行 {after['dao']},碎灵石 {after['stone']}")
-    ok("修仙阁里看得到这次的战果", after['dao']>before['dao'] or after['stone']>before['stone'])
-    # 行囊页
-    ok("行囊页能点开", tap(pg,'[data-tab=bag]'))
-    time.sleep(0.7)
-    bagtxt=pg.inner_text('#xx-body')
-    ok("行囊里能看到源石", '石' in bagtxt)
+    # ⚠️ 回不到主菜单就**别再点 #btn-cult** —— 上一版这里是无条件点击,
+    #   to_menu() 判红之后照样干等 30 秒超时(run 38107792054 就是这么断的)。
+    #   回不来就如实记红并跳过后半段,让「哪一段没验」清清楚楚,
+    #   而不是变成一行看不出所以然的 TimeoutError。
+    if not to_menu(pg):
+        ok("能退回主菜单(修仙阁入口可见)", False)
+        print("  ⚠️ 回不到主菜单,后半段(修仙阁战果 / 篝火护栏)本轮未验 —— 已跳过,不硬点")
+    else:
+        ok("能退回主菜单(修仙阁入口可见)", True)
+        pg.click('#btn-cult'); time.sleep(1.5)
+        after=pg.evaluate("""async()=>{
+          const {Cult}=await import('/js/xiuxian/index.js');
+          const {Bag}=await import('/js/xiuxian/items.js');
+          return {dao:Cult.get().dao, stone:(Bag.s.items||{})['stone_1']||0};
+        }""")
+        print(f"  砍杀后:道行 {after['dao']},碎灵石 {after['stone']}")
+        ok("修仙阁里看得到这次的战果", after['dao']>before['dao'] or after['stone']>before['stone'])
+        # 行囊页
+        ok("行囊页能点开", tap(pg,'[data-tab=bag]'))
+        time.sleep(0.7)
+        ok("行囊里能看到源石", '石' in pg.inner_text('#xx-body'))
 
-    print("\n【局内可见性:护栏和增益】")
-    # 点一根源石生火
-    pg.evaluate("async()=>{const {CAMP}=await import('/js/xiuxian/camp.js');CAMP.s.stones=60;CAMP.s.burnUntil=Date.now()+600000;CAMP.save();}")
-    unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
-    ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
-    ok("能选角色进局", tap(pg,'#char-list > *')); time.sleep(2.5)
+        print("\n【局内可见性:护栏和增益】")
+        # 点一根源石生火
+        pg.evaluate("async()=>{const {CAMP}=await import('/js/xiuxian/camp.js');CAMP.s.stones=60;CAMP.s.burnUntil=Date.now()+600000;CAMP.save();}")
+        unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
+        ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
+        ok("能选角色进局", tap(pg,'#char-list > *')); time.sleep(2.5)
     ward=pg.evaluate("()=>{const w=document.getElementById('hud-ward');if(!w)return null;const s=getComputedStyle(w);return {hidden:w.hidden,w:w.style.width,op:s.opacity};}")
     print(f"  护栏圈: {ward}")
     ok("篝火在烧时局内有护栏圈", ward and ward['hidden'] is False and ward['w'])

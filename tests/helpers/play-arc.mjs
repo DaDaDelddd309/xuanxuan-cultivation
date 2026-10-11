@@ -75,7 +75,7 @@ export function playArc(key, path, echoFn, opts) {
 /** 只推进不结案(某些断言要看中途状态)。
  *  ⚠️ **不重置存档** —— 调用方常常已经 `reset()`+`start()`+`see(...)` 摆好了前置。
  *     第一版在这里又调一次 reset+start,把 t89 的 `see('shijiang')` 冲掉了,
- *     于是支线不同步、finish 判不到 'sj' —— 报错长��「结案失败」,与真实原因无关。
+ *     于是支线不同步、finish 判不到 'sj' —— 报错长得像「结案失败」,与真实原因无关。
  */
 export function walkArc(key, opts) {
   const arc = ARCS[key];
