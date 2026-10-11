@@ -54,16 +54,47 @@ def tap(pg, sel, tries=10):
     """点一个选择器;点不到就立刻返回 False —— **绝不交给 pg.click 干等 30 秒**。
     run 38106604992 的教训:一次 30 秒超时,意味着一大片断言根本没跑,
     而日志上只留下一行 TimeoutError,很容易读成「就一个小问题」。
-    可见性一律用 playwright 的 is_visible(),理由见 visible() 的注释。"""
+    可见性一律用 playwright 的 is_visible(),理由见 visible() 的注释。
+
+    ⚠️ 失败时把**诊断**一并返回 —— 因为「点不到」有太多可能原因
+      (不可见 / 被挡 / 选择器不中 / strict mode),不打印出来就只能靠猜,
+      而这一段我已经连着猜错两次(见 git log 8c4d194 / 766a09a)。"""
+    last = '未知'
     for _ in range(tries):
         try:
             loc = pg.locator(sel).first          # .first:选择器常匹配多个(如 '#char-list > *')
-            if loc.is_visible(timeout=1500):
+            if not loc.is_visible(timeout=1500):
+                last = '不可见'
+            else:
                 loc.click(timeout=4000); return True
-        except Exception:
-            pass
+        except Exception as e:
+            last = (str(e).strip().split('\n')[0] or type(e).__name__)[:70]
         unblock(pg); time.sleep(0.3)
+    tap.last = diagnose(pg, sel, last)
     return False
+
+def diagnose(pg, sel, why='未知'):
+    """点不到的时候,说清楚到底是什么挡住了。"""
+    try:
+        return pg.evaluate("""s=>{
+          const all=[...document.querySelectorAll(s)];
+          const e=all[0];
+          if(!e) return {sel:s, why:'选择器不中任何元素', n:0};
+          const r=e.getBoundingClientRect();
+          const cx=r.left+r.width/2, cy=r.top+r.height/2;
+          const top=document.elementFromPoint(cx,cy);
+          const cs=getComputedStyle(e);
+          const blockers=[...document.querySelectorAll('.xx-ritual,.xx-storycard,.xx-duel,#xx-nag-host')]
+            .filter(x=>x.offsetParent!==null)
+            .map(x=>x.className+'|'+x.dataset.nag).slice(0,4);
+          return {sel:s, why:WHY, n:all.length, nVisible:all.filter(x=>x.offsetParent!==null).length,
+                  rect:[Math.round(r.width),Math.round(r.height)],
+                  display:cs.display, visibility:cs.visibility, opacity:cs.opacity, pointerEvents:cs.pointerEvents,
+                  covered: top? (top===e?null : (top.tagName+'.'+top.className)) : 'none',
+                  blockers};
+        }""".replace('WHY', repr(why)))
+    except Exception as e:
+        return {'sel': sel, 'why': why, 'diagError': str(e)[:60]}
 
 with sync_playwright() as p:
     b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
@@ -233,16 +264,20 @@ with sync_playwright() as p:
         # 点一根源石生火
         pg.evaluate("async()=>{const {CAMP}=await import('/js/xiuxian/camp.js');CAMP.s.stones=60;CAMP.s.burnUntil=Date.now()+600000;CAMP.save();}")
         unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
-        # ⚠️ 这里原来直接 tap('#btn-play'),但 #btn-play 在**主菜单**上,
-        #   此刻还停在修仙阁的营地页 —— CI run 38113186513 实测:
-        #   「能开第二局」「能选角色进局」「篝火在烧时局内有护栏圈」三条一起红,
-        #   后者只是前两条的连锁(压根没进局,自然没有护栏圈)。
-        #   先退回主菜单再开局。篝火状态已 commit 进存档,重进仍生效。
+        # ⚠️ 这三段我已经连着猜错两次:
+        #   ① 以为少了 `.xx-back`(run 38113186513)
+        #   ② 以为是 `offsetParent` 对 fixed 元素恒为 null(run 38114334195)
+        #      —— 但 index.html:74-75 显示 #btn-cult 与 #btn-play 是**兄弟节点**,
+        #         一个可见另一个必然可见,所以「btn-cult 可见但 btn-play 不可见」根本不可能。
+        #   两次都靠猜,于是改成:点不到时把诊断直接打出来(见 tap()/diagnose())。
         in_run=False
         if to_menu(pg):
-            ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
+            started = tap(pg,'#btn-play'); time.sleep(0.8)
+            ok("能开第二局", started)
+            if not started: print(f"  诊断 #btn-play: {getattr(tap,'last',None)}")
             in_run = tap(pg,'#char-list > *'); time.sleep(2.5)
             ok("能选角色进局", in_run)
+            if not in_run: print(f"  诊断 #char-list: {getattr(tap,'last',None)}")
         else:
             ok("能开第二局", False)
             print("  ⚠️ 退不回主菜单,本段(篝火护栏)未验 —— 已跳过,不硬点")
