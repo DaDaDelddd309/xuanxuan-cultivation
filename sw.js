@@ -24,13 +24,15 @@
 //   各自都把 v099ae 升到了 v099af。VERSION-CONVENTION 规则 3 说过「不要各自升」,
 //   真撞上了按规则 2 由**后合的一方**再升一格, 否则两个不同代码对外声称同一个版本,
 //   已缓存 v099af 的客户端分不出谁新。
-const V = 'xuanxuan-v099ah';
-const BUILD = '20261011-2132';
+const V = 'xuanxuan-v099ai';
+const BUILD = '20261011-2205';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
   'css/style.css', 'css/xiuxian.css', 'css/palette.css', 'js/core/palette.js',
   'css/illust.css', 'css/wash.css',
+  // 装备页改版:新样式表由 index.html 引用,离线取不到就是无样式裸奔。
+  'css/gear.css',
   'js/main.js', 'js/sprites.js',
   'js/pix/palette.js', 'js/pix/brush.js', 'js/pix/ground.js',
   'js/pix/hero-knight.js', 'js/pix/hero-mage.js', 'js/pix/hero-ranger.js', 'js/pix/hero-white.js',
@@ -43,6 +45,9 @@ const CORE = [
   // 原生 ESM 全有或全无 —— 不在清单里,离线开局就会因取不到模块而白屏。
   'js/game/collatz.js',
   'js/game/gear.js',   // 装备数据层(XX-EQUIP-002/003) —— main.js 已 import,必须进预缓存
+  'js/game/gearIcons.js',   // 装备图标路径层 —— ui/gear.js 静态 import 它;
+                             // 原生 ESM 全有或全无,不在清单里离线点开装备页就白屏
+                             // (XX-EQUIP-006 预缓存双向核对,见 lint-precache-reverse)
   'assets/portrait/villain-shexie.jpg', 'assets/portrait/villain-nvxia.jpg', 'assets/portrait/villain-yaohou.jpg', 'assets/portrait/villain-youfang.jpg', 'assets/portrait/villain-heifeng.jpg', 'assets/portrait/villain-shougu.jpg',
   'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/bestiary.js', 'js/ui/screens.js', 'js/ui/joystick.js',
 ];
@@ -101,6 +106,13 @@ const XX = [
   'js/xiuxian/mutation.js',
 ];
 const ART = [
+  // 装备图标(XX-EQUIP-006):4 槽位 + 8 件装备。SVG 单色描边,currentColor 继承。
+  'assets/gear/slot-head.svg', 'assets/gear/slot-body.svg',
+  'assets/gear/slot-hand.svg', 'assets/gear/slot-foot.svg',
+  'assets/gear/hongyi_garment.svg', 'assets/gear/laolao_hairpin.svg',
+  'assets/gear/baize_claw.svg', 'assets/gear/dangkang_ring.svg',
+  'assets/gear/qingqiong_robe.svg', 'assets/gear/jiangu_blade.svg',
+  'assets/gear/shijiang_seal.svg', 'assets/gear/dengshi_lamp.svg',
   'assets/portrait/hero.jpg', 'assets/portrait/villain-moying.jpg', 'assets/portrait/aunt.jpg',
   'assets/bg/duel.jpg', 'assets/bg/cave.jpg', 'assets/bg/sect.jpg',
   'assets/bgm/nemesis.mp3', 'assets/bgm/overlord.mp3',
