@@ -20,7 +20,18 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const git = (...a) => execSync(`git ${a.join(' ')}`, { cwd: ROOT, encoding: 'utf8' }).trim();
+// ⚠️ `-c core.quotepath=false` **不能省**（XX-AUDIT-040 的 CI 实战教训）：
+// git 默认 `core.quotepath=true`，会把非 ASCII 路径输出成带引号的八进制转义：
+//   "docs/proposals/world-map-20261010/\345\244\247\344\275\225\345\234\260.md"
+// 那串东西过不了下面的扩展名正则 → **被静默剔除**。
+// 实测:quotepath=true 选中 176 条,false 选中 180 条,差的正是 4 个中文名文件。
+//
+// 而更糟的是**它会静默地全绿**:生成器和门禁在 quotepath=true 的机器上会一起少这 4 个,
+// 逐条比对「一致」,没人看得见清单少了东西。
+// 仓库里的 `core.quotepath` 是**每台机器各自的本地配置**,不是仓库的一部分 ——
+// 所以它绝不能成为产物的一部分。
+// 这也是本条工单同源的病:把「依赖运行环境」换成了「依赖 git 配置」,病没治好,只是挪了地方。
+const git = (...a) => execSync(`git -c core.quotepath=false ${a.join(' ')}`, { cwd: ROOT, encoding: 'utf8' }).trim();
 
 const argv = process.argv.slice(2);
 const WRITE = argv.includes('--write');
