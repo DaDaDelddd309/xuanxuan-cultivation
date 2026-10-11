@@ -58,10 +58,32 @@ function artDamage(s, id) {
   const mul = isS ? 2.2 : 1 + (lv - 1) * 0.15;
   return Math.round((10 + lv * 4) * mul);
 }
+// 冷却周期 P =「这张牌用掉之后,隔几个回合能再上场」。
+// 递减发生在回合边界(tickCooldown,duel.js:399 每个玩家回合一次),所以
+// 「本回合用掉 ⇒ 接下来 P-1 个回合点不动」,玩家在按钮上看到的是 P-1。
+//
+// 【不变式 —— 改这条曲线前先读这段】
+//   一个玩家回合只出一张牌 ⇒ 任意时刻最多只有 P-1 张牌躺在冷却里(每回合只新增一张)
+//   ⇒ 想让玩家手里**永远剩下 ≥2 张可选**,必须 P-1 ≤ n-2,即 **P ≤ n-1**(n = 已掌握神通数)。
+//   P 一旦超过 n-1,牌组就会周期性地「只剩一张 / 一张不剩」。
+//
+// 旧实现 `max(1, 4 - floor(lv/2))` 与 n 无关,实测(多种子 × 多配置,回合边界递减):
+//   默认存档只有一门神通(defaultArts() = {jianqi:1}),P=4
+//     ⇒ **67% 的回合玩家一张牌都点不动**(走 duel.js:407 的强制普攻,全程零输入)
+//   两门神通 lv1 两门都是 P=4 ⇒ 两张牌在同一个回合一起转正,
+//     「两张牌可选」只占 23.7% 的回合
+//   这就是「选什么都不影响结果」在冷却这一层的形状:牌根本没回来,没有第二次决策。
+//
+// 现在 P 取 min(原曲线, n-1):牌组小就自动降冷却,而不是让玩家空转;
+// 牌组够大(n≥3)时仍保留原梯度(等级越高回场越快),冷却依旧真实生效 ——
+// 玩家依然不能「每回合把同一张牌放一遍」。
 function artCd(s, id) {
-  const lv = s.arts[id] || 0;
   const isS = !!s.isSuper?.[id];
-  return isS ? 1 : Math.max(1, 4 - Math.floor(lv / 2));
+  if (isS) return 1;                                 // 超武无冷却(duel-balance-invariant C8)
+  const lv = s.arts[id] || 0;
+  const base = Math.max(1, 4 - Math.floor(lv / 2));   // 原曲线:lv1→4 lv2/3→3 lv4/5→2
+  const n = availableArts(s).length;                 // 与 canUseArt 同一套候选池,别开第二套口径
+  return Math.min(base, Math.max(1, n - 1));
 }
 
 export function availableArts(s) {

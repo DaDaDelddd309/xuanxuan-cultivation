@@ -108,6 +108,68 @@ const HERO_LINES_ECHO = {
     : `「狠人现在有三个了。」`,
 };
 
+// ————————————————————————————————————————————————————————————
+// 护体:敌人伤害与玩家血量之间那条**缺失的缓冲**
+// ————————————————————————————————————————————————————————————
+//
+// 病(实测,不是推演)。全仓只有 battle.js:98 读 `s.dmgReduce`
+// (`* (1 - (s.dmgReduce||0))`),而唯一写它的地方是下面 Duel.start 里的
+// `dmgReduce: 0` —— 一根接满了水的管子。敌我之间没有任何缓冲层。
+// 于是胜负由一个**定值**决定:「玩家打死敌人要几个回合」对
+// 「敌人打死玩家要几个回合」。这两个数都不受玩家操作影响
+// (enemyAct 只吃 e.dmg 与那个恒 0 的系数),差值为负就恒负。
+//
+//   真人实跑 Duel.start(240 种子/格,tests/duel-difficulty-gradient-regression.mjs),
+//   新手·单神通(炼气,hp 100,满级 jianqi 伤害与强制普攻同为 12/回合):
+//     敌人              e.dmg   改前胜率   改后胜率   护体
+//     小妖·炼气           10      100.0%    100.0%    0.0%
+//     精英·筑基           16       99.2%     99.2%    0.0%
+//     越境·筑基           20       76.7%     76.7%    0.0%
+//     boss·金丹           26       77.5%     77.5%    0.0%
+//     宿敌·金丹(结怨 0)   26       77.5%     77.5%    0.0%
+//     宿敌·结怨(结怨 75)  42        0.0%     27.9%   24.4%   ← 恒负就死在这一行
+//     宿敌·深仇(结怨 150) 57        0.0%      0.0%   33.3%   ← 护体封顶后仍打不过
+//
+// 宿敌那一列的 e.dmg 随 grudge 走:relations.js powerBoost() = 1+min(1.2, grudge*0.008),
+// 每打赢一场 +20(打输 +35,但那一半目前结构上不可达)。所以「恒负」不是宿敌的出厂值,
+// 是**结怨攒深之后**才发作 —— 这也解释了为什么按「宿敌·金丹」取样时量到的不是 0%。
+//
+// 0.0% 的含义不是「难」,是「无论出什么牌都赢不了」——
+// 锤子的原话:难打还留着「绕路」的可能性,恒负把博弈从根上取消了。
+// 炼气新手打死一个 40 血的宿敌要 3.33 回合,而结怨 75 的宿敌 2.29 回合就能打死他。
+//
+// ⚠️ 这一档**不是**冷却层造成的:把 artCd 临时置 0(玩家每回合都有牌),
+//   宿敌·结怨 的胜率仍然是 0.0%(见交付报告的隔离实验)。冷却层影响的是
+//   「玩家有没有第二次决策」(PROBE-6/PROBE-10),那是 battle.js 的活。
+//
+// 为什么**不给全局减伤**:全局减伤会把上表里越境 76.7% / boss 77.5% 这两格
+// 真实的难度一起抹平成恒胜(实测统一 25% 减伤时 新手行变成 100/100/100/99/30,
+// flat 格子反而从 21 涨到 22)—— 把「难打」换成「恒胜」,只是换一个洞。
+//
+// 修法:只补缺失的那一条 —— **任何敌人都不得在少于 MIN_EXCHANGES 个回合内打死玩家**。
+// 需要多少护体就给多少,封顶 MAX_GUARD。预算本来就够的敌人护体恒为 0,
+// 胜率一个百分点都不动(上表左边四行改前改后逐格相同);只有「第一回合就定生死」
+// 的那一档被托起来。
+const MIN_EXCHANGES = 3;    // 玩家至少能挨满 3 个回合
+const MAX_GUARD = 1 / 3;    // 护体最多挡掉三分之一 —— 再多就不像护体,像认输
+
+/**
+ * 算出这场决斗该给玩家多少护体。
+ * enemyAct 的浮动是 0.85~1.25(battle.js:98),均值 1.05;
+ * 暴击不进预算 —— 它是 15% 的意外,不是常态伤害。
+ * @returns {number} 减伤比例,恒 ∈ [0, MAX_GUARD]
+ */
+function guardOf(heroHpMax, foeDmg) {
+  const avgHit = foeDmg * 1.05;
+  // NaN 防护沿用上面 hpRatio 那段的同款理由:这里多一层 Math.min/max,
+  // 一旦 cfg.foe.realmIdx 是 undefined,e.dmg 就是 NaN,护体会变成 NaN,
+  // 而 (1 - NaN) 会让 enemyAct 的伤害整体变 NaN ⇒ 玩家血量恒不落 ⇒ 架永远打不完。
+  if (!Number.isFinite(avgHit) || avgHit <= 0) return 0;
+  const need = 1 - heroHpMax / (MIN_EXCHANGES * avgHit);   // >0 ⇒ 三回合之内必死
+  if (!(need > 0)) return 0;
+  return Math.min(MAX_GUARD, need);
+}
+
 export const Duel = {
   root: null, S: null, busy: false,
 
@@ -142,6 +204,11 @@ export const Duel = {
     e.dmg = Math.round(10 + cfg.foe.realmIdx * 6 + (cfg.foe.stronger ? 4 : 0));
     if (cfg.foe.isNemesis) e.dmg = Math.round(e.dmg * Cult.nemesis.powerBoost());
 
+    // 护体:回合数预算不够时才兜底(见文件头 guardOf 的注释)。
+    // 与 hp/hpMax 共用同一个式子 —— 玩家恒以满血入场这条既有约定(B11)不动。
+    const heroHpMax = 100 + pIdx * 30;
+    const guard = guardOf(heroHpMax, e.dmg);
+
     // story / arcNames:XX-NET-002 台词按已结结局分支用。
     // ⚠️ 必须在**开打前**抓一份快照塞进 S —— 决斗过程中结案状态不会变,
     // 但如果这里偷懒写 `get story(){ return STORY.s }`,一旦对手把某条线结了,
@@ -153,9 +220,9 @@ export const Duel = {
       hero: {
         name: '轩轩', title: `${REALMS[pIdx].name}${ps.layer}层`,
         img: cfg.hero.img,
-        hpMax: 100 + pIdx * 30,
-        hp: 100 + pIdx * 30, arts: ps.arts, isSuper: superSet(ps.arts),
-        cooldown: {}, dmgReduce: 0,
+        hpMax: heroHpMax,
+        hp: heroHpMax, arts: ps.arts, isSuper: superSet(ps.arts),
+        cooldown: {}, dmgReduce: guard,
       },
       round: 0, over: false,
     };
@@ -244,7 +311,10 @@ export const Duel = {
     const hpEPct = Math.max(0, S.e.hp / S.e.hpMax * 100);
     q('xd-hpb').style.width = hpPct + '%';
     q('xd-epb').style.width = hpEPct + '%';
-    q('xd-hpn').textContent = `${S.hero.name} ${Math.max(0, S.hero.hp)}/${S.hero.hpMax}`;
+    // 护体要**看得见**:玩家看不到的减伤就是暗改难度,被发现了只会觉得被做手脚。
+    // 这一档平时是空的(预算够的敌人护体为 0),只有真兜底的那几场才亮出来。
+    const gd = S.hero.dmgReduce ? ` · 护体 -${Math.round(S.hero.dmgReduce * 100)}%` : '';
+    q('xd-hpn').textContent = `${S.hero.name} ${Math.max(0, S.hero.hp)}/${S.hero.hpMax}${gd}`;
     q('xd-epn').textContent = `${Math.max(0, S.e.hp)}/${S.e.hpMax} ${S.e.title}`;
   },
 

@@ -486,7 +486,12 @@ console.log('\n=== [C] 技能冷却:不得存在永远用不出来的技能,也�
   {
     const src = R('js/xiuxian/battle.js');
     const decLines = src.split('\n').filter(l => /cooldown\[k\]\s*--/.test(l));
-    t('C9 冷却递减只发生在 playerAct 里(全文件仅此一处)', decLines.length === 1,
+    // ⚠️ 2026-10-11 订正断言名。原文写「只发生在 playerAct 里」,但 playerAct 里**没有**递减 ——
+    //   XX-DUEL-007 早就把它移到了 tickCooldown(:105-108)。断言实际验的是
+    //   「全文件 `cooldown[k]--` 恰好出现 1 次」,名字与内容不符会误导下一个改它的人。
+    //   另注:这是**格式耦合**不是数值耦合 —— 谁把 :107 改写成等价的 `-= 1`,计数变 0 就假红。
+    t('C9 冷却递减全文件只有一处(`cooldown[k]--`,在 tickCooldown 里,不在 playerAct)',
+      decLines.length === 1,
       `找到 ${decLines.length} 处`);
   }
   {
@@ -619,8 +624,11 @@ const liveArts = () => (reg('#xd-sk').innerHTML.match(/data-art="([^"]+)"/g) || 
     p('PROBE-9 双神通玩家在一场决斗里能出几招',
       clicks >= 6,
       `点了 ${clicks} 次就再也点不动了(onWin=${win} / onLose=${lose})。` +
-      `冷却递减只写在 playerAct 里(见 C9),而 duel.js:341 的强制普攻分支走不到那儿 —— ` +
-      `**双神通并不能免疫**,只要所有冷却同时转正,后面整场都是玩家零输入的自动战斗`);
+      `⚠️ 2026-10-11 订正:原文写「冷却递减只写在 playerAct 里,强制普攻分支走不到那儿」—— ` +
+      `**那已经过时了**:XX-DUEL-007 早把递减移到了 tickCooldown(battle.js:105-108),` +
+      `由 duel.js:399 的回合边界统一调一次,走不走 playerAct 都吃得到递减。` +
+      `若本探针仍报红,先看 battle.js 的 artCd(现在是 min(原曲线, n-1),n=已掌握神通数),` +
+      `别按原文去往 playerAct 里补递减 —— 那是把它搬回一个错误的位置`);
   }
   {
     // 「引擎本身能收敛」的对照实验:给一门有效冷却恒为 0 的超武,每回合都有牌出。
@@ -663,15 +671,24 @@ console.log('\n=== [F] 单技能玩家:默认存档能不能打完一场 ===');
   p('PROBE-4 单技能玩家:用完唯一神通后,冷却还回不回来',
     res.converged,
     `默认存档只有一门神通;点完它冷却=${JSON.stringify(cdAfter)}。` +
-    `其后每回合 availableArts∩canUseArt 都是空 ⇒ 走 duel.js:341 强制普攻分支,` +
-    `而该分支**不减冷却**(递减只写在 playerAct 里)。` +
+    `⚠️ 2026-10-11 订正:原文写「其后 availableArts∩canUseArt 都是空 ⇒ 走强制普攻分支,` +
+    `而该分支不减冷却(递减只写在 playerAct 里)」—— **两处都已过时**:` +
+    `① artCd 现在是 min(原曲线, n-1),n=已掌握神通数;n=1 时 n-1=0 ⇒ 下限 1 ⇒ ` +
+    `单神通玩家**每回合都能出牌**(实测 cd=1,与 PROBE-8 的「强制普攻 0.0 回合/场」一致);` +
+    `② 递减早在 XX-DUEL-007 就移到了 tickCooldown(battle.js:105-108),` +
+    `由 duel.js:399 的回合边界统一调,不是「只写在 playerAct 里」。` +
+    `若本探针仍报红,先打印 cdAfter 与实际的 availableArts∩canUseArt,` +
+    `别按原文的结论往 playerAct 里补递减 —— 那是搬回一个错误的位置。` +
     `${res.converged ? '本场侥幸收敛了。' : `跑了 ${res.steps} 步仍未收敛。`}`);
 
   p('PROBE-5 强制普攻打死敌人会不会判胜',
     !(res.converged && win === 0 && enemyHp === 0),
     `敌人血量已被打到 ${enemyHp},但 onWin 调了 ${win} 次 / onLose ${lose} 次。` +
-    `duel.js:347 打完敌人直接 setTimeout(enemyTurn),**没有 isDead 检查** —— ` +
-    `resolvePlayer 那条路(:378)是有的,强制普攻这条路没有`);
+    `⚠️ 2026-10-11 订正:原文写「duel.js:347 没有 isDead 检查」—— ` +
+    `**那已经过时了**:XX-DUEL-008 给强制普攻分支补上了 isDead(现 duel.js:419)。` +
+    `这段描述是在提醒「别把这个当未修的 bug 重新修一遍」。` +
+    `若本探针仍报红,先确认 duel.js:419 的 isDead 是否还在,` +
+    `再查 onWin 为什么没被调到 —— 别按原文的结论去改代码`);
 
   p('PROBE-6 一场决斗里玩家真正能做的动作数',
     cdAfter === null || Object.keys(cdAfter).length === 0,
@@ -734,6 +751,17 @@ function simulate(foe, hprof, stratName, seed) {
   let turns = 0, basicTurns = 0;
   const foeDmgSeq = [];
   while (!isDead(e) && !playerDead(s) && turns < TURN_CAP) {
+    // ⚠️ 2026-10-11 补上这一行。原实现**从不递减冷却**,于是这个模拟器测的是
+    //   「冷却永远不转」的世界 —— 一招放完 cd=4,此后再无任何牌可用,
+    //   第 1 回合起全程强制普攻。而真实游戏 duel.js:399 是**每回合减 1** 的:
+    //       if (!preId) tickCooldown(S.hero);
+    //   (同一文件 248 行的 mkArts 辅助函数**确实**调了 tickCooldown,只有 simulate 没有。
+    //    同一文件内部不一致,是典型的「度量工具自己出错」。)
+    //
+    //   实测:补上之后 PROBE-6/7/10 三个数字**一个都没变**(0/24、21/24、仍只出 1 招)
+    //   ⇒ 这行不是这三个探针变坏的原因,补它是为了**以后**改 cd 数值时这个模拟器还靠得住。
+    //   在此之前,任何基于本模拟器的 cd 结论都要先确认它到底模拟了没有。
+    tickCooldown(s);
     const usable = availableArts(s).filter(id => canUseArt(s, id));
     if (usable.length) playerAct(s, e, strat(usable, s, e));
     else {
