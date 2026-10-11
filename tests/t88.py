@@ -43,11 +43,27 @@ with sync_playwright() as p:
     unblock(pg); pg.click('[data-tab=quest]'); time.sleep(0.8)
     print("【支线页里的叙事线】")
     # 开一条叙事线并走完
+    # 2026-10-11(XX-AUDIT-033):原来 `for(const b of beats) STORY.arrive(b.node)`
+    #   只按 beat 里**写死的 id** 走。但 worldgen.js:234 按 (y,x) 排序逐个发 id,
+    #   布局随种子变 → 同一 id 的类型每张图都不同(实测 200 种子:n4 是 secret
+    #   仅 44/200、n5 是 elite 仅 18/200、n8 是 boss 仅 5/200)。
+    #   于是 beat[2] 之后推不动,实测恒 beat=2 / readyFinish=false。
+    #   产品侧第二分支(_typeMatches,story.js:273)本来就允许**任意同类节点**推进
+    #   ——实测同一 STORY 实例:按写死 id 走 beat=3/4,按类型走 4/4。
+    #   所以这里也按 nodeType 找目标,和真实玩家的走法一致。
     r=pg.evaluate("""async()=>{
-      const {STORY}=await import('/js/xiuxian/story.js');
+      const {STORY,ARCS}=await import('/js/xiuxian/story.js');
+      const {WORLD}=await import('/js/xiuxian/world.js');
       STORY.start('hongyi');
-      const M=await import('/js/xiuxian/story.js'); const beats=M.ARCS.hongyi.beats;
-      for(const b of beats) STORY.arrive(b.node);
+      const beats=ARCS.hongyi.beats;
+      for(const b of beats){
+        let target=b.node;
+        if(b.nodeType){
+          const hit=(WORLD.nodes||[]).find(n=>n.type===b.nodeType);
+          if(hit) target=hit.id;        // 找不到就退回写死的 id,别静默跳过
+        }
+        if(target) STORY.arrive(target);
+      }
       return {beat:STORY.s.beat.hongyi, ready:STORY.readyFinish('hongyi'),
               done:!!STORY.s.done.hongyi, readyN:STORY.readyList().length};
     }""")

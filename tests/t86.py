@@ -70,10 +70,15 @@ with sync_playwright() as p:
     ok("传说妖立绘加载", pg.evaluate("()=>[...document.querySelectorAll('.xx-dxx img')].filter(i=>i.naturalWidth>0).length")>=8)
     pg.screenshot(path=_OUT+'/shot_legend.png')
     print("【昼夜】")
+    # 2026-10-11(XX-AUDIT-033):原来写 `DAY.s.actions`,但那是**镜像字段**——
+    #   items.js:192 的 phase() 只是 `return CLOCK.phase()`,而 clock.js:116 的
+    #   hour() = floor(dayProgress()*24),dayProgress() 读的是 CLOCK.s.ms。
+    #   直接写 DAY.s.actions 对 phase() 毫无影响,4 次循环全拿到同一个 key。
+    #   真源是 CLOCK.s.ms,换算基准用 CLOCK_CONST.DAY_MS,不再写死 12。
     r=pg.evaluate("""async()=>{const {Ambience:A}=await import('/js/xiuxian/ambience.js');
-      const {DAY}=await import('/js/xiuxian/items.js');
+      const {CLOCK,CLOCK_CONST}=await import('/js/xiuxian/clock.js');
       const out={};
-      for(const h of [6,12,18,22]){ DAY.s.actions=Math.round(h/24*12);
+      for(const h of [6,12,18,22]){ CLOCK.s.ms=Math.round(h/24*CLOCK_CONST.DAY_MS);
         const ph=A.phase(); out[ph.key]={fog:ph.fog,bright:ph.bright,mul:ph.mul}; }
       return out;}""")
     ok(f"4个时段渲染 {list(r.keys())}", len(r)>=3)

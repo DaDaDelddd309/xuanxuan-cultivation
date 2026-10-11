@@ -40,7 +40,19 @@ with sync_playwright() as p:
         if pg.evaluate("()=>!!document.getElementById('rt-ok')"): pg.click('#rt-ok'); time.sleep(0.5)
     unblock(pg)
     pg.click('#btn-cult'); time.sleep(1.2)
-    ok("修仙阁 12 个标签", pg.evaluate("()=>document.querySelectorAll('.xx-tab').length")==12)
+    # 2026-10-11(XX-AUDIT-033):原来写死 `.xx-tab` 数量 == 12,但 ui.js:65 的 TABS
+    #   早已是 14 个(后加了 build 领地、dex 图鉴)。魔数不跟,产品加标签测试就红。
+    #   改成**从源码推导**预期值(TABS 没导出,就在页面里 fetch 源码解析),
+    #   顺便比 key 集合 —— 比原来的「等于某个数」更强,且以后加标签不会再烂。
+    tabs=pg.evaluate("""async()=>{
+      const src=await (await fetch('/js/xiuxian/ui.js')).text();
+      const m=src.match(/const TABS\\s*=\\s*\\[(.*?)\\];/s);
+      const want=(m? (m[1].match(/\\['[^']+'\\s*,\\s*'[^']+'\\]/g)||[]) : []).map(x=>x.match(/\\['([^']+)'/)[1]);
+      const got=[...document.querySelectorAll('.xx-tab')].map(e=>e.dataset.tab);
+      return {want, got};
+    }""")
+    ok(f"修仙阁 {len(tabs['want'])} 个标签(从 ui.js 源码推导)", len(tabs['got'])==len(tabs['want']))
+    ok("标签 key 与源码 TABS 完全一致", tabs['got']==tabs['want'])
     ok("有「支线」标签", pg.evaluate("()=>!!document.querySelector('[data-tab=quest]')"))
 
     print("【支线页渲染】")
