@@ -306,8 +306,18 @@ export const Hall = {
             toast(`吐纳 · 修为 +${M.exp} · 道行 +${M.dao}`);
           }
         }
-        // 原来这个分支既不 commit 也不 render —— 页面要切页签才刷新,
-        // 存档全靠 Profile.auto() 的节流自动存档兜着。
+        // 原来这个分支既不 commit 也不 render —— 页面要切页签才刷新。
+        // ⚠️ 存档兜底的**真实情况**(2026-10-11 实测,原注释写错了):
+        //   原来这里写着「存档全靠 Profile.auto() 的节流自动存档兜着」——
+        //   那是**假的**。`grep -rn "Profile.auto" js/` 只匹配到这句注释自己:
+        //   profile.js:188 的 `auto(mods)` 是零调用方的死代码,节流自动存档从未接线。
+        //   真正落盘的只有两处:
+        //     · 本行的 Cult.commit()(只写修仙状态键 xx_cultivation_v077)
+        //     · main.js:562-564 的 visibilitychange / pagehide / beforeunload → Profile.collect(mods)
+        //   也就是说:**没有周期性自动存档**,只有「玩家操作时」和「页面被切走/关闭时」两个落盘点。
+        //   推论(风险,本轮未改存档机制):玩家长时间既不切后台也不关页面就崩掉/断网/被杀进程,
+        //   从上次落盘之后的进度会全丢。移动端后台被系统回收是常见路径。
+        //   要修就是给主循环加一道节流 flush —— 属于存档机制改动,不在本轮范围。
         Cult.commit(); this.render();
         break;
       }
@@ -538,10 +548,20 @@ export const Hall = {
         //   依赖 visited 的剧情与支线于是自动放行 —— 玩家没打过,系统说打过。
         const reset = resetWorldScope();
         Cult.commit();
-        // XX-FIX-003:Cult.commit() 只写修仙状态的键,profile.seed 会停在旧值。
-        // 运行时读种子走的是独立键 xx_seed_v081,所以**不影响玩法**,
-        // 只是存档码里那个种子名显示成旧的。这里补一次 Profile 收集。
-        try { Profile.collect(mods); } catch (e) { console.warn('[seed-sync]', e); }
+        // XX-FIX-003 的修法(2026-10-11):原来这里写的是 `Profile.collect(mods)`。
+        //   `mods` 是 main.js:559 的**模块局部 const**,ui.js 是另一个模块,取不到 ——
+        //   实测每次点「换一世」都抛 ReferenceError: mods is not defined,
+        //   又被 try/catch 吞成 console.warn,所以**种子同步从来没成功过**(静默失效)。
+        //   正确做法:直接用种子的真源 Seed.cur,不要碰 mods ——
+        //   把 mods 从 main.js 导出来会造出 ui.js ↔ main.js 的循环依赖(ui.js 已被 main.js import)。
+        //   Seed 本来就已经在文件头 import 了(js/xiuxian/ui.js:58)。
+        // ⚠️ 影响不止「存档码里种子名显示旧的」(那是原注释的说法,低估了):
+        //   Profile.load() 会 `Seed.set(this.data.seed)`(profile.js:101),
+        //   也就是**用存档里的旧种子盖回真源** —— 玩家点完「换一世」,
+        //   只要重开一次页面,种子连同整个世界就被回退成换之前那一世。
+        //   种子是当前局唯一改不回来的东西,这条链断了就是真丢档。
+        Profile.data.seed = Seed.cur;
+        Profile.flush();
         this.render();
         // 提示要说清「这一世把什么清了」—— 不说就是**静默删档**。
         const lost = [];
