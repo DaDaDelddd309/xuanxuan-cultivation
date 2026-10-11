@@ -27,6 +27,13 @@ import { vTomb as vTombImpl, tombRoom as tombRoomImpl, askTombWords as askTombWo
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
 import { ARTS, canEnlighten, enlighten } from './arts.js';
 import { WORLD, nodeById, neighbors, pathBetween, NODE_TYPES, regenerate, WORLD_INFO } from './world.js';
+// XX-WORLD-005 阶段 2:按**实际耗时**找最短路,取代 world.js 的「相邻一跳 / BFS 跳数」。
+// 开关在 nodes.js 的 FEATURE_FLAGS.roads;encounters 控路上遭遇。
+// 两者必须同开同关 —— 半开态下会出现「能规划但永远不掷骰」这种半截行为。
+// network.js 自身零 import,所以这里不会加载出第二个模块实例
+// (XX-AUDIT-027 那个「裸路径加载第二份」的坑在这里不成立,已逐条确认过)。
+import { FEATURE_FLAGS } from './world/nodes.js';
+import { planRoute, ROAD_BY_ID } from './world/network.js';
 import { runConfigFor, setActive, clearActive } from './runcfg.js';   // 2026-10-10 接线:抵达节点即定本局参数
 import { resetWorldScope } from './newlife.js';   // XX-PLAY-012:换世时重置节点作用域
 // XX-MATH-001:局内难度曲线的 Collatz 调制。方向是 修仙阁 → 砍杀,
@@ -336,12 +343,25 @@ export const Hall = {
       }
       case 'travel': {
         const from = Cult.get().current;
-        const path = neighbors(from);
-        if (!path.includes(v)) { toast('路不通'); return; }
+        // 阶段 1:只准相邻一跳。阶段 2(roads 开关):按 Dijkstra 计划走,可跨节点。
+        // 两条分支都保留 —— 关掉 roads 就精确回到阶段 1 的行为。
+        let plan = null;
+        if (FEATURE_FLAGS.roads) {
+          plan = this.routePlan(v);
+          if (!plan) { toast('路不通'); return; }
+        } else if (!neighbors(from).includes(v)) {
+          toast('路不通'); return;
+        }
+        const info = plan ? this.routeInfo(v) : null;
         Cult.get().current = v;
         Cult.get().visited[v] = true;
         Cult.commit();
         this.render();
+        // ⚠️ 路上遭遇(`FEATURE_FLAGS.encounters`)本轮**故意没接**:
+        //   ENCOUNTERS 里 kind:'combat' 那两条要不要进回合制,是个设计决定 ——
+        //   它会和新接的 Duel 出口(XX-DUEL-006)耦合,不在这一轮里发明玩法。
+        //   见 TICKETS.md XX-WORLD-005 阶段 2 的「本轮不做什么」。
+        if (info) toast(`抵达 · 走了 ${info.dist} 里,约 ${info.mins} 分`);
         this.arrive(v); break;
       }
       case 'enlighten': this.doEnlighten(v, v2); break;
@@ -562,10 +582,45 @@ export const Hall = {
   pathTo(target) {
     const s = Cult.get();
     if (!target || target === s.current) return null;
+    // XX-WORLD-005 阶段 2:roads 开着时按**实际耗时**规划,关着时保持原来的 BFS。
+    // 两条路都要留在原地 —— 开关就是回滚的唯一手段,不许把逻辑揉成一坨。
+    if (FEATURE_FLAGS.roads) {
+      const plan = this.routePlan(target);
+      if (plan && plan.roads.length) {
+        const set = new Set([plan.from]);
+        let cur = plan.from;
+        for (const rid of plan.roads) {
+          const r = ROAD_BY_ID.get(rid);
+          if (!r) continue;
+          cur = r.from === cur ? r.to : r.from;
+          set.add(cur);
+        }
+        return set.size > 1 ? set : null;
+      }
+      return null;
+    }
     try {
       const p = pathBetween(s.current, target);
       return Array.isArray(p) && p.length > 1 ? new Set(p) : null;
     } catch (e) { return null; }
+  },
+
+  // XX-WORLD-005 阶段 2:Dijkstra 路线计划。roads 开关关着时**恒返回 null**,
+  // 于是所有调用点自动退回阶段 1 的相邻逻辑 —— 这是刻意的,不是遗漏。
+  routePlan(toId) {
+    if (!FEATURE_FLAGS.roads) return null;
+    const s = Cult.get();
+    if (!toId || toId === s.current) return null;
+    try { return planRoute(s.current, toId); } catch (e) { console.warn('[route]', e); return null; }
+  },
+
+  // 给 UI 用的「多远、多久、路上会不会出事」。返回 null = 走不通。
+  routeInfo(toId) {
+    const plan = this.routePlan(toId);
+    if (!plan) return null;
+    const mins = Math.round(plan.ticks * 75 / 60);      // TICK_MS=75s,取整到分
+    return { dist: plan.dist, ticks: plan.ticks, mins,
+             risk: FEATURE_FLAGS.encounters ? Math.round((plan.pEncounter || 0) * 100) : 0 };
   },
 
   // 节点副标题(XX-ARCH-008)
@@ -943,13 +998,16 @@ export const Hall = {
       else cls.push('visited');
       if (s.current === n.id) cls.push('cur');
       const adj = neighbors(s.current).includes(n.id);
-      if (!adj && s.current !== n.id) cls.push('locked');
+      // 阶段 2(XX-WORLD-005):roads 开着时「锁」不再等于「只能相邻」——
+      // 走得到就不是锁;锁的是真的走不通(planRoute 返回 null,含被封锁挡住的)。
+      const reach = s.current === n.id ? null : this.routeInfo(n.id);
+      if (!adj && s.current !== n.id && !reach) cls.push('locked');
       const isMine = ['secret','elite','boss'].includes(n.type) && !BUILD.s.land.includes(n.id) && s.current !== n.id;
       const canTp  = BUILD.canTeleport() && s.visited[n.id] && s.current !== n.id;
       nodes += `<div class="${cls.join(' ')}" style="left:${p.x}%;top:${p.y}%"
         data-act="travel" data-v="${n.id}" title="${esc(n.name || '')}">
         ${unseen?'<div class="xx-fogq">?</div>':`<span class="xx-glyph t-${n.type}">${t}</span>`}<div class="xx-node-lb">${unseen?(n.name||'未知之地'):esc(n.name || n.id)}</div>
-        <div class="xx-node-tip">${esc(this.nodeTip(n, s))}</div>
+        <div class="xx-node-tip">${esc(this.nodeTip(n, s))}${reach && !adj ? ` · ${reach.dist}里/${reach.mins}分` : ''}</div>
         ${storyHere?'<div class="xx-node-st" title="有事发生">!</div>':''}
         ${legHere?'<div class="xx-node-lg" title="有异兽">◆</div>':''}
         ${isMine?`<div class="xx-node-mine" data-act="mine" data-v="${n.id}" data-v2="${n.type}">占</div>`:''}

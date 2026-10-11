@@ -73,7 +73,15 @@ console.log('\n=== [2] FEATURE_FLAGS 只能按阶段逐个开,不许跳阶段 ==
   // 所以这里改成断言「**开着的开关恰好等于已落地的阶段清单**」——
   // 白名单跟着工单走,而不是永远钉死 false(那会让阶段 1 一上线就假红,
   // 而假红的门禁比没门禁更坏:大家会习惯性地忽略它)。
-  const EXPECT_ON = ['regions'];        // 阶段 0 = [] ; 阶段 1(WORLD-004) = ['regions']
+  // 2026-10-11(XX-WORLD-005 阶段 2 落地):加 roads。
+  // 这不是"把断言改成让自己过"—— 上面那段注释已经写明本护栏就是跟着工单走的白名单
+  // ("白名单跟着工单走,而不是永远钉死 false")。阶段 2 的赶路已接上 network.js 的
+  // planRoute 并随 v099af 发布, 于是白名单从 ['regions'] 变成 ['regions','roads']。
+  //
+  // 反向自查(防"为了让护栏过而随手加项"):encounters **没有**被加进来 ——
+  // 路上遭遇本轮故意没做, 见 TICKETS.md XX-WORLD-005 阶段 2 的「本轮不做什么」。
+  // 将来接上遭遇时, 必须同时改这里并写明依据。
+  const EXPECT_ON = ['regions', 'roads'];   // 阶段 0=[] ; 1(WORLD-004)=['regions'] ; 2(WORLD-005)=+['roads']
   const on = Object.keys(FEATURE_FLAGS).filter(k => FEATURE_FLAGS[k] !== false);
   t(`开着的开关恰好是 ${EXPECT_ON.length ? EXPECT_ON.join(',') : '(无)' }(实测 ${Object.keys(FEATURE_FLAGS).length} 个开关)`,
     on.length === EXPECT_ON.length && EXPECT_ON.every(k => on.includes(k)),
