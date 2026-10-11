@@ -1,0 +1,168 @@
+/* 轩轩修仙传 · 装备页版式（XX-GEAR-LAYOUT-001）
+ *
+ *  为什么单独一张表，而不是继续往 .xx-card 上堆：
+ *   owner 看截图后的原话是「都是排版问题…都是卡片式的设计？？」
+ *   .xx-card 是**单列通栏 + 左侧朱印 + 14px 内边距**的列表项样式，
+ *   装备页从头到尾用它，于是 4 个槽位和 N 件装备被拍平成同一种东西：
+ *   没有主次、没有网格、没有边界层次。
+ *   这里改成两套真正的版式：**装备位网格 + 背包网格**，
+ *   槽位是「凹进去的空匣子」，物品是「摆在格子里的实物」，两者形状与边框都不同。
+ *
+ *  四条验收（逐条对应）：
+ *   1. 不能全是卡片 → 本文件里没有任何 .xx-card 的兄弟堆叠，只有两个网格
+ *   2. 滑动不了     → .xx-gear-bag 自带高度上限 + overflow-y:auto + 惯性滚动
+ *   3. 边界不清晰   → 每格四边有描边；空槽虚线内凹、已穿实心描边（见 G4）
+ *   4. 没有富余空间 → 区块之间 18px、格与格之间 10px、格内 10px、底部留白
+ *
+ *  ⚠️ 纪律：本表**不得**出现字面色值。
+ *     tests/lint-tokens.mjs 走基线差分，新文件里任何 #hex / rgb() 都是「新增」→ 直接红。
+ *     颜色一律 var(--xx-*)，来源只有 css/palette.css。
+ *  ⚠️ 纪律：本表**不得**写 touch-action:none —— 那会把背包的纵向滚动一起干掉，
+ *     正是 owner 说的「向下拉不了」。见 .xx-gear-bag 的说明。
+ *  ⚠️ 纪律：纯类选择器(`.xx-gear-slot`)在**同一个文件里只能出现一次**，
+ *     否则 tests/lint-css.mjs 报「同属性重复定义 / 定义分散」。
+ *     所以状态差异一律写成复合选择器或后代选择器。
+ */
+
+/* ===== 1. 根容器：竖向区块流 + 富余空间 =====
+   .xx-body 已经是 overflow-y:auto 的外层滚动区，这里只管版式。 */
+.xx-gear{display:flex;flex-direction:column;gap:18px;
+  min-height:100%;padding:2px 0 12px}
+
+/* ===== 2. 已穿戴区：4 槽网格（不是卡片）===== */
+.xx-gear-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+
+/* 槽位本体 = 一个内凹的「匣子」。
+   实线描边是默认态；空/满的差异见下面两条 :has()（放在 .drop-ok 之前，
+   因为两者特异性相同(0,2,0)，靠源码顺序决胜）。 */
+.xx-gear-slot{position:relative;display:flex;flex-direction:column;align-items:center;
+  gap:6px;padding:10px 6px 9px;min-height:98px;min-width:0;
+  border:1px solid var(--xx-line-2);border-radius:var(--xx-r-lg);
+  background:var(--xx-bg-1);
+  transition:border-color .15s,background .15s,transform .12s}
+
+/* 满槽：实心内容板 + 更亮的底（空槽是内凹，满槽是实心） */
+.xx-gear-slot:has(.xx-gear-slot-item){background:var(--xx-bg-2);border-color:var(--xx-line-2)}
+/* 空槽：虚线框 + 无底色（=「可以放东西」的暗示，仓库里 .bd-slot 用的是同一套语言） */
+.xx-gear-slot:has(.xx-gear-slot-empty){background:transparent;border-style:dashed;
+  border-color:var(--xx-line-1)}
+
+/* 拖拽悬停：唯一用金色实线外扩的一档 */
+.xx-gear-slot.drop-ok{border-style:solid;border-color:var(--xx-gold);
+  background:var(--xx-bg-2);box-shadow:0 0 0 2px var(--xx-gold-soft);
+  transform:translateY(-2px)}
+
+/* 槽位图标井：再往里凹一层，和槽位的边框形成两层边界 */
+.xx-gear-slot-icon{width:42px;height:42px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:1px solid var(--xx-line-1);border-radius:var(--xx-r);
+  background:var(--xx-ink-3);color:var(--xx-paper-faint);font-size:21px;line-height:1}
+
+/* 图标素材可能是 <img> 也可能是字形，两种都收；
+   绝不用 image-rendering:pixelated（仓库明确禁，插画必须平滑缩放）。 */
+.xx-gear-slot-icon img,.xx-gear-item-icon img{width:100%;height:100%;object-fit:contain}
+
+/* 槽位名（「首」「衣」「手」「履」那一行） */
+.xx-gear-slot-name{font-size:11px;line-height:1.2;letter-spacing:2px;text-align:center;
+  color:var(--xx-paper-dim)}
+
+/* 槽里那件装备的名字 —— 实心内容的上半 */
+.xx-gear-slot-item{width:100%;margin-top:2px;padding-top:5px;min-width:0;
+  border-top:1px solid var(--xx-line-2);
+  font-size:11px;line-height:1.35;text-align:center;color:var(--xx-paper);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 空槽提示 —— 虚线分隔线 + 无底色，和上面那条实心内容在 4 个通道上都不同 */
+.xx-gear-slot-empty{width:100%;margin-top:2px;padding-top:5px;min-width:0;
+  border-top:1px dashed var(--xx-line-1);
+  font-size:10px;line-height:1.35;letter-spacing:1px;text-align:center;
+  color:var(--xx-paper-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== 3. 背包网格 =====
+   上面一条发丝线把「身上」和「包里」切成两个区块，这就是区块间距的来源之一。 */
+.xx-gear-bag{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:10px;align-content:start;
+  flex:1 1 auto;min-height:0;max-height:min(58vh,440px);
+  padding:16px 6px 10px 2px;
+  border-top:1px solid var(--xx-line-1);
+  /* ↓ 滚动契约。owner 说「滑动不了 / 向下拉不了」，这四行就是答案：
+       overflow-y:auto  —— 只有同时给了高度上限(max-height)它才真的会产生滚动，
+                          光写 auto 而不限制高度的话容器会跟着内容长高，永远滚不动
+       -webkit-overflow-scrolling:touch —— iOS/部分 WebView 的惯性滚动
+       overscroll-behavior-y:contain —— 滚到头不把外层 .xx-body 一起带着跑 */
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  /* ⚠️ 这里**故意不写** touch-action:none。
+     touch-action 是「允许哪些手势交给浏览器」的开关，none 会连纵向平移一起禁掉
+     —— 背包立刻滑不动，正是 owner 反馈的那个现象。
+     pan-y 是它的**反面**：明确告诉浏览器纵向平移照常由原生滚动处理，
+     同时把横向手势留给 JS 的 Pointer Events（拖装备往侧上方挪时不会被浏览器抢走）。
+     拖拽起手那一刻要不要锁，判定权在 JS 侧，CSS 不抢。 */
+  touch-action:pan-y}
+.xx-gear-bag::-webkit-scrollbar{width:3px}
+.xx-gear-bag::-webkit-scrollbar-thumb{background:var(--xx-gold-soft);
+  border-radius:var(--xx-r-lg)}
+.xx-gear-bag::-webkit-scrollbar-track{background:transparent}
+
+/* 背包里的一件 —— 方格实物，形状与槽位不同（这里更小更方，槽位更高） */
+.xx-gear-item{position:relative;display:flex;flex-direction:column;align-items:center;
+  gap:6px;padding:10px 8px 12px;min-height:104px;min-width:0;
+  border:1px solid var(--xx-line-1);border-radius:var(--xx-r-lg);
+  background:var(--xx-bg-1);color:var(--xx-paper-dim);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  transition:border-color .15s,background .15s,opacity .15s,transform .12s}
+.xx-gear-item:active{transform:scale(.96)}
+
+/* 品质条：颜色跟着 currentColor 走 —— 品质色改一处，名字和这条同时变 */
+.xx-gear-item::after{content:'';position:absolute;left:10px;right:10px;bottom:5px;
+  height:2px;border-radius:var(--xx-r);background:currentColor;opacity:.55}
+
+.xx-gear-item-icon{width:38px;height:38px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:1px solid var(--xx-line-1);border-radius:var(--xx-r);
+  background:var(--xx-ink-3);color:var(--xx-paper-dim);font-size:19px;line-height:1}
+
+/* 名字**不**单独设颜色：继承 .xx-gear-item 的品质色，
+   少 4 条规则，且保证名字与品质条永远同色。 */
+.xx-gear-item-name{width:100%;min-width:0;font-size:11.5px;line-height:1.4;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== 4. 稀有度四档：灰 / 青 / 蓝 / 朱 —— 色相互不相邻，一眼可分 =====
+   映射沿用 js/xiuxian/ui/gear.js 里旧的 RARITY_COL
+   （常档灰 / 良档青 / 珍档蓝 / 绝档朱），只是换成 palette.css 的令牌，
+   不在 CSS 里写死色值。
+   ⚠️ 注释里也不能写 hex：tests/lint-palette.mjs 是**逐行**剥注释的，
+      多行块注释的中间行既没有 /* 也没有 */，色值会被当成真硬编码上报。
+   另外三档另有**非颜色**通道，避免在低亮度屏上只剩一档分得清：
+   常档整体压暗(r1)、绝档多一层内框(r4)。 */
+.xx-gear-item.rarity-1{color:var(--xx-paper-faint);opacity:.78}
+.xx-gear-item.rarity-2{color:var(--xx-jade)}
+.xx-gear-item.rarity-3{color:var(--xx-qi)}
+.xx-gear-item.rarity-4{color:var(--xx-cinnabar);
+  box-shadow:inset 0 0 0 1px var(--xx-gold-soft)}
+
+/* 已穿戴：放在稀有度之后 —— 同为 (0,2,0)，靠顺序压住边框色 */
+.xx-gear-item.worn{border-color:var(--xx-gold-dim);background:var(--xx-bg-2);
+  box-shadow:inset 0 0 0 1px var(--xx-line-gold);opacity:1}
+
+/* ===== 5. 拖拽跟手的幽灵元素 =====
+   pointer-events:none —— 幽灵挡在下面所有东西上面也不能吃掉点击
+   (JS 侧同样写了一遍,因为它要用 elementFromPoint 判定落在哪个槽位)。
+   ⚠️ **本表不写 transform**:placeGhost() 已经把 left/top 按手指坐标减去
+     GHOST_HALF(24) 写进行内样式,幽灵的取中是 JS 算好的。
+     CSS 再加一次 translate(-50%,-50%) 会**减两次**,幽灵偏到手指左上方 24px。
+     所以这里给 48×48 的方盒 —— 与 GHOST_HALF=24 正好对上,手指落在盒子正中。 */
+.xx-gear-drag{position:fixed;z-index:300;pointer-events:none;
+  width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--xx-line-gold);border-radius:var(--xx-r-lg);
+  background:var(--xx-bg-4);box-shadow:0 6px 18px var(--xx-ink-2);
+  opacity:.92}
+.xx-gear-drag .xx-gear-item-icon{width:36px;height:36px;font-size:18px}
+
+/* ===== 6. 操作提示 / 反馈行 ===== */
+.xx-gear-hint{padding:9px 12px;min-height:16px;
+  border:1px solid var(--xx-line-1);border-left:2px solid var(--xx-gold-dim);
+  border-radius:var(--xx-r);background:var(--xx-bg-1);
+  font-size:11.5px;line-height:1.7;letter-spacing:.5px;
+  color:var(--xx-paper-dim);overflow-wrap:anywhere}

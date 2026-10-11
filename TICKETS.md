@@ -7823,7 +7823,14 @@ audit-loop 漏了。
 
 ---
 
-## 🟡 XX-AUDIT-038 立绘调色板门禁在 CI 上**从来没执行过**（XX-AUDIT-002 的漏网部分）
+## ✅ XX-AUDIT-038 两道依赖 Pillow 的门禁在 CI 上从来没执行过 / 谎报完成
+
+> ✅ **两处都已修，且都被 CI 实测确认**（run `38145345462`，`8f66174`）：
+> ① 立绘调色板门禁：日志出现**逐张实测值** + 守卫打出「采样器可用(退出码 0)」，
+>    `ModuleNotFoundError` **消失**；
+> ② 视觉巡检：`audit.py` 第一次真跑成，「视觉巡检完成」作为**真实输出**出现
+>    （此前那句是无条件 echo 的）。
+> 连带查出 `browser` job 的 Traceback 也已清零。
 
 **发现**：2026-10-11 21:4x，追查 CI 日志里一行 `ModuleNotFoundError: No module named 'PIL'`
 时顺出来的。已修并推 main，等 CI 实测。

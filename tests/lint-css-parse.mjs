@@ -17,7 +17,14 @@ import { fileURLToPath as _fu } from 'url';
 import { dirname as _dn, resolve as _rv } from 'path';
 const ROOT = _rv(_dn(_fu(import.meta.url)), '..');
 
-const CSS_FILES = ['css/palette.css', 'css/style.css', 'css/xiuxian.css', 'css/illust.css'];
+// ⚠️ 2026-10-11:加 css/gear.css / css/wash.css。
+//   原来这里是硬编码名单,V0.99「全站灰底」事故的根因正是
+//   palette.css 用了 JS 风格 `//` 注释而本门禁没扫到它。
+//   **新增样式表不写进这个名单 = 它可以用 `//` 而所有门禁全绿** ——
+//   浏览器会把 `//` 之后的整块当注释吃掉,表现是样式整体失效。
+//   判据:加样式表必须同时加这里,别只写进 index.html。
+const CSS_FILES = ['css/palette.css', 'css/style.css', 'css/xiuxian.css', 'css/illust.css',
+                   'css/gear.css', 'css/wash.css'];
 let bad = 0;
 
 console.log('\n[1] CSS 里不得出现 JS 风格注释 //');
@@ -74,14 +81,30 @@ console.log('\n[3] 首行必须是注释/@charset/@import,不能是裸 # 标题'
 
 console.log('\n[4] var() 引用必须能在同文件或 palette.css 里找到定义');
 {
+  // ⚠️ 2026-10-11 修两处**门禁自身**的缺陷(不是 gear.css 的问题):
+  //
+  //   ① 扫 var() 引用前没剥 /* */ 注释。
+  //      gear.css:19 的文件头注释里写着「颜色一律 var(--xx-*),来源只有 palette.css」,
+  //      正则把 `--xx-*` 里的 `--xx-` 读成一个令牌名 → 报「未定义」假红。
+  //   ② 定义表只扫 palette/style/xiuxian 三份,**不扫 CSS_FILES 自身**。
+  //      于是 gear.css 里自定义一个 --xx-xxx 令牌并自己用,同样会假红。
+  //
+  //  判据:度量工具自己出错比没有度量更危险 —— 它会让人去改**正确的产品代码**
+  //  去迎合一个错的门禁,而那正是本项目最恨的「改断言凑绿」的镜像版本。
+  const stripCssComments = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
+
   const defs = new Set();
-  for (const f of ['css/palette.css', 'css/style.css', 'css/xiuxian.css']) {
-    let s; try { s = readFileSync(ROOT + '/' + f, 'utf8'); } catch { continue; }
+  for (const f of new Set([...CSS_FILES, 'css/palette.css', 'css/style.css', 'css/xiuxian.css'])) {
+    let s; try { s = stripCssComments(readFileSync(ROOT + '/' + f, 'utf8')); } catch { continue; }
     for (const m of s.matchAll(/(--[\w-]+)\s*:/g)) defs.add(m[1]);
+  }
+  if (!defs.size) {
+    console.log('  ❌ 一个令牌定义都没解析到 —— 门禁自身失效,别信结论');
+    process.exit(2);
   }
   let miss = 0;
   for (const f of CSS_FILES) {
-    let s; try { s = readFileSync(ROOT + '/' + f, 'utf8'); } catch { continue; }
+    let s; try { s = stripCssComments(readFileSync(ROOT + '/' + f, 'utf8')); } catch { continue; }
     const used = new Set([...s.matchAll(/var\(\s*(--[\w-]+)/g)].map(m => m[1]));
     const bad2 = [...used].filter(k => !defs.has(k));
     if (bad2.length) {
@@ -89,7 +112,7 @@ console.log('\n[4] var() 引用必须能在同文件或 palette.css 里找到定
       miss++; bad++;
     }
   }
-  if (!miss) console.log('  ✅ 全部 var() 都能找到定义');
+  if (!miss) console.log(`  ✅ 全部 var() 都能找到定义(定义表 ${defs.size} 个令牌)`);
 }
 
 console.log('\n[5] 关键令牌有实值(不是自我引用/空值)');
