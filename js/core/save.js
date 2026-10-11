@@ -8,15 +8,18 @@ const VALID_CHARS = ['knight', 'mage', 'ranger', 'white'];
 // 装备槽位 + 装备 id 白名单(XX-EQUIP-003)。
 // 这里**重复声明**而不从 game/gear.js import:save.js 是最早被加载的模块,
 // 从它拉 gear.js 会把整个游戏层拖进 UI 层依赖链,方向反了。
-// 两份列表若不一致,由 tests/gear-regression.mjs 的存档契约段报出来 ——
+// 两份列表若不一致,由 tests/gear-save-whitelist-regression.mjs 双向报出来 ——
 // 比运行时才发现「存档里有件不存在的装备」便宜得多。
+// ⚠️ 这里原来写的是「tests/gear-regression.mjs 的存档契约段」,而那条契约段**不存在**
+//    (实测 `grep -c 'core/save' tests/gear-regression.mjs` → 0)。
+//    注释写着有门禁,不等于真有门禁 —— 少改一边,玩家存档就在下次 load() 静默丢装备。
 const VALID_SLOTS = ['head', 'body', 'hand', 'foot'];
 const VALID_GEAR = [
   'hongyi_garment', 'laolao_hairpin', 'baize_claw', 'dangkang_ring',
   'qingqiong_robe', 'jiangu_blade', 'shijiang_seal', 'dengshi_lamp',
 ];
 // 装备 id → 槽位。同样**重复声明**而不从 gear.js import,理由同上。
-// 两份若不一致,由 tests/gear-regression.mjs 的存档契约段报出来。
+// 两份若不一致,由 tests/gear-save-whitelist-regression.mjs 的 G2 段报出来。
 // ⚠️ 这张表是必需的,不是图省事:equip() 必须知道"这件穿哪个槽",
 //    而 save.js 不能反向依赖 gear.js(会把整个游戏层拖进 UI 层依赖链)。
 const GEAR_SLOT = {

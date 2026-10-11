@@ -46,10 +46,28 @@ const all = [];
 const code = all.filter(f => /\.(js|css|html)$/.test(f));
 const rel = f => relative(ROOT, f);
 
+// ⚠️ 2026-10-11:扫「资源引用」前必须先抹掉注释,否则注释里的示例路径会被当成真引用。
+//
+//   踩出来的:装备页改版时两个新文件在文件头注释里写了「同口径,例如
+//   `'assets/portrait/xxx.jpg'`」和「返回 `'assets/gear/xxx.svg'` 这样的路径」,
+//   本门禁把这两句**注释**当成了真资源引用,报「文件不存在」——
+//   尺子瞎了,页面没问题。而更糟的是:它会把人推向「去改正确的注释来迎合门禁」。
+//
+//   注意这里**不能**直接用 lib-uimod 的 codeMask —— 它连字符串一起抹,
+//   而 [1]/[5] 要找的正是引号里的路径与 var() 引用,会把要找的东西抹没。
+//   所以只抹注释,保留字符串。
+//
+//   本条是 [5] 那次「尺子瞎了」事故(见下方 :105 原注释)的同族复发,同一门禁第二次。
+function stripComments(src, isCss) {
+  let s = String(src).replace(/\/\*[\s\S]*?\*\//g, ' ');
+  if (!isCss) s = s.replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1');   // 保护 https:// 与字符串里的 ://
+  return s;
+}
+
 console.log('\n[1] 音频引用:assets/bgm/*.mp3 必须存在');
 {
   for (const f of code.filter(f => f.endsWith('.js'))) {
-    for (const m of readFileSync(f, 'utf8').matchAll(/['"](assets\/[^'"]+\.(?:mp3|ogg|wav|jpg|png|webp|svg))['"]/g)) {
+    for (const m of stripComments(readFileSync(f, 'utf8'), false).matchAll(/['"](assets\/[^'"]+\.(?:mp3|ogg|wav|jpg|png|webp|svg))['"]/g)) {
       ok(`${rel(f)} → ${m[1]}`, existsSync(join(ROOT, m[1])));
     }
   }
@@ -109,7 +127,7 @@ console.log('\n[5] CSS 变量:引用了必须有定义');
     for (const m of readFileSync(f, 'utf8').matchAll(/(--[\w-]+)\s*:/g)) defined.add(m[1]);
   }
   for (const f of all.filter(f => /\.(css|html)$/.test(f))) {
-    const src = readFileSync(f, 'utf8');
+    const src = stripComments(readFileSync(f, 'utf8'), true);
     const used = new Set([...src.matchAll(/var\(\s*(--[\w-]+)/g)].map(m => m[1]));
     for (const u of used) {
       if (!defined.has(u)) { ok(`${rel(f)} 用 var(${u})`, false, '令牌未定义'); }
