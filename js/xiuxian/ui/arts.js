@@ -78,7 +78,15 @@ export function vArts(hall, s) {
 }
 
 // ---------- 营地 ----------
-export function vCamp(hall, s) {
+/**
+ * 营地页。
+ *
+ * @param feedN 当前投石数量 —— **状态在本模块的调用方 ui.js 里**(那边声明、那边改)。
+ *   这里原来在模板里直接写 `${feedN}`,而 feedN 是 ui.js 的模块局部变量,
+ *   本模块根本拿不到 → ReferenceError,且因为两处都在 `burning ? ... : ...` 里,
+ *   **篝火一点着整页就崩**。已由 ui.js 的 `vCamp(s)` 显式传进来。
+ */
+export function vCamp(hall, s, feedN = 1) {
     const burning = CAMP.burning();
     const t = CAMP.tier(), nx = CAMP.next();
     const d = DAY.phase();

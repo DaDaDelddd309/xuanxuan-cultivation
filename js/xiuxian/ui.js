@@ -1023,7 +1023,14 @@ export const Hall = {
 
   artHow(a) { return artHowImpl(this, a); },
   vArts(s) { return vArtsImpl(this, s); },
-  vCamp(s) { return vCampImpl(this, s); },
+  // ⚠️ feedN 的状态在本模块(ui.js:68 声明、:357 的 nfeed 分支改它),
+  //   但**用**它的是 ui/arts.js 的 vCamp —— 那边是另一个模块,拿不到这里的局部变量。
+  //   以前 vCamp 模板里直接写 `投 ${feedN}` / `${feedN}`,于是:
+  //     ReferenceError: feedN is not defined
+  //   两处都在 `burning ? ... : ...` 里 —— 也就是**篝火一点着,营地页整页渲染就崩**,
+  //   不是点某个按钮才崩(外部审计乱点 58 个元素时点到营地页才暴露)。
+  //   修法:按 s 一样的路子,显式传下去。拆分时"搬忘了"正是本文件开头警告过的那类。
+  vCamp(s) { return vCampImpl(this, s, feedN); },
 
   vFam() { return vFamImpl(this); },
 

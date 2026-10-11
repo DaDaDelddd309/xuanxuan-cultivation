@@ -7400,3 +7400,38 @@ app.appendChild = function (el) {
 性质上比 `data-c` 撞值严重得多。
 
 **状态**：未做，等 owner 定文案口径（是改文案说「跌一大境」，还是改效果只扣修为）。
+
+### XX-FEEDN · 营地页生火后整页崩（已修 + 已加门禁）
+
+**症状**：篝火一点着，「营地」页**整页渲染就崩**，不是点错按钮。
+外部审计乱点 58 个元素才碰到；前十一轮「只点正确按钮」的全绿状态下碰不到。
+
+**根因**：`js/xiuxian/ui.js` 拆成 `js/xiuxian/ui/` 时，`let feedN = 1`（投石数量）
+留在了 **ui.js**，而用它的是 **ui/arts.js 的 vCamp** —— 两个不同的模块。
+
+    ui/arts.js:96   <div class="xx-stone-c">投 ${feedN}</div>
+    ui/arts.js:135  <div class="xx-val">${feedN}</div>
+    ui/arts.js 顶部注释还写着「this. 必须全换成 hall.…这两类改动错了都不会在定义时报错」
+
+→ `ReferenceError: feedN is not defined`。两处都在 `burning ? … : …` 里，
+所以**未生火时整页正常，一点火就炸**。
+
+**修法**：`vCamp(hall, s, feedN = 1)`，由 `ui.js` 的 `vCamp(s)` 显式传下去
+（和 `s` 一样的路子）。
+
+**为什么现有 lint 结构上都拦不住**：
+`lint-syntax` 只问「能不能解析」（语法完全合法）、
+`lint-methods` 只问「拆出去的方法 Hall 上还有没有壳」（有壳，且调用得通）、
+`lint-imports` 只查 import 戳（这里根本没有 import）。
+自由变量**只在运行时、且只在那个分支被执行到时**才炸。
+
+**新门禁 `tests/ui-render-smoke.mjs`（20 项，已接进 test 链）**：
+14 个视图 × 三种状态（新号 / 生火 / 中期）真渲染一遍，崩了就是崩了。**零假阳性。**
+
+**走过的弯路（记下来）**：我先写了个**正则版**自由变量 lint（扫模板里 `${…}` 的
+未声明标识符），跑全树 **230 条假阳性** —— `${continue}`、`${div}`、`${Boss}` 全是噪声。
+正则做不了 JS 作用域分析，而项目铁律是「度量工具自己出错比没有度量工具更危险」，
+所以那个版本**直接丢弃**，换成运行时冒烟。**宁可漏报，不可误报。**
+
+**反向注入验过**：撤掉 `feedN` 修复 → `vCamp` 三状态全 `ReferenceError`、4 项红；
+还原 → 全绿。`test-ui-split` 同时保持绿。
