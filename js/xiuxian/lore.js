@@ -79,7 +79,7 @@ export const ENCOUNTERS = [
   {
     id:'e_ambush', name:'黑风伏杀', type:'bad', weight:14,
     text:'三名散修堵在路口。为首者笑了笑:"身上有货?"',
-    effect:{ hpLoss:0.25, dao:-30 },
+    effect: { dao:-30 },
     log:'一场恶斗。你活下来了,但丢了些东西。',
   },
   {
@@ -94,7 +94,7 @@ export const ENCOUNTERS = [
   {
     id:'e_fallen_sword', name:'败者之剑', type:'good', weight:6,
     text:'一具尸首靠在树下,手里死死攥着剑,姿势像还在打一场早已结束的仗。',
-    effect:{ insight:15, demonSeed:1 },
+    effect:{ insight:15 },
     log:'你取下他的剑。他的剑上有三百七十道刻痕,每一道都是一次败北。',
   },
   {
