@@ -28,11 +28,11 @@ import { rollChoices, applyChoice, runArtSync, PASSIVES, ART_FAMILY } from '../j
 import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from '../js/game/weapons.js?v=17';
 import * as Collatz from '../js/game/collatz.js';
 // ⚠️ `?v=18` 不能省:生产代码(js/main.js、js/ui/hud.js、js/xiuxian/ui.js)都是按
-//    `spawner.js?v=18` 加载的。这里若写成裸 `../js/game/spawner.js`,node 会当成
+//    `spawner.js?v=19` 加载的。这里若写成裸 `../js/game/spawner.js`,node 会当成
 //    **另一个实例**加载 —— 于是本测试 setCollatzTrajectory 改的是一个实例、
 //    另一个实例的 rollChoices 根本看不到,断言会空转。
 //    同一个坑见 tests/collatz-difficulty-regression.mjs:34 与 XX-AUDIT-027。
-import { setCollatzTrajectory, collatzModAt } from '../js/game/spawner.js?v=18';
+import { setCollatzTrajectory, collatzModAt } from '../js/game/spawner.js?v=19';
 
 let pass = 0, fail = 0;
 const t = (n, c, d = '') => {

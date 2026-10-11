@@ -35,20 +35,30 @@ const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 console.log('\n[0] 自检:本文件用的戳必须与 main.js 一致');
 // XX-AUDIT-027 / XX-LINK-003 的教训:测试侧与产品侧戳不一致 = 两份模块实例,
 // 症状是「测试全绿但浏览器里是死的」。把一致性做成硬断言,而不是靠人记得。
+//
+// ⚠️ 这里原本是 `mSp[1] === '18'` —— 拿 main.js 的戳去比一个**硬编码字面量**。
+//    升戳时它必然变红,而红的原因不在被测代码、在这个断言自己。
+//    改成**自指**:拿 main.js 的戳和本文件自己 import 的戳比。
+//    任何一处漏改都会被抓到,且不需要人来改这里的字面量。
 {
   const mainSrc = readFileSync(_rv(ROOT, 'js/main.js'), 'utf8');
+  const selfSrc = readFileSync(new URL(import.meta.url), 'utf8');
   const mSp = mainSrc.match(/from '\.\/game\/spawner\.js\?v=(\d+)'/);
   const mEn = mainSrc.match(/from '\.\/game\/enemies\.js\?v=(\d+)'/);
-  const ok = mSp && mEn && mSp[1] === '18' && mEn[1] === '17';
+  const sSp = selfSrc.match(/spawner\.js\?v=(\d+)/);
+  const sEn = selfSrc.match(/enemies\.js\?v=(\d+)/);
+  const ok = mSp && mEn && sSp && sEn
+    && mSp[1] === sSp[1] && mEn[1] === sEn[1];
   t(`本文件的戳与 main.js 一致（spawner=?v=${mSp?.[1]} / enemies=?v=${mEn?.[1]}）`, ok,
-    ok ? '' : '本文件硬编码 spawner=?v=18 / enemies=?v=17 —— 版本号变了要一起改这里');
+    ok ? '' : `本文件硬编码 spawner=?v=${sSp?.[1]} / enemies=?v=${sEn?.[1]},`
+          + `main.js 是 spawner=?v=${mSp?.[1]} / enemies=?v=${mEn?.[1]} —— 版本号变了要一起改这里`);
   if (!ok) {
     console.log('\n❌ 戳不一致,继续跑只会得到假结果 —— 门禁自身失效,别信结论');
     process.exit(2);
   }
 }
 
-const S = await import('../js/game/spawner.js?v=18');
+const S = await import('../js/game/spawner.js?v=19');
 const E = await import('../js/game/enemies.js?v=17');
 const { setRunTune, setSpawnMode, initSpawner, spawnOptsFor, eliteHpMultAt, spawnHpMultAt, hpMultAt } = S;
 const { spawnEnemy, ENEMY_TYPES, ENEMY_MOD, combatState } = E;

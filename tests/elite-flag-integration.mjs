@@ -27,16 +27,21 @@ globalThis.requestAnimationFrame = () => 0;
 import { readFileSync } from 'node:fs';
 
 // 版本戳自检：戳对不上就 exit 2（门禁自身失效），绝不当绿
+// ⚠️ 成功日志必须由下面的期望值**推导**出来,不能硬编码 ——
+//    硬编码过一次(v18 时期写成 `spawner?v=18`,升到 v19 后检查照样过、
+//    日志却还在报 18),那正是「度量工具自己出错」那一类:
+//    门禁绿着、输出却是假的,比没有门禁更危险。
+const STAMPS = [['spawner.js?v=19', 'spawner'], ['enemies.js?v=17', 'enemies']];
 const mainJs = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
-for (const [file, want] of [['spawner.js?v=18', 'spawner'], ['enemies.js?v=17', 'enemies']]) {
+for (const [file] of STAMPS) {
   if (!mainJs.includes(file)) {
     console.error(`❌ 门禁自身失效：main.js 里找不到 import ${file}`);
     process.exit(2);
   }
 }
-console.log('版本戳自检通过：spawner?v=18 / enemies?v=17');
+console.log('版本戳自检通过：' + STAMPS.map(([f]) => f.replace('.js', '')).join(' / '));
 
-const S = await import('../js/game/spawner.js?v=18');
+const S = await import('../js/game/spawner.js?v=19');
 const E = await import('../js/game/enemies.js?v=17');
 // 戳必须跟 main.js 一致:Bus 是模块级单例,戳错了拿到的是另一份实例,
 // emit 过去没人接 —— 又是「日志说跑通了、实际 0 掉落」那类假绿。
