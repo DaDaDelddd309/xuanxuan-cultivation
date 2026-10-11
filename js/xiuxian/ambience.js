@@ -22,14 +22,28 @@ export const PHASES = {
 };
 
 // 用 WebAudio 合成氛围音(不打包任何外部音频,零版权风险)
-let ctx = null, nodes = [], cur = null, timer = null;
+let nodes = [], cur = null, timer = null;
 
+// 音频上下文**全项目只有一个**,由 core/audio.js 持有(SFX.ctx)。
+//
+// ⚠️ 这里原来自己 `new (window.AudioContext)()` —— 那是**第二个** context
+//   (core/audio.js:67 已经有 SFX.ctx)。
+//   而本文件的节点全部建在这个自己的 ctx 上,总线却用 `SFX.musicBus`
+//   (ambience.js:52 / :154)—— 那是 **audio.js 的 ctx 里的节点**。
+//   跨 context 连线必然抛:
+//     InvalidAccessError: cannot connect to an AudioNode
+//     belonging to a different audio context
+//
+//   后果比「氛围音可能没响」更确定一点:`out.connect(bus)` 一抛,
+//   紧跟着的 `gain.linearRampToValueAtTime`(淡入)根本执行不到 ——
+//   所以**氛围音从来没响过**,而且每次 buildAmb/phaseChime 调用都抛一遍。
+//   实测局内 19 秒 300+ 条(这条我一度在自己的 CI 日志里 grep 掉了,是错的)。
+//
+//   与其"自己建一个再祈祷它和 SFX 的是同一个",不如直接用同一个。
+//   SFX.init() 幂等,且必须在用户手势后跑过(SFX.ctx 为 null 时静音返回,不改行为)。
 function ensureCtx() {
-  if (ctx) return ctx;
-  try {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-  } catch { return null; }
-  return ctx;
+  try { SFX.init(); } catch {}
+  return (SFX && SFX.ctx) || null;
 }
 
 function stopAll() {

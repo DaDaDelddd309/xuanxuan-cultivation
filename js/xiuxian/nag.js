@@ -68,6 +68,7 @@ export const NAGER = {
   },
 
   _pump() {
+    staleBusy();                      // XX-QA-001(2):占位浮层已经没了就别再占着
     if (this._busy || !this._q.length) return;
     if (typeof mountQueued === 'function' && _host) { mountQueued(); return; }
     const job = this._q.shift();
@@ -125,6 +126,44 @@ function host() {
   return _host;
 }
 
+// ══ XX-QA-001(1):浮层的可点性 ══
+// 宿主的样式是 `pointer-events:none`,而 **pointer-events 会被子元素继承**。
+// .xx-ritual 当年踩过这个坑(XX-BUG-C),在 css/xiuxian.css 里补了 pointer-events:auto。
+// 但叙事卡一族(showStoryBeat / askPath / askStoryPath / askTombWords …)没补 ——
+// 于是卡片**看得见、点不动**:玩家点了「知道了」「其一」「其二」毫无反应,
+// 选项全部穿透到下面的地图节点上。这不是观感问题,是点了没反应。
+//
+// 纯信息横幅 .xx-banner 本来就不该吃点击(它的 CSS 里就是 none),保持不变。
+// 判据用**结构**而不是写死数值:卡里**有没有可点的动作**。
+const INTERACTIVE = '[data-p],[data-w],[data-act],button,.xx-sc-x';
+function interactive(el) {
+  try { return !!(el && el.querySelector && el.querySelector(INTERACTIVE)); }
+  catch { return false; }
+}
+
+// ══ XX-QA-001(2):「忙」这个标记原来只有计时器和点击能清 ══
+// 浮层被**别的方式**弄掉时,_busy 就永远卡住 true:
+//   · 仪式 Ritual.close() 是 classList.add('hidden'),不是 remove()
+//   · 叙事卡 / tombEnding 自己的 setTimeout(()=>el.remove(), 9000) 直接摘节点
+// 卡住的直接后果:之后每一个浮层都只进队列、不显示 ——
+// 玩家看到的正是「走完支线却弹不出叙事卡 / 结不了案 / 看不到结局选择」。
+// 判据:占位元素**还活着吗**(连着 DOM、没被 hidden、没被 display:none)。
+function occupying(el) {
+  if (!el) return false;
+  if (el.isConnected === false) return false;
+  if (el.classList && el.classList.contains('hidden')) return false;
+  if (el.style && el.style.display === 'none') return false;
+  return true;
+}
+function staleBusy() {
+  if (!NAGER._busy) return false;
+  if (occupying(NAGER._el)) return false;
+  NAGER._busy = false;
+  NAGER._el = null;
+  NAGER._onRemove = null;
+  return true;
+}
+
 // 浮层类名 → 打扰等级
 const LEVEL = [
   [/xx-storycard.*legend|xx-banner/, NAG.MID],
@@ -146,27 +185,62 @@ export function installNagger() {
   app.__nagged = true;
   const orig = app.appendChild.bind(app);
   app.appendChild = function (el) {
-    const lv = levelOf(el);
+    // ⚠️ 这里原来是 `const lv`。但下面第 194 行要为「必须决策」的卡片重新赋值
+    //   (`lv = NAG.MUST`)—— 给 const 赋值会抛 TypeError。
+    //   后果:凡是带 data-nag="must" 的卡片,append 到 #app 时当场抛异常,
+    //   **元素永远不会被插入 DOM**,异常一路冒回点击处理器。
+    //   也就是玩家点「了结」弹不出结局选择、点石将前的「补完」弹不出半句话 ——
+    //   两个 P0 决策点直接卡死(t88 / t89 两条红就是它,不是测试写错)。
+    //   这个 bug 从 4ba7e2f(V0.96 一体)就在,潜伏了整个 V0.96 周期。
+    let lv = levelOf(el);
     // 非浮层(普通容器)照旧
     if (lv === NAG.HIGH && !/(xx-storycard|xx-banner|xx-ritual)/.test(el.className || '')) {
       return orig(el);
     }
     // 结局/补完半句话这类「必须决策」的标记
     if (el.dataset && el.dataset.nag === 'must') lv = NAG.MUST;
-    if (lv < NAG.MUST && this.used >= this.budget) return el;   // 静默丢弃
+
+    // ⚠️ XX-QA-063:预算守卫原来写的是 `this.used >= this.budget`。
+    //
+    // 但这段在 app.appendChild 的包装函数里,`this` 是 **#app 这个 DOM 元素**,
+    // 它身上没有 used / budget 两个属性 → 两边都是 undefined →
+    // `undefined >= undefined` 是 false → **这个守卫从来没有生效过**。
+    // NAGER 里 `budget: 4` / `used: 0` 一直都在(还有 left() / report() 两个
+    // 读它的方法),只是没人读到 —— 于是本文件头写的
+    // 「一局内『打扰』次数有上限(默认 4)」这条规则从 V0.96 至今一直是装饰。
+    // (:61 和 :76 那两处的 this 是对的,它们在 NAGER 的方法里。只有这一处读错了对象。)
+    //
+    // MUST 永远豁免 —— 与 :61/:76 同一口径。结局卡、坐骑卡这些「必须决策」的,
+    // 预算再紧也得放行,否则就是刚修过的那个 P0 换形态回来。
+    if (lv < NAG.MUST && NAGER.used >= NAGER.budget) {
+      // 额度用完,而且原来这里是 `return el` —— **静默丢弃**:
+      // 玩家点了个东西、什么都没发生。这跟本项目铁律是同款毛病
+      //(「度量/反馈自己出错比没有更危险」):一个看起来像坏了的交互,
+      // 比多一条浮层糟糕得多。storycard 是**内容**,不是通知 ——
+      // 因为玩家读得多就不让他看,是本末倒置。
+      // 现在降级:直接挂在页面上,不排队、不占忙位、不自动消失。
+      // 额度限制的是「打断」,不是「看得见」。
+      if (interactive(el)) el.style.pointerEvents = 'auto';
+      return orig(el);
+    }
     if (lv >= NAG.MID) NAGER.used++;
 
     const h = host();
     if (!h) return orig(el);
+    staleBusy();                      // XX-QA-001(2)
     // 队里还有别人、或者正忙 → 进队列
     if (NAGER._busy || NAGER._q.length) { NAGER._q.push({ el, level: lv }); NAGER._pump(); return el; }
+    // XX-QA-001(1):宿主 pointer-events:none 会被继承下来,有可点动作的浮层必须自己拿回 auto
+    if (interactive(el)) el.style.pointerEvents = 'auto';
     h.appendChild(el);
     NAGER._busy = true;
+    NAGER._el = el;                  // XX-QA-001(2):记下占位者,staleBusy() 才有得判
     const dur = lv >= NAG.MUST ? 11000 : (lv === NAG.MID ? 4200 : 8000);
     const done = () => {
       clearTimeout(NAGER._timer);
       el.remove();
       NAGER._busy = false;
+      NAGER._el = null;
       setTimeout(() => NAGER._pump(), 320);
     };
     if (lv >= NAG.MID) el.addEventListener('click', done, { once: true });
@@ -181,12 +255,15 @@ export function mountQueued() {
   if (!job) return;
   const h = host();
   if (!h) return;
+  if (interactive(job.el)) job.el.style.pointerEvents = 'auto';   // XX-QA-001(1)
   h.appendChild(job.el);
   NAGER._busy = true;
+  NAGER._el = job.el;               // XX-QA-001(2)
   const dur = job.level >= NAG.MUST ? 11000 : (job.level === NAG.MID ? 4200 : 8000);
   const done = () => {
     clearTimeout(NAGER._timer);
     job.el.remove();
+    NAGER._el = null;
     NAGER._busy = false;
     setTimeout(() => NAGER._pump(), 320);
   };

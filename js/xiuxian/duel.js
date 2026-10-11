@@ -198,6 +198,21 @@ export const Duel = {
   close() {
     this.root && this.root.classList.add('hidden');
     BGM.stop();
+    // ⚠️ XX-DUEL-005(P0):busy 必须在这里复位。
+    //
+    // busy 是 resolvePlayer(:358)置 true 的,全仓只有两处复位:
+    // :360(playerAct 返回 null 的早退)和 :378(敌攻后**活下来**才走到)。
+    // 而赢(:363)和输(:376)两条终局路径都是**先 return**,根本到不了 :378。
+    // 原来这里只清了 S,没清 busy ⇒ 它是个**单向闩**:第一场决斗一结束
+    // (不论胜负),busy 永远停在 true,而技能栏的点击闸门正是
+    // :193 `if (b && !this.busy)` ⇒ 第二场起按钮照常渲染、点击被无声吞掉,
+    // 玩家看到的是一场永远打不完的架。
+    //
+    // 为什么能拖到现在:12 轮自动化、87 局,**一次都没打到过 Boss**。
+    // 一局里通常只有一场决斗,所以「第二场」这个前提从没被满足过。
+    this.busy = false;
+    this.skipType = false;
+    clearTimeout(this._th);
     this.S = null;
   },
 
@@ -416,18 +431,18 @@ export const Duel = {
         `<div class="xx-defeat-in">
            <h3>战 败</h3>
            <div class="sub">你活着。但要付出代价。</div>
-           <div class="xx-chio" data-c="ruin">
+           <div class="xx-chio" data-c="resist">
              <div class="h">硬受一击,转身就走 <em>反抗</em></div>
-             <div class="d">不退。修为倒退,但那股狠劲留在了骨头里。入魔值 +15。</div></div>
+             <div class="d">不退。硬扛下来,境界没丢,只剩一半修为;但那股狠劲留在了骨头里。入魔值 +15。</div></div>
            <div class="xx-chio" data-c="installment">
              <div class="h">放下身家,分期偿还 <em>暂缓</em></div>
              <div class="d">欠下 300 道行,三年为期。到期不还,后果自负。</div></div>
            <div class="xx-chio" data-c="ransom">
              <div class="h">交出全部身家 <em>赎金</em></div>
              <div class="d">钱没了,修为在。人还在。</div></div>
-           <div class="xx-chio" data-c="ruin" style="border-color:rgba(181,52,42,.5)">
+           <div class="xx-chio" data-c="ruin">
              <div class="h">认输,任他处置 <em>认 栽</em></div>
-             <div class="d">修为尽废,跌一大境。人物、地图、神通,一样不丢。</div></div>
+             <div class="d">修为尽废,跌一大境。人物、地图、神通,一样不丢。入魔值 +8。</div></div>
          </div>`;
       box.querySelectorAll('.xx-chio').forEach(el => {
         el.onclick = () => {

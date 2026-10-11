@@ -139,6 +139,14 @@
 .xx-chio .h em{font-style:normal;font-size:10px;color:var(--xx-cinnabar);
   border:1px solid var(--xx-cinnabar);padding:1px 6px;border-radius:2px}
 .xx-chio .d{font-size:11.5px;color:rgba(232,220,196,.55);line-height:1.65}
+/* 战败四条路的严重度分级(XX-DUEL-003)。
+   原来「反抗」和「认栽」都是 data-c="ruin",靠一条**内联** border-color 硬凑出区别 ——
+   内联样式 CSS 管不到,任何靠 data-c 驱动的规则都区分不了它们。
+   现在 data-c 与 relations.js 的 type 一一对应(resist/installment/ransom/ruin),
+   严重度就该由 CSS 按语义给,而不是塞在 HTML 里。 */
+.xx-chio[data-c="ruin"]{border-color:color-mix(in srgb, var(--xx-cinnabar) 50%, transparent)}    /* 修为尽废,跌一大境 —— 最重 */
+.xx-chio[data-c="resist"]{border-color:color-mix(in srgb, var(--xx-cinnabar) 26%, transparent)} /* 同样跌境,但留一半修为 */
+.xx-chio[data-c="ransom"]{border-color:color-mix(in srgb, var(--xx-gold) 34%, transparent)}      /* 破财免灾 */
 
 /* 提示气泡 */
 .xx-toast{position:absolute;left:50%;top:31%;transform:translateX(-50%);z-index:95;
@@ -514,6 +522,13 @@
    好处:视线不被挡,和「不打断」的调性一致 —— 它是浮字,不是弹窗。 */
 .xx-storycard{
   position:absolute;
+  /* ⚠️ pointer-events:auto 不能省 —— 和上面 .xx-ritual 是**同一个坑**(XX-BUG-C)。
+     nag.js 把浮层挪进 #xx-nag-host 统一管理,而宿主是 `pointer-events:none`,
+     该值**会被子元素继承**。叙事卡一族没写这一条时:
+     卡片照常显示,但「知道了」「其一」「其二」「补完」全部点不动,
+     点击穿透到下面的地图节点 —— 玩家点结局选项没反应,CI 上 Page.click 30s 超时。
+     nag.js 侧也做了同样的兜底(XX-QA-001),这里是第二道。 */
+  pointer-events:auto;
   left:4%;right:auto;
   top:50%;transform:translateY(-50%);
   width:min(76%,330px);

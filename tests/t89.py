@@ -40,10 +40,33 @@ with sync_playwright() as p:
     t=pg.inner_text('#xx-body')
     ok("地图不显示墓入口", '仙 人 墓' not in t or '下 墓' not in t)
     print("【见过石将后,地图上出现墓】")
+    # ⚠️ XX-WORLD-007 的**浏览器侧遗留**(2026-10-11 修)。
+    #   原来写死 `arrive('n8')` ×3。但 V0.97(XX-S4-001)起地图按种子生成,
+    #   实测默认种子下 **n8 是 field**(boss 恒为唯一那个 n13),
+    #   而 tomb 线前三环声明的是 nodeType:'boss'。
+    #   story.js 的类型判定会**正确地**拒绝它 → 三环一环都推不动 →
+    #   readyFinish('tomb') 恒 false → 补完半句话拿完 3200 道行之后,
+    #   STORY.s.done.tomb 永远不置位,ARC_REWARD.tomb 的奖励一次都发不出去。
+    #   表现极具误导性:碑文刻了、支线了结了、演出也放了,唯独「叙事线已结案」不成立。
+    #   node 版(t88.mjs 走的 tests/helpers/play-arc.mjs)早就用 nodeForBeat 按类型找节点了,
+    #   **浏览器版一直没跟上**。这里按同一语义补齐。
     pg.evaluate("""async()=>{
       const S=await import('/js/xiuxian/story.js');
+      const {WORLD}=await import('/js/xiuxian/world.js');
       S.STORY.see('shijiang'); S.STORY.start('tomb');
-      S.STORY.arrive('n8'); S.STORY.arrive('n8'); S.STORY.arrive('n8');
+      const nodes=WORLD.nodes||[]; const used=new Set();
+      for (const b of S.ARCS.tomb.beats) {
+        if (b.room) continue;                    // 墓内那一环交给下墓流程
+        let t=b.node;
+        const self=nodes.find(n=>n.id===b.node);
+        // beat 自带节点类型对得上时必须用它(play-arc.mjs:33 的同一条规矩)
+        if (!(self && (!b.nodeType || self.type===b.nodeType))) {
+          const hit=nodes.find(n=>n.type===b.nodeType && !used.has(n.id))
+                 || nodes.find(n=>n.type===b.nodeType);
+          if (hit) t=hit.id;
+        }
+        used.add(t); S.STORY.arrive(t);
+      }
       const Q=await import('/js/xiuxian/quest.js'); Q.QUEST.autoTake(); Q.QUEST.save();
     }""")
     unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=map]'); time.sleep(0.8)
@@ -122,7 +145,7 @@ with sync_playwright() as p:
     unblock(pg)
     pg.click('#btn-play'); time.sleep(0.8)
     pg.click('#char-list > *'); time.sleep(2.5)
-    for i in range(8): pg.keyboard.press('KeyD'); time.sleep(0.2)
+    for i in range(6): pg.keyboard.down('KeyD'); time.sleep(0.35); pg.keyboard.up('KeyD')  # 按住不放:input.js 的 move() 读 keys,keyup 就删 → press 等于没动
     st=pg.evaluate("()=>document.getElementById('hud-timer').textContent")
     ok(f"局内正常 {st}", st!='00:00')
     print("\nJS错误:",errs if errs else "无")

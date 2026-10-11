@@ -132,18 +132,26 @@ console.log('\n=== [2c] 端到端:真正上屏的色块必须盖住每个点 ===
   t(`上屏的色块盖住全部 ${WORLD.nodes.length} 个点`, uncovered.length === 0,
     uncovered.join(','));
 
-  // 未探索态也要一样盖住 —— 迷雾只改**文案**,不改几何。
-  // 要是哪天有人为了"不剧透"把未探区域的色块整个不画,这里会红。
+  // ⚠️ XX-MAP-002(2026-10-12):这里原来断言的是**反过来**的东西 —
+  //   「未探索态色块数量不减(迷雾只改文案不改几何)」+「未探索态同样盖住全部点」,
+  //   注释还写着「要是哪天有人为了不剧透把未探区域的色块整个不画,这里会红」。
+  //   那是一个**刻意做过的决定**,不是写漏了。
+  //
+  //   现在推翻它,依据是外部审计的截图 + 复核:
+  //     新号上 5 个区域全是同样式的虚线框(`.xx-rgn-unknown` 只改文字、不改框),
+  //     每个都写「未探之地」,挤在 380×274px 里 → 实测 5 个框、3 对互相重叠、
+  //     平均每个节点被 1.6 个框穿过。而这是玩家进游戏第一眼看到的东西。
+  //
+  //   改成:未探索区域**整个不画**。丢掉的只是区域矩形的边界(渲染细节),
+  //   「这里还有没去过的地方」这个信息没丢 —— 节点本身就在图上,可见可点。
+  //   踩到任意一个节点,框连同名字、势力、危险度一起出现。
   const htmlNone = regionLayer(WORLD.nodes, pos, stateNone, false);
   const rectsNone = [...htmlNone.matchAll(/left:([\d.]+)%;top:([\d.]+)%;width:([\d.]+)%;height:([\d.]+)%/g)]
     .map(m => ({ x:+m[1], y:+m[2], w:+m[3], h:+m[4] }));
-  const uncoveredNone = WORLD.nodes.filter(n => {
-    const p = pos(n);
-    return !rectsNone.some(r => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h);
-  }).map(n => n.id);
-  t('未探索态色块数量不减(迷雾只改文案不改几何)', rectsNone.length === rects.length,
-    `${rectsNone.length} vs ${rects.length}`);
-  t('未探索态同样盖住全部点', uncoveredNone.length === 0, uncoveredNone.join(','));
+  t('未探索态一个框都不画(XX-MAP-002)', rectsNone.length === 0,
+    `${rectsNone.length} vs 已探索态 ${rects.length}`);
+  t('未探索态不残留任何区域色块', !htmlNone.includes('xx-rgn'),
+    htmlNone.length ? htmlNone.slice(0, 60) : '(空串)');
 }
 
 console.log('\n=== [3] 几何必须包住成员(跨种子自洽) ===');
@@ -220,11 +228,20 @@ console.log('\n=== [5] 迷雾:没去过的区域不报名字 ===');
   const html = regionLayer(WORLD.nodes, pos, stateNone, false);
   t('全未探索时没有区域名', !REGIONS.some(r => html.includes(r.name)),
     '区域名会剧透:n4 所在区域叫「青岚秘境」,而 n4 本身是 secret');
-  t('全未探索时显示「未探之地」', html.includes('未探之地'));
+  // ⚠️ XX-MAP-002:原来这里是 `全未探索时显示「未探之地」`。
+  //   5 个区域各写一遍「未探之地」,叠在交叉的虚线框上 —— 纯噪音。
+  //   现在未探索区域整个不画,所以这句话也不该再出现在屏幕上。
+  t('全未探索时不再铺「未探之地」标签', !html.includes('未探之地'), html.length ? html.slice(0, 60) : '(空串)');
   t('全未探索时也不报危险度(那同样是情报)', !/危\s*\d/.test(html));
 
   const htmlAll = regionLayer(WORLD.nodes, pos, stateAll, false);
   t('全部探索后区域名出现', REGIONS.every(r => htmlAll.includes(r.name)));
+  // 只探一个节点的那片区域就该出现 —— 「踩到才揭示」是这次改动的核心承诺
+  const one = { current: 'n0', visited: { n0: true } };
+  const htmlOne = regionLayer(WORLD.nodes, pos, one, false);
+  const anyBox = htmlOne.includes('xx-rgn');
+  t('探到任意一个节点后,那片区域就出现', anyBox || !html.includes('xx-rgn'),
+    anyBox ? '已揭示' : '(这张图没有 n0 所在区域)');
 }
 
 console.log('\n=== [6] 本门禁自身的反向自检(防断言写太松) ===');

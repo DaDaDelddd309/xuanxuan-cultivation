@@ -97,7 +97,13 @@ with sync_playwright() as p:
       const {Cult}=await import('/js/xiuxian/index.js');
       QUEST.s.active=[]; QUEST.s.done={};
       STORY.see('dengshi'); QUEST.autoTake();
-      Cult.get().visited.n10=true; Cult.get().visited.n3=true; Cult.commit(); QUEST.save();
+      // ⚠️ 这里原来只标了 n10 和 n3。但 n3 实测是 **secret** 不是 field,
+      //   而 dengshi 支线是 {type:'visit', types:['field'], need:2} ——
+      //   凑不够 2 个 field 就永远结不了案。
+      //   默认种子下 field 节点实测:n1 n2 n4 n5 n7 n8 n9 n10 n11。
+      //   t87 标了 n10+n1+n3(两个 field)所以是绿的,这里漏了 n1。
+      Cult.get().visited.n10=true; Cult.get().visited.n1=true; Cult.get().visited.n3=true;
+      Cult.commit(); QUEST.save();
     }""")
     unblock(pg); pg.click('[data-tab=realm]'); time.sleep(0.3); pg.click('[data-tab=quest]'); time.sleep(0.9)
     ok("传说妖支线可结", pg.evaluate("()=>document.querySelectorAll('[data-act=qdone]').length")>0)
@@ -106,7 +112,7 @@ with sync_playwright() as p:
     unblock(pg)
     pg.click('#btn-play'); time.sleep(0.8)
     pg.click('#char-list > *'); time.sleep(2.5)
-    for i in range(8): pg.keyboard.press('KeyD'); time.sleep(0.2)
+    for i in range(6): pg.keyboard.down('KeyD'); time.sleep(0.35); pg.keyboard.up('KeyD')  # 按住不放:input.js 的 move() 读 keys,keyup 就删 → press 等于没动
     st=pg.evaluate("()=>document.getElementById('hud-timer').textContent")
     ok(f"局内正常 {st}", st!='00:00')
     print("\nJS错误:",errs if errs else "无")

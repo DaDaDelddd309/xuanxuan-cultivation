@@ -7,6 +7,7 @@
 
 import { SAVE_KEYS } from './save-keys.js';
 import { Bus } from '../core/engine.js?v=17';
+import { REALMS, maxLayerOf } from './realms.js';
 
 const NK = SAVE_KEYS.nemesis;
 
@@ -42,11 +43,26 @@ export const DEFEAT = {
   resolve(stronger, s, opts = {}) {
     // 1) 反抗
     if (opts.resist) {
+      // ⚠️ XX-DUEL-006:这里原来带 realmDamage:1(「照样跌一大境,只剩一半修为」)。
+      //   那个组合是**自相矛盾**的 —— apply() 里跌境会先把 exp 清零,
+      //   后面那句「只剩一半」根本无从兑现;而 expLoss 全仓**从来没有被应用过**
+      //   (声明了两次,零个读取点)。两条后果:
+      //     · 反抗的真实效果 = 跌境 + exp 清零 + 入魔 15
+      //     · 认栽的真实效果 = 跌境 + exp 清零 + 入魔 8
+      //   四个选项里两个完全同构,只差入魔 —— **认栽全面支配反抗**,
+      //   「反抗」那块牌是纯陪衬。这条路不是被玩家选的,是被跳过的。
+      //
+      //   去掉 realmDamage:1 之后,反抗与认栽才真正成为两种损失:
+      //     反抗 = 保境界、损一半修为、入魔 +15   (代价是神魂)
+      //     认栽 = 跌一大境、修为尽废、入魔 +8     (代价是道途)
+      //   都不是对方的更优解,这才叫选择。
+      //    fiction 也对得上:「硬扛一击,转身就走」——走掉了还保住境界,
+      //   折在骨头里的是别的东西。
       return {
         type:'resist',
         text:`你咬碎了牙关,硬扛了${stronger.title}一击,转身就走。`,
-        effect:{ expLoss:0.5, realmDamage:1, demon:+15, title:'rumo' },
-        log:'修为倒退,但那股狠劲留在了骨头里。',
+        effect:{ expLoss:0.5, demon:+15, title:'rumo' },
+        log:'修为折了一半,但那股狠劲留在了骨头里。',
       };
     }
     // 2) 分期
@@ -74,6 +90,46 @@ export const DEFEAT = {
       effect:{ realmDamage:1, expLoss:1, demon:+8 },
       log:'修为尽失。但你还活着——修仙路,重新来过。',
     };
+  },
+
+  // 把 resolve() 的 effect 真正落到持久化存档上(工单 XX-DUEL-006)
+  //
+  // 为什么从 ui.js 提上来:这段逻辑原本是 Screens.applyDefeat 的私有方法,
+  // 只有**秘境**那条路(ui.js:752 → onLose)会调它。于是**局内 Boss 战败**
+  // (main.js 的 onLose)拿不到 —— 四个选项点下去行为完全一样,
+  // 面板上写的「入魔值 +15」「欠下 300 道行」「修为尽废」全是空话。
+  // 抄一份到 main.js 只会让两边迟早分叉,提到数据模型旁边才是正路。
+  //
+  // `cult` 由调用方传进来(不 import index.js):index.js 会 import 本文件,
+  // 反向 import 就成环了 —— 项目铁律之一。
+  //
+  // 返回 resolve() 的结果(含 text/log/effect),方便调用方结算屏用。
+  apply(choice, foeTitle, s, cult) {
+    const pIdx = Math.max(0, REALMS.findIndex(r => r.id === s.realm));
+    const r = this.resolve({ title: foeTitle || '对手' }, s, {
+      resist: choice === 'resist',
+      installment: choice === 'installment',
+      ransom: choice === 'ransom',
+      debt: 300,
+    });
+    const e = r.effect;
+    if (e.realmDamage) {
+      // 跌一大境(至少炼气一层)
+      if (pIdx > 0) { s.realm = REALMS[pIdx - 1].id; s.layer = Math.max(1, maxLayerOf(s.realm) - 2); }
+      else s.layer = Math.max(1, s.layer - 3);
+      s.exp = 0;
+    } else if (typeof e.expLoss === 'number' && e.expLoss > 0) {
+      // ⚠️ XX-DUEL-006:expLoss 以前**从来没有被应用过** —— 它在 resolve() 里
+      //   声明了两次(反抗 0.5 / 认栽 1),全仓零个读取点。所以「反抗只剩一半修为」
+      //   这句承诺从来没兑现过。跌境那一支已经把 exp 清零了,所以这里必须
+      //   写成 else if:两条分支对 exp 的处置互斥,不能都跑。
+      s.exp = Math.floor((s.exp || 0) * (1 - e.expLoss));
+    }
+    if (e.demon) cult.titles.track('demon', e.demon);
+    if (e.debt) s.debt = e.debt;
+    if (e.daoLoss) s.dao = Math.floor(s.dao * (1 - e.daoLoss));
+    cult.commit();
+    return r;
   },
 
   // 分期还款到期的三种结局

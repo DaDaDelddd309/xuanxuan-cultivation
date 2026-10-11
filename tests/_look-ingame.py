@@ -15,7 +15,7 @@ with sync_playwright() as p:
     pg.evaluate("()=>localStorage.clear()");pg.reload(wait_until='networkidle');time.sleep(2)
     pg.evaluate("()=>document.querySelectorAll('.xx-ritual,.xx-duel').forEach(e=>e.remove())")
     pg.click('#btn-play');time.sleep(0.8);pg.click('#char-list > *');time.sleep(3)
-    for i in range(10): pg.keyboard.press('KeyD'); time.sleep(0.15)
+    for i in range(6): pg.keyboard.down('KeyD'); time.sleep(0.35); pg.keyboard.up('KeyD')
     # 局内画面上直接放一张叙事卡
     pg.evaluate("""(html)=>{
       const e=document.createElement('div');
