@@ -7303,3 +7303,21 @@ app.appendChild = function (el) {
 
 **本轮版本号**：按 VERSION-CONVENTION「只改测试 → 不升版本号」，
 `V` 保持 `xuanxuan-v099z`。
+
+### XX-QA-066 · t87.py 的 `visited.n4` 是哑弹（不改，仅登记）
+
+`tests/t87.py:103` 设了 `Cult.get().visited.n4=true`,紧跟在
+`STORY.s.met={baize:Date.now()}` 后面,读起来像是白泽支线的铺路。
+
+**实际不是**:白泽支线在 `quest.js:37` 是 `{ type:'peace', key:'baize' }`,
+而 `progress()` 对 peace 的判据只有 `STORY.met(c.key)` —— 跟 `visited` 无关。
+那行是残留,删掉它 t87 一样绿。
+
+默认种子下 `n4` 是 `field`,所以它也不是「写错了类型」,只是**纯粹没用**。
+
+**为什么没改**:t87 当前在浏览器套件里全绿,不为观感去碰一个正在绿的测试。
+真要清理,单独一笔、单独跑一轮 CI。
+
+**同类扫描结论**(2026-10-11):全仓 `tests/*.py` 里写死节点 id 的地方只剩两处 ——
+- `t89.py:46` —— 本轮已改成按 beat 类型解析(见 XX-QA-064)
+- `t86.py:56` `Hall.arrive('n0')` —— `n0` 是 worldgen 钉死的家,恒为 `village`,安全
