@@ -7872,6 +7872,42 @@ XX-AUDIT-002「`lint-portraits` 是哑闸门（缺 Pillow）」已标 ✅，修�
 分支B 屏蔽 Pillow: ::error::…不接受把它降级成『未检查』后放绿。  rc=1
 ```
 
+### 🔍 同一个坑在 `browser` job 里还有第二处，而且**更糟**（CI 实测追出来的）
+
+上面那处修完推上去后，CI run `38144353068` 的日志里**还剩两条真实 Traceback**：
+```
+File "tools/visual/audit.py", line 29, in <module>
+    from PIL import Image
+ModuleNotFoundError: No module named 'PIL'
+```
+
+出在 `browser` job 的「视觉巡检」步骤。而那步的写法是：
+
+```yaml
+python3 tools/visual/audit.py --port 8899 --json visual-report.json || true
+echo "--- 视觉巡检完成(报告见 artifact,暂不卡门禁) ---"
+```
+
+`|| true` 吞掉崩溃，**那句 echo 是无条件打印的** —— 于是：
+脚本崩了 → 日志照样说「完成」→ artifact 照样上传（内容是空的）。
+
+> **这比 `lint-portraits` 那处更坏**：那边至少诚实地标了「未检查」，
+> 这边是**主动谎报完成**。而 XX-VISUAL-001 的立绘/字号/对比度报告
+> **从来没在 CI 上产出过一次**，日志却每次都说它完成了。
+
+**修法**（已推）：
+1. `browser` job 的 `pip install playwright` → `pip install playwright pillow`
+2. 按真实退出码分两种说法：跑成才 echo「完成」，否则发 `::warning::` 明说没跑成。
+   **但整体仍不卡门禁** —— 「暂不卡门禁」是刻意的既有决定（存量约 199 处对比度命中，
+   红了就会被无视，比不测更坏），要动它得另开决策。
+
+本地两个分支都实测过：
+```
+模拟退出码 0 → 「视觉巡检完成(报告见 artifact,暂不卡门禁)」
+模拟退出码 1 → ::warning::视觉巡检没跑成…这**不等于通过**
+整个步骤 rc=0（两种情况都不卡门禁，符合原意）
+```
+
 ### 留给下一个人的一句
 
 **这次不是「工单没修」，是「工单按原文修完了，而原文的修法不足以让它生效」。**
