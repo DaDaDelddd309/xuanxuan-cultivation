@@ -20,8 +20,12 @@
 //
 // ⚠️ 这次是**两边都升到 v099s 之后的撞车**(VERSION-CONVENTION §2 警告过的情况):
 //   合并方按规则再升一格 → v099t。已缓存 v099s 的客户端必须靠这个版本号差才能更新 sw.js。
-const V = 'xuanxuan-v099af';
-const BUILD = '20261011-0200';
+// ⚠️ 这次是**两边撞到同一个版本号**: Z8 的 c60973c 与我(桌面侧)的 3b4af19
+//   各自都把 v099ae 升到了 v099af。VERSION-CONVENTION 规则 3 说过「不要各自升」,
+//   真撞上了按规则 2 由**后合的一方**再升一格, 否则两个不同代码对外声称同一个版本,
+//   已缓存 v099af 的客户端分不出谁新。
+const V = 'xuanxuan-v099ag';
+const BUILD = '20261011-2025';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',

@@ -7734,3 +7734,85 @@ audit-loop 漏了。
    (两边都等于 artCd)。已改断言而非留着它绿。
 4. 我修 lint-syntax 时连打三次补丁把语法改崩了,最后整块重写。
 5. 子代理报告的「C5 冷却归零」红,是我改写后的循环每轮都重新拉高冷却 —— 模型自己把门闩插上了。
+
+---
+
+## 🟡 XX-WORLD-005 阶段 2 · Dijkstra 赶路 + 路上遭遇（桌面侧认领 2026-10-11 19:xx）
+
+> 按 `docs/JOINT-DEV-PLAN.md` §线 B 派给桌面侧。**先标 🟡 再动手**（`WORKING-TOGETHER` 规则 2）。
+
+### 只读查证结论（动手前先量清楚，不猜）
+
+| 项 | 现状 |
+|---|---|
+| `network.js` 的 Dijkstra | **已完整实现**：`planRoute()`（`network.js:351`，注释写明「按**实际耗时**找最短路，而不是按跳数」，数组版不引第三方库） |
+| `network.js` 的消费者 | **全仓 0 个**。`grep -rn "network.js\|from './network'" js/` 只命中注释与 `types.js` 的契约说明 |
+| 对应开关 | `FEATURE_FLAGS.roads` / `encounters`（`nodes.js:235-236`）**当前都是 false** |
+| 现状赶路 | `world.js:travel()` —— **相邻一跳、`cost:1`、无距离无耗时无遭遇** |
+| 换线要动的点 | 只有 3 处：`ui.js:337 case 'travel'`、`ui.js:566 pathTo()`（用 BFS `pathBetween`）、`ui.js:945-950` 节点列表只画相邻 |
+
+**这 13 条「死导出」就是这张工单的地基** —— `nodes.js:232 FEATURE_FLAGS`
+把大世界分 5 阶段逐个开阀，后续阶段的出口天然零引用（已写进
+`tests/deadexport-baseline.txt` 头部判据）。
+
+### 为什么这次敢做：安全网变了
+
+前几轮不敢动 `ui.js` 的原因是**浏览器跑不了、只能靠猜**。
+现在 `browser` job 已 **8/8 全绿**（run `38136215153`），
+意味着这类改动**有约 6 分钟的真实反馈回路**，不再是盲改。
+
+### 验收口径（**开工后修订过一次，原因见下**）
+
+1. 赶路不再限于相邻：可跨节点选目的地，**显示距离与耗时**（Dijkstra 按实际耗时，不是跳数）
+2. ~~路上遭遇接 `rollTravelEncounters()`~~ → **本轮撤下，见「本轮不做什么」**
+3. ~~`roads`/`encounters` 同时开或同时关~~ → **这条是我自己写错的约束，撤掉。**
+   原话是「不得出现半开态」，理由是怕半截行为。
+   但开完才看清：`roads`（赶路算法）与 `encounters`（路上遭遇）是**两件独立的事**，
+   数据层本来就分开的，强行绑在一起是过度约束。改成各自独立、并在本文写明现状。
+4. **必须反向验证**（已做，两次注入都红）：
+   - 把 `FEATURE_FLAGS.roads` 改回 `false` → 护栏 rc=1，指到「开关未开」
+   - 把 `travel` 分支换回 `neighbors(...)` → 护栏 rc=1，指到「未接上」+「回滚路径丢失」
+5. `browser` job 保持 8/8；`npm run lint` / `npm run check` rc=0
+
+### 本轮做了什么（v099af）
+
+- `ui.js` 三处接上 `network.js`：`case 'travel'`（可跨节点 + 报距离/耗时）、
+  `pathTo()`（roads 开时按实际耗时画路线）、节点锁定判定（「锁」改成真走不通而非「只能相邻」）
+- `FEATURE_FLAGS.roads` → `true`。**回滚只需把它改回 false**，两套分支都原地保留
+- 新增 `tests/world-travel-routing-regression.mjs`（8 项），已接进 `npm test`（链长 64→65）
+- 升版 `v099ae` → **`v099af`**（玩家可见变更，按 VERSION-CONVENTION 规则 2 由落 main 的一方升）
+
+### 🐛 开工时漏掉的一条：「只读查证」查得不够
+
+我在这张工单里写了「只读查证结论（动手前先量清楚，不猜）」，**那份查证是不完整的**。
+
+漏掉的是 `tests/world-data-regression.mjs` §2 —— 它有一条白名单：
+断言「开着的开关**恰好**等于已落地阶段清单」，实测只有 `regions`。
+把 `roads` 打开后，`npm run check` 直接 rc=1。
+
+> **教训**：「只读查证」不能只查**产品代码**，必须查**护栏的判据**。
+> 这个项目的很多规矩不写在 `AGENTS.md` 里，而是写在某条 lint 的注释里 ——
+> 本例那句注释恰恰写着「白名单跟着工单走，而不是永远钉死 false
+> （假红的门禁比没门禁更坏：大家会习惯性地忽略它）」。
+> **我要是开工前读了它，就不会把「要改白名单」当成事后补救。**
+>
+> 下次开工前的查证清单应加一条：
+> **「grep 一下有没有护栏直接盯着我要改的那个字段/开关」**。
+
+### 本轮**不**做什么（明写，别当遗漏）
+
+**`FEATURE_FLAGS.encounters` 保持 `false`，路上遭遇没接。**
+
+`ENCOUNTERS` 里 `kind:'combat'` 那两条（`e_bandit` / `e_wander`）**要不要进回合制**
+是个设计决定 —— 它会与 Z8 刚接好的 Duel 出口（XX-DUEL-006）耦合：
+进回合制则战败四选项那条链要重测，不进则只是扣数值。
+**我不在一轮里发明这个玩法，也不留半截代码**（`rollTravelEncounters` 没有半接线地
+留在 `ui.js` 里 —— 那正是本项目一直在清理的死代码形态）。
+`planRoute` 已经会算 `pEncounter` 并由 `routeInfo()` 暴露，遭遇接上时不用重算。
+
+### 风险与边界
+
+- 这是**玩家可见**的行为变更 → 按 `VERSION-CONVENTION` **我来升版**（不蹭合并方）
+- **只碰 `ui.js` 的 travel 分支与 `FEATURE_FLAGS`**，不动 z8 刚做完的 ui 拆分产物
+- 若 `browser` job 转红且一轮内定位不了，**回滚而不是硬顶**
+

@@ -232,8 +232,14 @@ export const LEGACY_IDS = Object.freeze(
 export const FEATURE_FLAGS = {
   regions:    true,   // 阶段 1(XX-WORLD-004 已落地):区域着色 + 区域危险度。
                       // 几何按当前种子现算(见 regions.js regionRects),无静态坐标。
-  roads:      false,  // 阶段 2:Dijkstra 赶路 + 距离/耗时
-  encounters: false,  // 阶段 2:路上遭遇
+  roads:      true,   // 阶段 2(XX-WORLD-005 已落地):Dijkstra 按**实际耗时**规划,
+                      // 取代 world.js 的「相邻一跳 + BFS 跳数」。ui.js 的 travel
+                      // 分支 / pathTo / 节点锁定三处都改走 planRoute。
+                      // 回滚:把它改回 false 就精确回到阶段 1,不需要另写开关。
+  encounters: false,  // 阶段 2 的另一半 —— 本轮**故意不开**。
+                      // ENCOUNTERS 里 kind:'combat' 那两条要不要进回合制是个设计决定,
+                      // 会与 XX-DUEL-006 新接的 Duel 出口耦合,不在赶路这一轮里发明。
+                      // 见 TICKETS.md XX-WORLD-005 阶段 2 的「本轮不做什么」。
   blockades:  false,  // 阶段 3:封锁
   extraction: false,  // 阶段 4:搜打撤
   newNodes:   false,  // 阶段 5:n11+ 全部登场
