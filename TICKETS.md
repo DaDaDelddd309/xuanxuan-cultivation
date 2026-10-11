@@ -7737,7 +7737,11 @@ audit-loop 漏了。
 
 ---
 
-## 🟡 XX-WORLD-005 阶段 2 · Dijkstra 赶路 + 路上遭遇（桌面侧认领 2026-10-11 19:xx）
+## ✅ XX-WORLD-005 阶段 2 · Dijkstra 赶路（桌面侧，2026-10-11 20:0x 落地）
+
+> ✅ **赶路这一半已完工并上线**：CI run `38139703419`（`d6f8199`，含本改动）全绿
+> —— `check` ✅ / `browser` ✅ **8/8**。版本 `xuanxuan-v099ag`。
+> **路上遭遇那一半仍开着 `encounters: false`，见下方「本轮不做什么」—— 它是未完项，不是完工项。**
 
 > 按 `docs/JOINT-DEV-PLAN.md` §线 B 派给桌面侧。**先标 🟡 再动手**（`WORKING-TOGETHER` 规则 2）。
 
