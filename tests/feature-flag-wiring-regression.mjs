@@ -111,9 +111,23 @@ console.log('\n=== [2] 可见集与可达集必须一致（这条才是抓住 P1
 // 判定「生产入口有没有把 newNodes 传成 withPending」的唯一实现。
 // [2] 的断言和 [3] 的自检**必须共用这一个函数** ——
 // 给「自检一份、断言另一份」留机会正是本项目最常见的假绿来源。
+//
+// ⚠️ 2026-10-11 复核时收紧了判据。第一版只判 `withPending` 这个**词**有没有出现：
+//     planRoute(a, b, { withPending: false })
+// 照样绿 —— 那正是本项目反复栽的「看起来接了线、实际恒假」那一族：
+// 键在，值与开关无关，等于没接。
+// 所以现在判的是**值**：`withPending:` 后面那个表达式必须真的引用 FEATURE_FLAGS.newNodes。
+//
+// 已知边界（有意不覆盖，避免判据宽了自己出错）：
+//   · 只认 `FEATURE_FLAGS.newNodes` 直读，不认再赋给局部别名
+//   · 认 `{ withPending: FEATURE_FLAGS.newNodes || x }` 这类含开关的复合表达式
+//   若将来有人用别名接线，先扩这里并写明理由，别默默放行。
 const passesWithPending = (src) => {
   const m = src.match(/routePlan\(toId\)\s*\{[\s\S]{0,400}?\n  \}/);
-  return m ? /withPending/.test(m[0]) : false;
+  if (!m) return false;
+  const val = m[0].match(/withPending\s*:\s*([^,}\n]+)/);
+  if (!val) return false;                       // 键都没有 —— 没接线
+  return /FEATURE_FLAGS\s*\.\s*newNodes/.test(val[1]);  // 键在但值与开关无关 —— 假接线
 };
 
 {
@@ -166,6 +180,26 @@ console.log('\n=== [3] 反向自检（把方向写反，本门禁必须报红）
     pass++; console.log('  ✅ 自检1b: 合成「传了 withPending」的入口 → 判 true（没瞎）');
   } else {
     fail++; console.log('  ❌ 自检1b: 传了的入口也判 false，这条断言恒假 = 门禁不存在');
+  }
+
+  // 自检 1c（2026-10-11 复核新增）：**假接线**必须判 false。
+  //   这一条是被真实的反向注入逼出来的 —— 把 ui.js 改成
+  //       planRoute(s.current, toId, { withPending: false })
+  //   键在、值恒假，与「没接线」在玩家侧完全等价，但第一版判据照样放行（EXIT=0）。
+  //   它测的是判定函数的**第三端**，与 1a/1b 都不重合：
+  //   1a = 没有键、1b = 值来自开关、1c = 有键但值与开关无关。
+  //   仍用合成样本，不碰真实文件 → 无论代码修没修都恒定通过。
+  const synthFakeWired = 'routePlan(toId) {\n    return planRoute(a, b, { withPending: false });\n  }\n';
+  const synthNullWired = 'routePlan(toId) {\n    return planRoute(a, b, { withPending: null });\n  }\n';
+  if (passesWithPending(synthFakeWired) === false) {
+    pass++; console.log('  ✅ 自检1c: 合成「键在但值恒假」的假接线 → 判 false（抓得住）');
+  } else {
+    fail++; console.log('  ❌ 自检1c: { withPending: false } 这种假接线竟判 true —— 判据只认键不认值');
+  }
+  if (passesWithPending(synthNullWired) === false) {
+    pass++; console.log('  ✅ 自检1d: 合成「键在但值为 null」的假接线 → 判 false');
+  } else {
+    fail++; console.log('  ❌ 自检1d: { withPending: null } 竟判 true —— 判据只认键不认值');
   }
 
   // 自检 2：故意造一个「零消费方且未登记」的假开关，本门禁必须抓到
