@@ -1,5 +1,5 @@
 {
-  "version": "xuanxuan-v099ag",
+  "version": "xuanxuan-v099ah",
   "build": "20261011-2025",
   "count": 177,
   "files": {
@@ -142,7 +142,7 @@
     "js/xiuxian/story.js": "d19d7e517f47",
     "js/xiuxian/tavern.js": "af20c8813fb1",
     "js/xiuxian/tomb.js": "4cd4c28ac087",
-    "js/xiuxian/ui.js": "f131bc1a1017",
+    "js/xiuxian/ui.js": "13ba42b23b2e",
     "js/xiuxian/ui/arts.js": "e0c3f78c301e",
     "js/xiuxian/ui/bag.js": "509d3a06791f",
     "js/xiuxian/ui/build.js": "72789482fa7c",
@@ -167,9 +167,9 @@
     "knip.json": "41145b6f0a5c",
     "manifest.webmanifest": "60162ce41f9e",
     "package-lock.json": "6fb5c19e9431",
-    "package.json": "3301a6eff584",
+    "package.json": "91570635ea4b",
     "probe.html": "c2d3540d9ecd",
-    "sw.js": "6a6b821f7257",
+    "sw.js": "792ab25fc1c7",
     "tests/t80.js": "52b2899fe00e",
     "tests/t81.js": "768d6590be87",
     "tests/t82.js": "65d78d179576",
