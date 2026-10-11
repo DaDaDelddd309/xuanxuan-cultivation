@@ -8,6 +8,33 @@ import { SAVE_KEYS } from './save-keys.js';
 // XX-WORLD-007:按类型锚定剧情节点需要读当前世界的节点类型。
 // world.js 只 import worldgen/seed,不反向依赖 story —— 无循环依赖。
 import { WORLD } from './world.js';
+// XX-SPINE-004:结案必须回写到主线骨架的 arcsDone。
+//
+// 【为什么接在这里,而不是 UI 层】
+//   之前 SPINE.observeArc 的调用点**全仓只有测试**。生产路径
+//   (ui/story.js:163 / ui.js:446 / tomb.js:181)全都走 STORY.finish(),
+//   而 finish() 不写 arcsDone ⇒ spine.js:144 的
+//     if (s.tombstone && nArc >= 2) return 'ending';
+//   里 nArc 恒为 0 ⇒ 第四阶段「抉择·双结局解锁」在真游戏里**永远到不了**。
+//
+//   finish() 是**唯一**的「结案」定义处:_advance() 里末环**故意不自动结案**
+//   (story.js:286 「最后一环不自动结案:留给玩家选结局」),
+//   done[key] 只在 finish() 里被写。所有 UI 入口都汇到这里,
+//   所以接在 finish() 的成功分支 = 接在**真正的结案点**,而不是某条 UI 路径上。
+//
+// 【为什么不接在 tomb.js 的 STORY.finish 调用处】
+//   那只是三条入口之一(另两条是 ui/story.js 与 ui.js),
+//   接在那里只能覆盖墓线,另外两条线照样进不了 ending。
+//
+// 【依赖方向】
+//   spine.js 只 import save-keys.js 与 outcomes.js(两个零依赖叶子),
+//   不 import story.js ⇒ 本条边不构成循环依赖。
+//   spine.js 顶层不碰 document/localStorage(都在函数体内 try),
+//   所以只 mock localStorage 的单测 import story.js 不会被它带崩。
+//
+// 【为什么用惰性取用而不是模块顶层解构】
+//   测试会反复 reset()/load() 换 SPINE 实例,顶层解构会把旧实例钉死。
+import { SPINE } from './spine.js';
 const K = SAVE_KEYS.story;
 
 // —— 剧本:每条线一个「剧情」,多环推进 ——
@@ -331,6 +358,39 @@ export const STORY = {
     this.pushRumor(echo || `${arc.name}的事,结了。`);
     this.logLine(arc.name, '【结案】' + txt);
     this.save();
+
+    // XX-SPINE-004:主线骨架的「抉择」阶段靠 arcsDone 计数解锁
+    // (spine.js `if (s.tombstone && nArc >= 2) return 'ending'`)。
+    // 这一行是 arcsDone 在**生产代码里唯一的写入口**。
+    //
+    // 位置说明:放在所有守卫之后、return 之前 —— 前面三个 return
+    // (无此线 / 已了结 / 还没看完)都不是结案,记进去会让主线虚报进度。
+    // observeArc 内部自带 commit + sync,这里不用再存一次。
+    try { SPINE.observeArc(key, true); } catch (e) { console.warn('[spine] observeArc', e); }
+
+    // XX-SPINE-004:墓线的 path 就是双结局本身(「你补了『奈何无人共』」/
+    // 「你补了『此生无悔』」),所以墓线结案时要把结局落进主线骨架。
+    //
+    // 【为什么能接在这里 —— 这不是「随便找个点」】
+    //   墓线要走到能结案,必须先推进到第 4 环,而第 4 环是 `{ at:3, room:'sj' }`,
+    //   只有 arriveRoom('sj') 能触发它 —— 而全仓唯一的 arriveRoom 调用点
+    //   是 tomb.js:140(TOMB 走进石将前)。也就是说:
+    //     STORY.finish('tomb', path, …) 成立 ⟺ 玩家**真的走到了石将跟前并做了选择**
+    //   (另一条入口 ui.js:446 的 `spath` 也必须满足同一个 readyFinish 前提)。
+    //   所以这里记下的 path 是一个真实的、玩家亲手做的选择,不是推断出来的。
+    //
+    // 【权威现场仍在 tomb.js,这里只是够得着的那个】
+    //   演出与奖励的权威点是 js/xiuxian/ui/tomb.js:111 → TOMB.finish(path)
+    //   → js/xiuxian/tomb.js:181 的 STORY.finish('tomb', path, null) —— 也就是本行。
+    //   若日后在 tomb.js 里再补一次 SPINE.chooseEndingByPath(path),两处同值同幂等,
+    //   不会打架(chooseEnding 只是覆盖写同一个字符串)。
+    //
+    // 【只对墓线生效】
+    //   另外四条线的 path 是「尾声走哪边」,不是双结局。落进去会把这个字段变成噪声。
+    if (key === 'tomb') {
+      try { SPINE.chooseEndingByPath(path); } catch (e) { console.warn('[spine] chooseEnding', e); }
+    }
+
     return { ok:true, name:arc.name, text:txt, reward };
   },
 

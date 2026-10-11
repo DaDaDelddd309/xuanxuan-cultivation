@@ -44,11 +44,55 @@ console.log('\n[3] 阶段推进');
   ok('见到3只仍 encounter(还差支线)', SPINE.get().phase === 'encounter');
   SPINE.observeQuest('q1', 'active');
   ok('见到3只+接1支线 → intervene', SPINE.get().phase === 'intervene', `实际 ${SPINE.get().phase}`);
-  // 完成 2 条线 + 开墓 → ending
-  SPINE.observeArc('hongyi', true);
-  SPINE.observeArc('laolao', true);
+}
+
+// ⚠️【XX-SPINE-004】原来这里的三行被删掉了,不是「不需要」,是**它测错了东西**:
+//     SPINE.observeArc('hongyi', true);
+//     SPINE.observeArc('laolao', true);
+//     SPINE.openTomb();
+//     ok('完成2线+开墓 → ending', ...);
+//   它**自己**把 arcsDone 喂进去,再断言「喂进去就会进 ending」。
+//   而生产代码里 observeArc 的调用点全仓只有这个测试自己 ——
+//   于是它一直是绿的,真游戏里 s.arcsDone 恒为 {},第四阶段「抉择」永远到不了。
+//   绿色的断言**主动提供保证**:它让人以为这条路被走过。
+//
+// 现在改成断言真正该断言的东西:「不手工调 observeArc,只走 STORY.finish(),
+// 阶段能不能自己走到 ending」。这条断言在接线之前会红 —— 那才是它该有的样子。
+// 更完整的可达性门禁(含反向注入)在 tests/spine-stage-reachability.mjs。
+console.log('\n[3b] ending 阶段在生产路径上真的走得到(不手工调 observeArc)');
+{
+  const mem2 = mem;
+  const { STORY: ST } = await import('../js/xiuxian/story.js');
+  const { nodeForBeat } = await import('./helpers/play-arc.mjs');
+  const { ARCS } = await import('../js/xiuxian/story.js');
+
+  SPINE.reset();
+  ST.reset();
+  mem2.clear();
+
+  let finished = 0;
+  for (const k of ['hongyi', 'laolao']) {
+    ST.start(k);
+    const arc = ARCS[k];
+    const used = new Set();
+    for (const b of arc.beats) {
+      const t = nodeForBeat(b, used);
+      used.add(t);
+      ST.arrive(t);
+    }
+    const r = ST.finish(k, 1, () => ({ text: [] }));
+    if (r.ok) finished++;
+  }
+  ok('两条线都真的结案了(前置)', finished === 2, `结案 ${finished}/2`);
+  ok('STORY.finish 自己把 arcsDone 记上了(不靠测试手工喂)',
+     Object.keys(SPINE.get().arcsDone).length === 2,
+     `arcsDone=${JSON.stringify(Object.keys(SPINE.get().arcsDone))}`);
   SPINE.openTomb();
-  ok('完成2线+开墓 → ending', SPINE.get().phase === 'ending', `实际 ${SPINE.get().phase}`);
+  ok('走生产路径 → ending', SPINE.get().phase === 'ending', `实际 ${SPINE.get().phase}`);
+
+  ST.reset();
+  mem2.clear();
+  SPINE.reset();
 }
 
 console.log('\n[4] 阶段不倒退');

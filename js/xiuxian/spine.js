@@ -57,6 +57,22 @@ export const PHASES = {
   },
 };
 
+// ————————————————— 结局:墓的 path → 结局 id —————————————————
+//
+// XX-SPINE-004:墓线(tomb)的 `path` **就是**结局本身,而墓的 UI / 逻辑层
+// (`ui/tomb.js:110` / `tomb.js:155`)从头到尾只认 path 1|2。
+// chooseEnding() 认的却是 'unlone' | 'noless' —— 两个命名空间。
+// 映射关系不是约定,是**从文案推出来的**(三方独立对上):
+//   ARCS.tomb.beats[3].epilogue  (path 1)「你补了『奈何无人共』」 → unlone
+//   ARCS.tomb.beats[3].epilogue2 (path 2)「你补了『此生无悔』」   → noless
+//   tomb.js epitaph() path===1 → 「此生不悔 —— 奈何无人共」      → 再次对上
+//
+// 做成**表**而不是在调用点现推(`path===1?'unlone':'noless'`):
+//   调用点在 js/xiuxian/ui/tomb.js 与 js/xiuxian/tomb.js,写反了没人拦得住,
+//   而结局写反玩家**看不出** —— 他只会记得自己明明选了「共」。
+//   表放在 spine.js,调用方只能取值,不能现场编。
+export const ENDING_BY_PATH = { 1: 'unlone', 2: 'noless' };
+
 // ————————————————— 因果图 —————————————————
 //
 // CREATIVE.md 里「红衣女鬼 → 黑山姥姥 → 愿牌」是有因果的,
@@ -150,9 +166,36 @@ export const SPINE = {
   /** 当前阶段 */
   phase() { return PHASES[this.s.phase] || PHASES.depart; },
 
+  /**
+   * 阶段只能前进,不能后退。
+   *
+   * 【为什么必须在这里夹一道 —— XX-SPINE-004 实测】
+   *   _compute() 是「玩家**此刻**够得着的最高阶段」,而它的判据是**瞬时量**:
+   *     nQuest = quests 里 status==='active' 的条数
+   *   于是「支线结案」会把 active 改成 done,nQuest 掉到 0,
+   *   _compute 立刻返回 'encounter' —— 玩家明明刚完成一件事,
+   *   阶段却从 intervene 掉回 encounter。
+   *   复现:observeLegend×3 → observeQuest('q1','active') → observeQuest('q1','done')
+   *         阶段: depart → encounter → intervene → **encounter**(倒退)
+   *
+   *   完成的支线被 observeQuest(key,'done') 同步是生产行为
+   *   (ui/story.js:72 在结案后把 done 的支线同步回主线),所以这不是理论问题。
+   *
+   *   PHASES 里 n:1..4 就是为这个准备的:阶段是**累计达成的里程碑**,
+   *   不是当前状态的快照。玩家达成过就不该再失去。
+   *
+   * ⚠️ 这条也顺带保护了 ending:旧存档/重放里 phase 一旦是 'ending',
+   *   不会被一次瞬时判据波动打回前一阶段。
+   */
+  _atLeast(cur, want) {
+    const cn = (PHASES[cur] && PHASES[cur].n) || 0;
+    const wn = (PHASES[want] && PHASES[want].n) || 0;
+    return wn >= cn ? want : cur;
+  },
+
   /** 推进到该玩家应有的阶段。会记一笔时间痕迹。 */
   sync() {
-    const want = this._compute(this.s);
+    const want = this._atLeast(this.s.phase, this._compute(this.s));
     if (want !== this.s.phase) {
       const from = this.s.phase;
       this.s.phase = want;
@@ -244,6 +287,29 @@ export const SPINE = {
     this.commit();
     this.sync();
     return this.s.ending;
+  },
+
+  /**
+   * 从墓的 path(1|2)落结局 —— chooseEnding 的接线口。
+   *
+   * 【为什么需要这一层】
+   *   选结局的**权威现场**在 js/xiuxian/ui/tomb.js:111
+   *     const path = +b.dataset.w; const r = TOMB.finish(path);
+   *   两个文件都不在主线骨架这一层里,于是选择只演出、不落档:
+   *   `s.ending` / `s.choices.ending` 永远是 null,而 save-integrity-audit
+   *   把 null 登记成了**合法形状** —— 完整性检查也就永远发现不了。
+   *
+   * 【path 不认识时返回 null,而不是兜底成 noless】
+   *   chooseEnding 内部是 `which==='unlone'?'unlone':'noless'`,
+   *   传进去的垃圾值会**静默变成「此生无悔」**并落档 —— 玩家会发现自己的
+   *   结局被记错了,而且没有任何报错。这里宁可什么都不记。
+   *
+   * @returns {string|null} 结局文案;path 非法时 null
+   */
+  chooseEndingByPath(path) {
+    const which = ENDING_BY_PATH[path];
+    if (!which) return null;
+    return this.chooseEnding(which);
   },
 
   /** 年表:阶段推进记录(时间痕迹) */
