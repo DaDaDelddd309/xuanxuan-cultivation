@@ -1,7 +1,7 @@
 {
   "version": "xuanxuan-v099aj",
   "build": "20261011-2234",
-  "count": 183,
+  "count": 176,
   "files": {
     "AGENTS.md": "27d3a6a61046",
     "ARCHITECTURE.md": "0a3c3586c24c",
@@ -10,13 +10,10 @@
     "COMPANION-PLAN.md": "1495d18e5048",
     "CREATIVE-GAP.md": "9d865e7c77af",
     "CREATIVE.md": "2ea087a5796f",
-    "DECISIONS.md": "f63a4993fa43",
-    "DEPLOY-REQUEST.md": "915712b41343",
+    "DECISIONS.md": "d714df47c324",
     "DEPLOY.md": "1ee9f47663dc",
-    "DEV-SYNC.md": "14882ec21cec",
     "HANDOVER.md": "5992b7f0fb53",
     "LOOP.md": "819ddca7ec9f",
-    "MERGE-GUIDE.md": "940b95fc217a",
     "NEEDS.md": "de4793f49afa",
     "PALETTE.md": "b7c96f7248b3",
     "PENDING-PUSH.md": "1c76d7248e0a",
@@ -27,10 +24,9 @@
     "TECHDEBT.md": "9792e2557621",
     "TEST-PLAN.md": "d0e01f2c5c3f",
     "TICKETS-GUIDE.md": "7cb1b1cd331a",
-    "TICKETS.md": "5b08625cea02",
+    "TICKETS.md": "8634aa5d1a4b",
     "VERSION-CONVENTION.md": "cdd4fdd9f42f",
-    "WORKING-TOGETHER.md": "afd415527bdd",
-    "assets/portrait/req-momocha.json": "5b255b90ba80",
+    "WORKING-TOGETHER.md": "f3a5d0b2fd20",
     "css/gear.css": "b642e887d938",
     "css/illust.css": "5b9df1cb4606",
     "css/palette.css": "913b174407de",
@@ -57,9 +53,6 @@
     "docs/proposals/world-map-20261010/code/types.js": "1332dafdf8a0",
     "docs/proposals/world-map-20261010/integration.md": "0743c9964d55",
     "docs/proposals/world-map-20261010/openworld-extraction.md": "c593bb102480",
-    "docs/proposals/world-map-20261010/大世界地图改造设计.md": "9e3be95f42a9",
-    "docs/proposals/world-map-20261010/搜打撤落地指南.md": "4389aa34fc17",
-    "docs/proposals/world-map-20261010/装备词条系统设计.md": "84727a657e9f",
     "icons/icon-180.png": "720b379ff8b5",
     "icons/icon-192.png": "e83e04d9525f",
     "icons/icon-512.png": "3f4cc56e8b06",
@@ -176,6 +169,7 @@
     "package.json": "ae06ab4e7c81",
     "probe.html": "c2d3540d9ecd",
     "sw.js": "7f6bab1065f6",
+    "tests/.hardcoded-baseline.json": "04d5108d7c93",
     "tests/t80.js": "52b2899fe00e",
     "tests/t81.js": "768d6590be87",
     "tests/t82.js": "65d78d179576",
@@ -184,7 +178,6 @@
     "tools/ops/AUTONOMY.md": "b12757379527",
     "tools/ops/COORDINATION.md": "26ed33c0ed50",
     "tools/ops/README.md": "fc8bc9b93485",
-    "tools/visual/README.md": "8fda6117a576",
-    "轩轩修仙传-V0.90-功能接线审计.md": "a8607e009023"
+    "tools/visual/README.md": "8fda6117a576"
   }
 }

@@ -10,6 +10,7 @@ const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 //     把 v099 改成 v099p 或反过来,这个 lint 都不会红。
 // 现在后缀可见,且 version.json 与 sw.js 强制一致。
 import { readFileSync, existsSync } from 'fs';
+import { spawnSync } from 'child_process';
 const R=__ROOT__+'';
 const read=f=>readFileSync(R+'/'+f,'utf8');
 const html=read('index.html'), mf=read('manifest.webmanifest'), sw=read('sw.js');
@@ -47,6 +48,55 @@ if(hasVjson){
   if(jv && swConst && jNum!==swConst){
     console.log(`  ❌ version.json(${jv}) ≠ sw.js(${swConst}) —— 探针指向的版本不存在,重新生成: node tests/make-manifest.mjs --write`);
     bad++;}
+}
+
+// —— version.json 的**清单内容**必须等于生成器的输出 ——
+//
+// ⚠️ 工单 XX-AUDIT-040:上面那段只比 `version` 字段,`count` 和 `files` 一个都不看。
+// 于是文档里那条纪律 ——「`version.json` 是生成物,按文件内容算 sha256,
+// 改任何 `.md` 都会让它失效,**必须跑 `make-manifest.mjs --write`**」——
+// **至今没有任何会红的检查在管**。清单可以长期过期而 `npm run lint` 全绿。
+// 实测(2026-10-11):Z8 提交的 version.json 有 183 条,仓库实际 179 条,
+// 全绿放行了,是**人工比对**才发现的。
+//
+// 实现约束(这一条比门禁本身更重要):
+//   **门禁必须调真正的生成器,不能在 lint 里重写一遍算法。**
+//   门禁自带一份算法 = 多了一个会漂移的副本 —— 那就是把同一个病复制一遍,
+//   只是搬进了门禁里。将来改了算法而忘了改门禁,门禁就会拿着旧算法
+//   对着新产物说「一致」。
+if (hasVjson) {
+  const gen = spawnSync(process.execPath, [R + '/tests/make-manifest.mjs'],
+                        { encoding: 'utf8', cwd: R });
+  if (gen.status !== 0) {
+    // 生成器自己跑不起来时**不能放行**:那等于「没检查」伪装成「检查通过」。
+    console.log(`  ❌ 清单生成器跑不起来(rc=${gen.status}):${(gen.stderr||'').trim().split('\n')[0]||'无 stderr'}`);
+    bad++;
+  } else {
+    let g = null;
+    try { g = JSON.parse(gen.stdout); } catch (e) {
+      console.log(`  ❌ 清单生成器输出不是合法 JSON: ${e.message}`);
+      bad++;
+    }
+    if (g) {
+      const cur = (() => { try { return JSON.parse(vjson).files || {}; } catch { return {}; } })();
+      const gen_ = g.files || {};
+      const added   = Object.keys(gen_).filter(f => !(f in cur));   // 该有却没有
+      const removed = Object.keys(cur).filter(f => !(f in gen_));   // 不该有却还在
+      const changed = Object.keys(gen_).filter(f => f in cur && cur[f] !== gen_[f]);
+      if (added.length || removed.length || changed.length) {
+        const n = added.length + removed.length + changed.length;
+        console.log(`  ❌ version.json 清单已过期(${n} 项与生成器不符)—— 重新生成: npm run manifest:write`);
+        if (changed.length) console.log(`     内容变了 ${changed.length} 个(前 5):` +
+          changed.slice(0, 5).map(f => `\n       ${f}  清单记 ${cur[f]} → 应为 ${gen_[f]}`).join(''));
+        if (added.length)   console.log(`     清单缺了 ${added.length} 个(前 5): ${added.slice(0, 5).join(', ')}`);
+        if (removed.length) console.log(`     清单多出 ${removed.length} 个(前 5): ${removed.slice(0, 5).join(', ')}`);
+        console.log(`     条目数 清单=${Object.keys(cur).length} / 生成器=${g.count}`);
+        bad++;
+      } else {
+        console.log(`  ℹ️  清单已核对:${g.count} 个文件,校验和逐条一致`);
+      }
+    }
+  }
 }
 
 if(main) console.log(`  ℹ️  当前版本 ${main} · SW 缓存 xuanxuan-v${swCacheV[0]||'?'}${hasVjson?' · 探针已核对':''}`);
