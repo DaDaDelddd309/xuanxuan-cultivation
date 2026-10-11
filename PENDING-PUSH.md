@@ -79,3 +79,44 @@ node <e2e脚本>
 2. PAL 色板收敛
 3. ART 立绘重出
 4. DAY 昼夜怪物种类
+---
+
+## ⚠️ 一次「同内容、不同 SHA」的双头状态（2026-10-11 · 需在网络恢复后收敛）
+
+**事实**：同一条改动在两边各有一个提交，**内容完全相同**（逐文件 blob SHA 已核对相等），
+但 SHA 不同，因此不是快进关系，直接 `git push` 会被拒。
+
+| 位置 | SHA | 说明 |
+|---|---|---|
+| 本地 `merge/p1-elite` | `1fe610b` | 正常 `git commit` 产生 |
+| 远端 `main` | `862f732` | 经 **api.github.com** 的 Git Data API 直传 |
+
+**为什么分叉**：2026-10-11 晚，`git push` 到 `github.com:443` 持续
+`Failed to connect`（该主机解析到 `20.205.243.166`，路由不通；同刻
+`api.github.com`（`20.205.243.168`）0.2 秒可达）。只有 API 链路是通的，
+于是用 `git/trees → git/commits → git/refs` 三步造了**单个**提交直传
+（刻意不用 contents PUT，那会拆成两个提交）。
+
+**已经做过的安全检查**（都通过）：
+- 覆盖前核对远端 blob SHA == 本地 `HEAD~1` 的 blob SHA → 确认期间无人并发改动
+- 推进 ref 前二次读 `git/ref/heads/main` 做 compare-and-swap → 不覆盖别人的新提交
+- 推送后逐文件比对远端 blob SHA 与本地 `HEAD` → 全部相等
+
+**网络恢复后怎么收敛**（二选一，不要两个都做）：
+```sh
+# A. 让本地跟远端对齐（丢弃本地那条重复提交；内容一字不差，安全）
+git fetch origin main
+git merge -s ours origin/main -m "chore: 与远端 862f732 对齐（同内容不同 SHA）"
+
+# B. 保留本地那条，把远端那条并进来（会产生一个 merge 提交）
+git fetch origin main
+git merge origin/main
+```
+选 A 更好：内容已经验证一致，没必要在历史里留一个空合并。
+
+⚠️ `git push` 的重试循环**不要**写成 `if git push … | tail -2; then echo OK` ——
+管道的退出码取自最后一条命令（`tail`，恒为 0），推送失败也会打印成功。
+2026-10-11 就因此误报过一次「已推送」。正确写法见 `tests/` 与 `tools/` 里的惯例：
+```sh
+git push … > /tmp/p.log 2>&1; rc=$?; [ $rc -eq 0 ] || { cat /tmp/p.log; retry; }
+```
