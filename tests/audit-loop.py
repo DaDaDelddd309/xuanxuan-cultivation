@@ -91,6 +91,12 @@ def diagnose(pg, sel, why='未知'):
           const r=e.getBoundingClientRect();
           const cx=r.left+r.width/2, cy=r.top+r.height/2;
           const top=document.elementFromPoint(cx,cy);
+          // 盖在上面的东西到底是谁 —— 一路往上报到有意义的祖先。
+          // 只报 tag.class 不够:.xx-label 这种 class 到处都是,
+          // 真正要认的是它**属于哪个面板/卡片**。
+          const chain=[]; for(let x=top,i=0; x && i<6; i++,x=x.parentElement){
+            chain.push(x.tagName+(x.id?'#'+x.id:'')+(x.className?'.'+String(x.className).trim().split(/\\s+/).join('.'):''));
+          }
           const cs=getComputedStyle(e);
           const blockers=[...document.querySelectorAll('.xx-ritual,.xx-storycard,.xx-duel,#xx-nag-host')]
             .filter(x=>x.offsetParent!==null)
@@ -99,6 +105,7 @@ def diagnose(pg, sel, why='未知'):
                   rect:[Math.round(r.width),Math.round(r.height)],
                   display:cs.display, visibility:cs.visibility, opacity:cs.opacity, pointerEvents:cs.pointerEvents,
                   covered: top? (top===e?null : (top.tagName+'.'+top.className)) : 'none',
+                  chain, topPE: top? getComputedStyle(top).pointerEvents : null,
                   blockers};
         }""".replace('WHY', repr(why)), sel)
         if 'DIAG_BROKEN' in r:
