@@ -298,8 +298,27 @@ with sync_playwright() as p:
         ok("行囊里能看到源石", '石' in pg.inner_text('#xx-body'))
 
         print("\n【局内可见性:护栏和增益】")
-        # 点一根源石生火
-        pg.evaluate("async()=>{const {CAMP}=await import('/js/xiuxian/camp.js');CAMP.s.stones=60;CAMP.s.burnUntil=Date.now()+600000;CAMP.save();}")
+        # ⚠️ 这里原来写的是:
+        #     CAMP.s.stones=60; CAMP.s.burnUntil=Date.now()+600000; CAMP.save()
+        #   —— **stones 和 burnUntil 都不是 burning() 读的字段**。
+        #   CAMP.burning()(camp.js:64-67)只看 `lit` 和 `fuelEnd`,
+        #   于是篝火从头到尾就没点着,wardRadius() 第一行就 return 0,
+        #   「篝火在烧时局内有护栏圈」**必然**红 —— 红的是 setup,不是产品。
+        #   （stone_1 每颗 15 分钟,4 颗 = 60 分钟燃料,够这一局用。）
+        # 改用**产品自己的 API** CAMP.light(nodeId):它会先检查背包里有没有源石,
+        # 再自动投入并算 fuelEnd —— 与真实玩家点的按钮走同一条路。
+        lit=pg.evaluate("""async()=>{
+          const {CAMP}=await import('/js/xiuxian/camp.js');
+          const {Bag}=await import('/js/xiuxian/items.js');
+          Bag.add('stone_1', 4); Bag.save();
+          const r = CAMP.light('n0');
+          return {ok:!!(r&&r.ok), msg:(r&&r.msg)||'', burning:CAMP.burning(),
+                  fuelMin:CAMP.fuelMin(), bagStoneMin:Bag.stoneMinutes()};
+        }""")
+        print(f"  生火结果: {lit}")
+        # ⚠️ 防呆:篝火没点着就**别往下走**。
+        #   否则后面报出来的红全是连锁,根因却藏在几十行之外 —— 这个坑本身就是这么找来的。
+        ok("篝火真的点着了", lit['burning'] is True, f"剩余 {lit['fuelMin']} 分钟 · {lit['msg']}")
         unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
         # ⚠️ 这三段我已经连着猜错两次:
         #   ① 以为少了 `.xx-back`(run 38113186513)
@@ -308,7 +327,7 @@ with sync_playwright() as p:
         #         一个可见另一个必然可见,所以「btn-cult 可见但 btn-play 不可见」根本不可能。
         #   两次都靠猜,于是改成:点不到时把诊断直接打出来(见 tap()/diagnose())。
         in_run=False
-        if to_menu(pg):
+        if to_menu(pg) and lit['burning'] is True:
             started = tap(pg,'#btn-play'); time.sleep(0.8)
             ok("能开第二局", started)
             if not started: print(f"  诊断 #btn-play: {getattr(tap,'last',None)}")
@@ -317,7 +336,8 @@ with sync_playwright() as p:
             if not in_run: print(f"  诊断 #char-list: {getattr(tap,'last',None)}")
         else:
             ok("能开第二局", False)
-            print("  ⚠️ 退不回主菜单,本段(篝火护栏)未验 —— 已跳过,不硬点")
+            why = '退不回主菜单' if not to_menu(pg) else '篝火没点着'
+            print(f"  ⚠️ {why},本段(篝火护栏)未验 —— 已跳过,不硬点")
         ward=pg.evaluate("()=>{const w=document.getElementById('hud-ward');if(!w)return null;const s=getComputedStyle(w);return {hidden:w.hidden,w:w.style.width,op:s.opacity};}")
         print(f"  护栏圈: {ward}")
         ok("篝火在烧时局内有护栏圈", in_run and ward and ward['hidden'] is False and ward['w'])
