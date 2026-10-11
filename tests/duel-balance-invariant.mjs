@@ -698,18 +698,43 @@ console.log('\n=== [F] 单技能玩家:默认存档能不能打完一场 ===');
 }
 
 // ════════════════════════════════════════════
-console.log('\n=== [G] 模拟:换个策略,胜率会不会变? ===');
+console.log('\n=== [G] 模拟:换个策略,胜率会不会变?(真跑 Duel.start) ===');
 // ════════════════════════════════════════════
 //
-// 纯 node,不碰浏览器:直接在 battle.js 的纯函数上打。
-// 敌人/玩家的初始状态严格照 duel.js:131-153 的公式复刻,连强制普攻分支也照抄。
-const SUPERS = new Set(['wanji', 'chuanyun', 'ganle', 'yanyang', 'chanyi', 'yinhun', 'denghuzhong', 'zhoutian', 'tianjiao', 'yunmo']);
+// ⚠️ 2026-10-11 重写(本门禁自己的一次返工)。这一段以前**照抄了一份战斗公式**:
+//   simulate() 从头到尾没调过 Duel.start,自己写了 s.hpMax / s.dmg / e.dmg / e.hpMax /
+//   powerBoost,连强制普攻分支都抄了一遍,还写死 dmgReduce: 0(产品里 duel.js 早不是硬写 0 了)。
+//   实害已经发生:上一轮把「宿敌恒负」的护体修进 duel.js,而这里的 PROBE-7 **一个数字都没动**。
+//   抄公式进来的尺子,改产品时数字不动、改测试时数字动、两边都不报错 ——
+//   **一把测「自己维护的副本」的尺子,比没有尺子更危险:它给的是虚假的信心。**
+//   所以现在每个数字都出自 duel.js + battle.js,门禁自己一条战斗公式都不写。
+//
+// 策略也不许自己算伤害:四种策略读的是**产品自己渲染出来的技能栏**
+//   (按钮上那个「威力 N」就是 duel.js 的 est,「超武」标签也是产品自己打的)。
+//   旧的 estDmg / SUPERS / mkHero 三个「自己维护的副本」已随重写一并删除。
+//
+// 桩的用法照抄 duel-difficulty-gradient-regression.mjs(同一套 DOM 桩 + 假时钟)。
+// 有三处不照抄就会拿到假数据,写在这里免得下一个人重踩:
+//   ① Duel 只 import 一次、全程复用(逐场重新 import 会把 3.8 万场拖成几分钟)。
+//   ② 战败必须点掉 #xd-defeat 的四选项 —— close() 是**唯一**复位 Duel.busy 的地方
+//      (XX-DUEL-005)。不点的话 busy 卡在 true,后面每一场的点击都被
+//      duel.js:266 的 `if (!this.busy)` 吞掉,量出来的是我自己的漏斗。
+//   ③ 假时钟**逐步**推进、每步后观察血量:敌人一回合只结算一次 enemyAct,
+//      所以「玩家血量的变化点」恰好就是「第 k 次敌攻」—— 逐击伤害序列是这么来的。
+const G_Duel = await loadDuel();
+const { REALMS } = await import('../js/xiuxian/realms.js');
+
 const ENEMIES = [
   { name: '小妖·炼气',      realmIdx: 0, stronger: false, hpRatio: 0.4 },
   { name: '精英·筑基',      realmIdx: 1, stronger: false, hpRatio: 0.5 },
   { name: '越境·筑基',      realmIdx: 1, stronger: true,  hpRatio: 0.5 },
   { name: 'boss·金丹',      realmIdx: 2, stronger: true,  hpRatio: 0.4 },
-  { name: '宿敌·金丹',      realmIdx: 2, stronger: true,  hpRatio: 0.4, nemesis: true },
+  // ⚠️ 宿敌这一格以前写死 `e.dmg *= 1.6`。1.6 恰好是 powerBoost() 在
+  //   **grudge=75** 时的值(= 1 + min(1.2, 75*0.008))—— 也就是说旧格量的一直是「结怨」,
+  //   只是没人把这件事写下来,格子的名字还叫「宿敌·金丹(结怨 0)」。
+  //   产品侧 powerBoost 读的是存档里的 grudge,所以这里必须显式给出来:
+  //   留 0 的话这一格的伤害与 boss·金丹 一模一样,退化成「同一个敌人跑两遍」。
+  { name: '宿敌·结怨',     realmIdx: 2, stronger: true,  hpRatio: 0.4, nemesis: true, grudge: 75 },
   { name: 'boss·残血',      realmIdx: 2, stronger: true,  hpRatio: 0.05 },
 ];
 const HEROES = [
@@ -718,87 +743,235 @@ const HEROES = [
   { name: '后期·三神通', pIdx: 2, arts: { jianqi: 5, wulei: 5, moyu: 4 } },
   { name: '满配·含超武', pIdx: 3, arts: { jianqi: 5, wulei: 5, moyu: 5, wanji: 1 } },
 ];
-const mkHero = hprof => ({
-  name: '轩轩', hpMax: 100 + hprof.pIdx * 30, hp: 100 + hprof.pIdx * 30,   // duel.js:150-151,玩家不吃继承
-  arts: { ...hprof.arts },
-  isSuper: Object.fromEntries(Object.keys(hprof.arts).filter(k => SUPERS.has(k)).map(k => [k, 1])),
-  cooldown: {}, dmgReduce: 0,
-});
-// 伤害预估:照抄 duel.js:360-361(玩家在按钮上看到的那个数)
-const estDmg = (hero, id, eDef) => {
-  const lv = hero.arts[id] || 0;
-  const mul = SUPERS.has(id) ? 2.2 : 1 + Math.max(0, lv - 1) * 0.15;
-  return Math.max(1, Math.round((10 + lv * 4) * mul) - eDef);
+/** 技能栏此刻真实渲染出来的按钮 —— 产品的 innerHTML,门禁只读不造。
+ *  顺带记账:每个按钮都必须带产品自己渲染的「威力 N」。
+ *  少了它,greedy/lowest 就退化成「闭眼点第 0 个」,策略这一维是假的。 */
+const BTN = { seen: 0, noEst: 0 };
+function liveBtns() {
+  const html = reg('#xd-sk').innerHTML || '';
+  return (html.match(/<button[\s\S]*?<\/button>/g) || []).map(h => ({
+    art: (h.match(/data-art="([^"]+)"/) || [])[1],
+    sup: /xx-sk-tag/.test(h),                                   // 产品自己打的「超武」标签
+    est: Number((h.match(/威力 (-?\d+)/) || [])[1]),             // 产品自己渲染的伤害预估
+  })).filter(b => b.art).map(b => {
+    BTN.seen++;
+    if (!Number.isFinite(b.est)) BTN.noEst++;
+    return b;
+  });
+}
+/** 技能栏此刻是不是「轮到玩家决策」。产品自己用 classList 的 'on' 标记的。
+ *  ⚠️ 判据**不能**写成「innerHTML 里还有没有按钮」:走强制普攻分支时 duel.js
+ *  只 remove('on'),**不清 innerHTML** —— 上一回合的按钮原样留在 DOM 里。
+ *  照着点就等于在产品已经决定「你只能硬撼一掌」的回合里替玩家多出一张牌,
+ *  cardsPlayed 会虚高、forcedTurns 会被吃掉,而这两项正是 PROBE-8 的判据。 */
+const skOn = () => reg('#xd-sk')._cls.has('on');
+const idxBest = (bs, v, better) => {
+  let bi = -1, bv = better === 'max' ? -Infinity : Infinity;
+  bs.forEach((b, i) => { const x = v(b); if (Number.isFinite(x) && (better === 'max' ? x > bv : x < bv)) { bv = x; bi = i; } });
+  return bi;
 };
 const STRATS = {
-  first:  (u) => u[0],
-  greedy: (u, h, e) => u.reduce((b, id) => (estDmg(h, id, e.def) > estDmg(h, b, e.def) ? id : b), u[0]),
-  lowest: (u, h, e) => u.reduce((b, id) => (estDmg(h, id, e.def) < estDmg(h, b, e.def) ? id : b), u[0]),
-  superFirst: (u, h, e) => u.find(id => SUPERS.has(id)) || u.reduce((b, id) => (estDmg(h, id, e.def) > estDmg(h, b, e.def) ? id : b), u[0]),
+  first:      bs => 0,
+  greedy:     bs => idxBest(bs, b => b.est, 'max'),
+  lowest:     bs => idxBest(bs, b => b.est, 'min'),
+  superFirst: bs => { const i = bs.findIndex(b => b.sup); return i >= 0 ? i : idxBest(bs, b => b.est, 'max'); },
 };
-/** 打一场。严格照 duel.js 的流程,包括冷却清空时的强制普攻分支。 */
-function simulate(foe, hprof, stratName, seed) {
-  seedRng(seed);
-  const e = {
-    key: 'x', title: foe.name, realm: 'x', col: '#fff', hpMax: 100,
-    hp: Math.max(1, Math.round(100 * Math.max(0.05, Math.min(1, foe.hpRatio)))),
-    dmg: Math.round(10 + foe.realmIdx * 6 + (foe.stronger ? 4 : 0)), line: '「……」', def: 2,
-  };
-  if (foe.nemesis) e.dmg = Math.round(e.dmg * 1.6);      // relations.js:35,grudge 中位取 ×1.6
-  const s = mkHero(hprof);
+const TURN_CAP = 400;      // 单场出牌数上限:超过 = 流程不收敛,记 stall 而不是安静地转
+const STEP_CAP = 4000;     // 一次推进的定时器步数上限(打字机一行字就几十步)
+const LOOP_CAP = 2000;     // 单场循环轮数上限
+
+/** 真打一场:每个数字都出自 duel.js + battle.js,胜负只认 onWin / onLose。 */
+function simulate(foe, hprof, stratName, seed, fault) {
   const strat = STRATS[stratName];
-  const TURN_CAP = 400;                                   // 超时判平局,防止不收敛把门禁挂死
-  let turns = 0, basicTurns = 0;
-  const foeDmgSeq = [];
-  while (!isDead(e) && !playerDead(s) && turns < TURN_CAP) {
-    // ⚠️ 2026-10-11 补上这一行。原实现**从不递减冷却**,于是这个模拟器测的是
-    //   「冷却永远不转」的世界 —— 一招放完 cd=4,此后再无任何牌可用,
-    //   第 1 回合起全程强制普攻。而真实游戏 duel.js:399 是**每回合减 1** 的:
-    //       if (!preId) tickCooldown(S.hero);
-    //   (同一文件 248 行的 mkArts 辅助函数**确实**调了 tickCooldown,只有 simulate 没有。
-    //    同一文件内部不一致,是典型的「度量工具自己出错」。)
-    //
-    //   实测:补上之后 PROBE-6/7/10 三个数字**一个都没变**(0/24、21/24、仍只出 1 招)
-    //   ⇒ 这行不是这三个探针变坏的原因,补它是为了**以后**改 cd 数值时这个模拟器还靠得住。
-    //   在此之前,任何基于本模拟器的 cd 结论都要先确认它到底模拟了没有。
-    tickCooldown(s);
-    const usable = availableArts(s).filter(id => canUseArt(s, id));
-    if (usable.length) playerAct(s, e, strat(usable, s, e));
-    else {
-      // duel.js:346-347 强制普攻 —— **不减冷却**,也不判敌人死
-      e.hp = Math.max(0, e.hp - Math.max(3, Math.round(14 - e.def)));
-      basicTurns++;
-      if (isDead(e)) break;
-    }
-    if (isDead(e)) break;
-    foeDmgSeq.push(enemyAct(e, s).dmg);
-    turns++;
+  seedRng(seed);
+  // 计数的随机源。⚠️ 必须装在 **Duel.start 之前** —— makeEnemy 自己要抽两次随机数,
+  //   装晚了那两次就看不见,H3 的裸跑会整体错开一位(实测序列平移一格)。
+  //   H3 用「第一记敌攻之前产品已经吃掉了多少随机数」把随机流推到同一个位置,
+  //   那个数是这里**量**出来的,不是抄 battle.js 数出来的。
+  let draws = 0;
+  globalThis.Math.random = () => { draws++; return _rng(); };
+  // ⚠️ 玩家的血量上限由 **Cult.s.realm** 决定(duel.js 的 pIdx 读 Cult.get().realm,
+  //   再算 heroHpMax = 100 + pIdx*30)—— cfg.hero.realmIdx 根本不参与计算。
+  //   配置「玩家档位」必须落到存档上,不是写进 cfg。
+  Cult.s.realm = REALMS[hprof.pIdx].id;
+  Cult.s.arts = { ...hprof.arts };
+  // ⚠️ 宿敌强度走存档里的 grudge,而每打赢一场 grudge += 20(relations.js 的 battle()).
+  //   不重置的话第 N 场量到的是前 N-1 场的遗产 ⇒ 同一颗种子两遍跑出两个数。
+  Cult.nemesis.s = { met: false, battles: 0, wins: 0, alive: true, grudge: foe.grudge || 0 };
+
+  let win = false, loss = false, turns = -1;
+  G_Duel.start({
+    node: { type: 'boss' },
+    hpRatio: foe.hpRatio,
+    hero: { name: '轩轩', img: 'h.jpg', realmIdx: hprof.pIdx },
+    foe: { key: 'boss_golem', name: foe.name, img: 'f.jpg', realmIdx: foe.realmIdx,
+           stronger: !!foe.stronger, isNemesis: !!foe.nemesis },
+    // ⚠️ onWin / onLose 都在 close() **之前**被调,这是唯一还读得到 S.round 的时刻
+    //   —— 关掉之后 Duel.S 就是 null 了。
+    onWin: () => { win = true; turns = G_Duel.S.round; },
+    onLose: () => { loss = true; turns = G_Duel.S.round; },
+  });
+
+  // —— 反向注入的把手:只动**会话状态**,一个字符都不改产品代码 ——
+  //   尺子若对 e.dmg / e.hp 毫无反应,说明它压根没在量伤害,上面所有数字都是空的。
+  if (fault) {
+    if (fault.foeDmgMul) G_Duel.S.e.dmg *= fault.foeDmgMul;
+    if (fault.foeHp != null) G_Duel.S.e.hp = fault.foeHp;
   }
-  return { win: isDead(e), loss: playerDead(s), stall: turns >= TURN_CAP,
-           turns, basicTurns, hpLeft: Math.max(0, s.hp), hpMax: s.hpMax, foeDmgSeq };
+  const ruler = { eDmg: G_Duel.S.e.dmg, guard: G_Duel.S.hero.dmgReduce,
+                  hp0: G_Duel.S.hero.hp, firstHitDraws: -1 };
+
+  const seq = [], used = new Set();
+  let lastHp = ruler.hp0, lastFoeHp = G_Duel.S.e.hp, forced = 0, cards = 0;
+  /** 血量一变就记账。justPlayed = 刚刚点过牌(出牌的伤害是同步发生的,不算强制普攻) */
+  const observe = justPlayed => {
+    const S = G_Duel.S; if (!S) return;
+    if (S.hero.hp !== lastHp) {
+      if (ruler.firstHitDraws < 0) ruler.firstHitDraws = draws;
+      seq.push(lastHp - S.hero.hp); lastHp = S.hero.hp;
+    }
+    if (S.e.hp !== lastFoeHp) { if (!justPlayed) forced++; lastFoeHp = S.e.hp; }
+  };
+  const stepAll = (label, maxSteps = STEP_CAP) => {
+    let g = 0;
+    while (timers.size) {
+      if (++g > maxSteps) throw new Error(`假时钟不收敛(${label}):还有 ${timers.size} 个定时器在排队`);
+      const id = timers.keys().next().value;
+      const fn = timers.get(id); timers.delete(id);
+      fn(); observe(false);
+    }
+  };
+
+  let loop = 0, stall = false;
+  try {
+    stepAll('G·开场');
+    while (G_Duel.S && !G_Duel.S.over && loop++ < LOOP_CAP) {
+      if (!skOn()) {
+        // 「无牌可打」:产品自己走强制普攻分支,让假时钟推进,不点任何按钮。
+        // forcedTurns 由 observe 数敌人血量的下降(那张牌是产品替玩家打的)。
+        const before = G_Duel.S.e.hp;
+        stepAll('G·强制普攻');
+        if (!G_Duel.S || G_Duel.S.over) break;
+        if (G_Duel.S.e.hp === before && !skOn()) { stall = true; break; }
+        continue;
+      }
+      const btns = liveBtns();
+      const i = btns.length ? strat(btns) : -1;
+      if (!(i >= 0 && i < btns.length) || !clickArt(i)) { stall = true; break; }
+      used.add(btns[i].art); cards++;
+      observe(true);
+      stepAll('G·一回合');
+      if (cards > TURN_CAP) { stall = true; break; }
+    }
+    stepAll('G·终局');
+  } finally {
+    globalThis.Math.random = () => _rng();
+  }
+  // ⚠️ 战败要点掉 #xd-defeat 的四选项,而且判据是 **S.over**,不是「我以为输了」。
+  //   判错的后果很具体:onLose 是**被这次点击**调出来的,用 onLose 的结果去决定要不要点,
+  //   就是死锁 —— 输掉的每一场都永远不点、永远不判负、busy 也永远不复位
+  //   (close() 是唯一复位 Duel.busy 的地方,XX-DUEL-005)。第一版就是这么写的。
+  //   打赢的那场 close() 已经跑过、S 已经清空,所以这个判据天然只命中败北路径。
+  if (G_Duel.S && G_Duel.S.over) {
+    const opts = reg('#xd-defeat').querySelectorAll('.xx-chio');
+    if (opts.length) opts[0].onclick();
+    stepAll('G·战败结算');
+  }
+  // 没打完的残留(stall)在这里清掉。⚠️ 清的是**会话状态**,stall 本身照样计数、照样报红 ——
+  //   目的是不让一场没打完的架把后面 3.8 万场一起拖进同一个坏世界。
+  if (G_Duel.S) { G_Duel.S = null; G_Duel.busy = false; }
+  // 阵亡那一击**无法**从血量差里还原真实伤害:enemyAct 把结果夹到 0,
+  // 血量差只等于「剩下的血」。丢掉它再交给 G2 / H3 比对 ——
+  // 留着的话 G2 会拿到一个假的「策略反例」。
+  if (loss && seq.length) seq.pop();
+  return { win, loss, stall, turns: Math.max(0, turns),
+           cardsPlayed: cards, forcedTurns: forced, cardsUsed: used.size,
+           foeDmgSeq: seq, ruler };
 }
 const N_SEEDS = 400;
 const ST = Object.keys(STRATS);
 const rows = [];
+const COUNTER = { duels: 0, terminals: 0, stalls: 0, multiCard: 0 };
 for (const h of HEROES) for (const foe of ENEMIES) {
   const cell = { hero: h.name, foe: foe.name, res: {} };
   for (const st of ST) {
-    let w = 0, tt = 0, bh = 0; const seqs = [];
+    let w = 0, tt = 0, bh = 0, cp = 0, sl = 0; const seqs = [];
     for (let i = 0; i < N_SEEDS; i++) {
       const r = simulate(foe, h, st, 1000 + i);
+      COUNTER.duels++;
+      if (r.win || r.loss) COUNTER.terminals++;
+      if (r.stall) { COUNTER.stalls++; sl++; }
+      if (Object.keys(h.arts).length > 1 && r.cardsUsed > 1) COUNTER.multiCard++;
       if (r.win) w++;
-      tt += r.turns; bh += r.basicTurns;
+      tt += r.turns; bh += r.forcedTurns; cp += r.cardsPlayed;
       if (i < 12) seqs.push(r.foeDmgSeq);
     }
-    cell.res[st] = { wr: w / N_SEEDS, tr: tt / N_SEEDS, bt: bh / N_SEEDS, seqs };
+    cell.res[st] = { wr: w / N_SEEDS, tr: tt / N_SEEDS, bt: bh / N_SEEDS, cp: cp / N_SEEDS, seqs, sl };
   }
   rows.push(cell);
 }
-console.log(`\n  胜率 / 平均回合数 —— ${N_SEEDS} 个种子 × ${ST.length} 种策略`);
-console.log('  ' + '玩家'.padEnd(13) + '敌人'.padEnd(12) + ST.map(s => s.padEnd(15)).join(''));
+
+// ════════════════════════════════════════════
+console.log('\n=== [G-防退化] 反空转:门禁自己必须真的把产品跑起来了 ===');
+// ════════════════════════════════════════════
+//
+// ⚠️ 这一段是本节存在的理由。simulate() 改成驱动真产品之后,最大的风险**不是跑不动**,
+//   而是「什么都没跑却输出好看的数字」:DOM 桩没接上、onWin/onLose 永远不调、
+//   异常被吞掉于是每场都判平局。那会让 PROBE-7/10 变成纯噪声,**比改之前更坏**。
+//   所以只要「一场都没走到产品的终局回调」,就 exit 2 —— 不是 exit 1:
+//   exit 1 的含义是「产品不达标」,而这里的含义是「门禁自己失效,结论不可信」。
+if (COUNTER.terminals === 0) {
+  console.log('\n🛑 门禁自身失效,以下结果全部不可信 —— 按约定 exit 2(而不是 exit 1):');
+  console.log(`     🛑 ${COUNTER.duels} 场决斗,产品的 onWin/onLose 一场都没被调用过。`);
+  console.log('     🛑 这意味着 simulate() 没有真的驱动 Duel.start(或异常被吞了),');
+  console.log('     🛑 下面的胜率/回合数全是一个不存在的世界里的数 —— 别信结论。');
+  process.exit(2);
+}
+console.log(`  · ${COUNTER.duels} 场决斗全部经过 Duel.start;终局回调命中 ${COUNTER.terminals} 场` +
+            `${COUNTER.stalls ? `,未收场 ${COUNTER.stalls} 场` : ''}`);
+if (COUNTER.stalls) {
+  console.log('  · 未收场分布(诊断):');
+  for (const r of rows) for (const st of ST) if (r.res[st].sl)
+    console.log(`      ${r.hero}×${r.foe} [${st}] ${r.res[st].sl}/${N_SEEDS}`);
+}
+
+/** 只给自检用的小扫描:不写进 rows,种子段也另开,免得自检与被测状态耦合。 */
+const scan = (foe, h, st, n, fault) => {
+  let w = 0, tt = 0, ended = 0;
+  for (let i = 0; i < n; i++) {
+    const r = simulate(foe, h, st, 70000 + i, fault);
+    if (r.win) w++; tt += r.turns; if (r.win || r.loss) ended++;
+  }
+  return { wr: w / n, tr: tt / n, ended };
+};
+{
+  const FAULT_SEEDS = 60, FK = ENEMIES[3], FH = HEROES[0];   // boss·金丹 × 新手·单神通
+  const base = scan(FK, FH, 'first', FAULT_SEEDS);
+  const hurt = scan(FK, FH, 'first', FAULT_SEEDS, { foeDmgMul: 10 });
+  const easy = scan(FK, FH, 'first', FAULT_SEEDS, { foeHp: 1 });
+  t(`G-自检·反向注入:敌人伤害 ×10 之后这一格必然掉到 0%(测不出差异 = 尺子在测一个不存在的世界)`,
+    hurt.wr === 0 && hurt.tr < base.tr,
+    `基线 ${(base.wr * 100).toFixed(1)}% / ${base.tr.toFixed(2)} 回合 → ×10 后 ` +
+    `${(hurt.wr * 100).toFixed(1)}% / ${hurt.tr.toFixed(2)} 回合(e.dmg ${FK.realmIdx} 档被放大)`);
+  t('G-自检·反向注入:把敌人残血改到 1 血之后这一格必然 100%(证明胜率不是被写死的)',
+    easy.wr === 1,
+    `实测 ${(easy.wr * 100).toFixed(1)}% —— 判据读的是产品的 onWin/onLose,不是门禁自己的算术`);
+  t(`G-自检·策略轴是活的:多神通玩家真的在一场里打出过不止一张不同的牌(${COUNTER.multiCard} 场)`,
+    COUNTER.multiCard > 0,
+    '四种策略全都只点第 0 个按钮 ⇒ 「换策略」这一维是空的,PROBE-10 的 0 没有信息量');
+  t(`G-自检·每一场都以产品的终局回调收场(${COUNTER.terminals}/${COUNTER.duels})`,
+    COUNTER.terminals === COUNTER.duels,
+    `${COUNTER.duels - COUNTER.terminals} 场既没 onWin 也没 onLose ⇒ 桩没接上或流程不收敛`);
+  t('G-自检·技能栏按钮带的是产品自己渲染的伤害预估(策略不是闭眼点的)',
+    BTN.seen > 0 && BTN.noEst === 0,
+    `扫过 ${BTN.seen} 个按钮,其中 ${BTN.noEst} 个没有「威力 N」` +
+    ` ⇒ greedy/lowest 会退化成「闭眼点第 0 个」,策略这一维是假的`);
+}
+console.log(`\n  胜率 / 平均回合 / 平均出牌 —— ${N_SEEDS} 个种子 × ${ST.length} 种策略(真跑 Duel.start)`);
+console.log('  ' + '玩家'.padEnd(13) + '敌人'.padEnd(12) + ST.map(s => s.padEnd(22)).join(''));
 for (const r of rows) {
   console.log('  ' + r.hero.padEnd(11) + r.foe.padEnd(10) +
-    ST.map(s => `${(r.res[s].wr * 100).toFixed(1)}%/${r.res[s].tr.toFixed(1)}回合`.padEnd(15)).join(''));
+    ST.map(s => `${(r.res[s].wr * 100).toFixed(1)}%/${r.res[s].tr.toFixed(1)}回合/${r.res[s].cp.toFixed(1)}招`.padEnd(22)).join(''));
 }
 
 {
@@ -898,13 +1071,47 @@ console.log('\n=== [H] 度量工具自检:门禁自己不能是错的 ===');
   }
   {
     // 同种子下,第 k 次敌攻的伤害与战斗长短无关(只由种子决定)
-    const one = simulate(ENEMIES[3], HEROES[2], 'greedy', 777);
-    seedRng(777);
+    //
+    // ⚠️ 2026-10-11 随 [G] 重写改判据。原来的裸跑是这么对齐随机流的:
+    //   seedRng(777) 之后**直接**开始调 enemyAct —— 那是「模拟器自己从头跑到尾」的世界。
+    //   现在 simulate 走真产品,第一记敌攻之前产品已经吃掉了若干随机数
+    //   (makeEnemy 要两次、BGM/开场白还要别的),所以裸跑必须**先把随机流推到同一个位置**。
+    //   推多少是 simulate 自己**量**出来的(ruler.firstHitDraws),不是抄 battle.js 数出来的 ——
+    //   抄一份「一次敌攻吃几个随机数」进来,就是在重造那份「自己维护的副本」的老毛病。
+    // ⚠️ 种子要在**这一格**上找一场「敌人真的出过手」的:改走真产品之后,
+    //   后期·三神通 打 boss·金丹 是 0 回合速杀(实测 400 颗种子一次都没轮到敌人出手),
+    //   敌攻序列恒空 ⇒ 「逐项复现」成了对空数组的 every(),恒真,等于没验。
+    //   所以换成新手·单神通 × 宿敌·结怨(e.dmg 42 + 护体,新手挨得下来),再固定扫一小段种子。
+    //   一段种子都找不到 ⇒ 这条自检没有信息量,照样报红,而不是悄悄通过。
+    const CELL_E = ENEMIES[4], CELL_H = HEROES[0];
+    let one = null, usedSeed = null;
+    for (let s = 777; s < 777 + 40 && !one; s++) {
+      const r = simulate(CELL_E, CELL_H, 'greedy', s);
+      if (r.foeDmgSeq.length) { one = r; usedSeed = s; }
+    }
+    // 「一次敌攻吃几个随机数」:调一次真 enemyAct 数出来。
+    seedRng(4242);
+    let n = 0;
+    globalThis.Math.random = () => { n++; return _rng(); };
+    enemyAct({ dmg: 10, line: 'x', hp: 100 }, { hp: 100, dmgReduce: 0 });
+    globalThis.Math.random = () => _rng();
+    const perHit = n;
+    // 阵亡那一击已被 simulate 丢掉了(enemyAct 把结果夹到 0,血量差还原不出真实伤害)
     const bare = [];
-    for (let i = 0; i < one.foeDmgSeq.length; i++) bare.push(enemyAct({ dmg: 26, line: 'x', hp: 100 }, { hp: 100, dmgReduce: 0 }).dmg);
-    t('H3 敌攻伤害只由种子决定(裸跑 enemyAct 能复现模拟里的序列)',
-      bare.every((v, i) => v === one.foeDmgSeq[i]),
-      `模拟 ${JSON.stringify(one.foeDmgSeq)} vs 裸跑 ${JSON.stringify(bare)}`);
+    if (one) {
+      seedRng(usedSeed);
+      for (let i = 0; i < one.ruler.firstHitDraws - perHit; i++) Math.random();
+      let hp = one.ruler.hp0;
+      for (let i = 0; i < one.foeDmgSeq.length; i++) {
+        const r = enemyAct({ dmg: one.ruler.eDmg, line: 'x', hp: 100 }, { hp, dmgReduce: one.ruler.guard });
+        bare.push(r.dmg); hp = Math.max(0, hp - r.dmg);
+      }
+    }
+    t(`H3 敌攻伤害只由种子决定(裸跑 enemyAct 能复现模拟里的序列,每次敌攻吃 ${perHit} 个随机数)`,
+      !!one && one.foeDmgSeq.length > 0 && bare.every((v, i) => v === one.foeDmgSeq[i]),
+      one ? `种子 ${usedSeed}:模拟 ${JSON.stringify(one.foeDmgSeq)} vs 裸跑 ${JSON.stringify(bare)}` +
+           `(e.dmg ${one.ruler.eDmg} / 护体 ${one.ruler.guard} / 开场消耗 ${one.ruler.firstHitDraws} 个随机数)`
+         : '这一格连扫 40 颗种子都没打出一场「敌人出过手」的架 ⇒ 敌攻序列恒空,这条断言没有信息量');
   }
   {
     const lens = new Set(rows.map(r => r.res.first.tr));

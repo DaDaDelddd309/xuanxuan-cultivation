@@ -5,9 +5,22 @@ import { WEAPONS } from '../game/weapons.js?v=17';
 import { CHARACTERS } from '../game/player.js?v=17';
 import { Input } from '../core/input.js?v=17';
 import { collatzParityAt } from '../game/spawner.js?v=19';   // XX-MATH-001:局内「爆发/收敛」信号
+import { BOSS_DESIGNS } from '../game/boss.js?v=17';           // Boss 出场时刻(预警时刻由它推导,不写死 240)
 
 // 属性面板行标签(顺序与 _updateStats 的 vals 一一对应)
 const STAT_LABELS = ['攻击', '冷却', '护甲', '移速', '范围', '经验', '财运', '拾取'];
+
+// ————————————————————————— Boss 预警(纯提示)—————————————————————————
+// 同事实测:多数玩家活不到 300s,于是 v099p 精心做的「水墨过场 + 血量继承」
+// 实际曝光率接近零。这一行只解决「看不见」,**不碰任何平衡数值**:
+// 不改刷怪、不改 Boss 强度、不改掉落、不改 boss.js 的任何一行。
+//
+// 时刻不写死 240:BOSS_HINT_LEAD(提前量)− BOSS_DESIGNS.boss_golem.startTime。
+// 改 Boss 的出场时间,预警自己跟着走,不会悄悄对不上。
+const BOSS_HINT_LEAD = 60;
+const BOSS_HINT_AT = BOSS_DESIGNS.boss_golem.startTime - BOSS_HINT_LEAD;  // 当前 = 240s
+const BOSS_HINT_TEXT = '⚠ 前方有强敌';
+const BOSS_HINT_HOLD = 8000;   // 到点显示后自己收走:是「一句话」,不是常驻横幅
 
 // 小尺寸像素图标 canvas(关闭平滑、按 dpr 渲染保持锐利)
 function spriteCanvas(name, px) {
@@ -41,6 +54,7 @@ export const HUD = {
   _wSig: '', _low: false, _flashT: 0,
   _glyph: null, _cdSpan: null, _dashOn: null, _dashTxt: '', _dashT: -1e9, // 冲刺按钮
   _statVals: null, _statSig: '', _statT: -1e9, _statWide: false,     // 属性面板
+  _bossHintEl: null, _bossHintDone: false, _bossHintOn: false, _bossHintT: null, // Boss 预警
 
   init(g) {
     this.g = g;
@@ -51,6 +65,7 @@ export const HUD = {
     this.el['btn-dash'] = document.getElementById('btn-dash');
     this._initDashBtn();
     this._initStatsPanel();
+    this._initBossHint();
     window.addEventListener('resize', () => this._applyStatWidth());
   },
 
@@ -63,6 +78,8 @@ export const HUD = {
       this.el.hud.classList.remove('low-hp');
       this._low = false;
       this._resetDashVisual();
+      this._bossHintDone = false;   // 一局一次:收摊即复位,下一局重新给
+      this._hideBossHint();
     } else {
       // 重进对局:重置缓存,强制首帧刷新
       this._hp = -1; this._hpTxt = ''; this._hpW = ''; this._xpW = ''; this._sec = -1;
@@ -73,6 +90,7 @@ export const HUD = {
       this.el['hud-boss-fill'].style.width = '0%';
       this._dashT = -1e9; this._dashOn = null; this._dashTxt = null; // 冲刺按钮强制首帧刷新
       this._statT = -1e9; this._statSig = '';                       // 属性面板强制刷新
+      this._bossHintDone = false; this._hideBossHint();             // Boss 预警:新一局重新计一次
       this._applyStatWidth();
     }
   },
@@ -117,6 +135,12 @@ export const HUD = {
     if (g.stats.gold !== this._gold) { this._gold = g.stats.gold; this.el['hud-gold'].textContent = '🪙 ' + g.stats.gold; }
     if (p.level !== this._lv) { this._lv = p.level; this.el['hud-level'].textContent = 'Lv.' + p.level; }
 
+    // ---- Boss 预警(每局恰好一次:置位在显示之前,同帧反复调用也不会重画)----
+    if (!this._bossHintDone && g.time >= BOSS_HINT_AT) {
+      this._bossHintDone = true;
+      this._showBossHint();
+    }
+
     // ---- Boss 血条 ----
     const b = g.boss;
     const on = !!(b && !b.dead && b.maxHp && b.hp > 0);
@@ -158,6 +182,43 @@ export const HUD = {
     const now = performance.now();
     this._updateDash(now);
     this._updateStats(now);
+  },
+
+  // ---------- Boss 预警(到点一行,自己收走)----------
+  _initBossHint() {
+    const hud = this.el.hud;
+    if (!hud || this._bossHintEl) return;
+    const el = document.createElement('div');
+    el.id = 'hud-boss-hint';
+    el.className = 'hud-boss-hint hidden';   // 初始隐藏 = 240s 前不出现(结构性保证,不是靠判断)
+    // 内联兜底样式:美术 CSS 尚无 .hud-boss-hint 时也可用(不改 CSS,类样式可直接覆盖布局)
+    // 位置选在 .hud-top(顶 0)与 #hud-boss(顶 66px)之间的空档,两层都不压。
+    el.style.cssText =
+      'position:absolute;left:50%;top:calc(42px + env(safe-area-inset-top));transform:translateX(-50%);z-index:6;' +
+      'padding:4px 14px;pointer-events:none;white-space:nowrap;' +
+      'background:rgba(43,43,43,.82);border:1px solid rgba(200,168,96,.55);border-radius:3px;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,.45);font-size:13px;line-height:1.5;letter-spacing:2px;color:' + PAL.crit + ';';
+    el.textContent = BOSS_HINT_TEXT;
+    hud.appendChild(el);
+    this.el['hud-boss-hint'] = el;
+    this._bossHintEl = el;
+  },
+
+  _showBossHint() {
+    const el = this._bossHintEl;
+    if (!el) return;
+    el.classList.remove('hidden');
+    this._bossHintOn = true;
+    clearTimeout(this._bossHintT);
+    this._bossHintT = setTimeout(() => this._hideBossHint(), BOSS_HINT_HOLD);
+  },
+
+  _hideBossHint() {
+    clearTimeout(this._bossHintT);          // 无条件清:否则上一局的收摊定时器会打在新一局头上
+    this._bossHintT = null;
+    if (!this._bossHintEl || !this._bossHintOn) return;
+    this._bossHintEl.classList.add('hidden');
+    this._bossHintOn = false;
   },
 
   // ---------- 冲刺按钮 ----------
