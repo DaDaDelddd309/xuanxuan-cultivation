@@ -74,9 +74,17 @@ def tap(pg, sel, tries=10):
     return False
 
 def diagnose(pg, sel, why='未知'):
-    """点不到的时候,说清楚到底是什么挡住了。"""
+    """点不到的时候,说清楚到底是什么挡住了。
+
+    ⚠️ 上一版(run 38115776371)这里写的是 `pg.evaluate(js)` —— **漏传了 sel**,
+       JS 里 s 就是 undefined,`querySelectorAll(undefined)` 匹配 0 个,
+       于是永远走「选择器不中任何元素」分支,打出一堆看着像真相的假诊断。
+       破绽就在它自己的输出里:'sel': None —— 我明明传了选择器。
+       (本项目第 16 次「度量工具自己比被检查对象更武断」。)
+    ⚠️ 所以这里加一条自检:s 必须是字符串,否则宁可报「诊断本身坏了」也不给假数据。"""
     try:
-        return pg.evaluate("""s=>{
+        r = pg.evaluate("""s=>{
+          if (typeof s !== 'string' || !s) return {DIAG_BROKEN:String(s)};
           const all=[...document.querySelectorAll(s)];
           const e=all[0];
           if(!e) return {sel:s, why:'选择器不中任何元素', n:0};
@@ -86,13 +94,16 @@ def diagnose(pg, sel, why='未知'):
           const cs=getComputedStyle(e);
           const blockers=[...document.querySelectorAll('.xx-ritual,.xx-storycard,.xx-duel,#xx-nag-host')]
             .filter(x=>x.offsetParent!==null)
-            .map(x=>x.className+'|'+x.dataset.nag).slice(0,4);
+            .map(x=>(x.className||'')+'|nag='+(x.dataset&&x.dataset.nag)).slice(0,4);
           return {sel:s, why:WHY, n:all.length, nVisible:all.filter(x=>x.offsetParent!==null).length,
                   rect:[Math.round(r.width),Math.round(r.height)],
                   display:cs.display, visibility:cs.visibility, opacity:cs.opacity, pointerEvents:cs.pointerEvents,
                   covered: top? (top===e?null : (top.tagName+'.'+top.className)) : 'none',
                   blockers};
-        }""".replace('WHY', repr(why)))
+        }""".replace('WHY', repr(why)), sel)
+        if 'DIAG_BROKEN' in r:
+            return {'警告': '诊断自身失败:选择器没传进去', 'got': r['DIAG_BROKEN']}
+        return r
     except Exception as e:
         return {'sel': sel, 'why': why, 'diagError': str(e)[:60]}
 
