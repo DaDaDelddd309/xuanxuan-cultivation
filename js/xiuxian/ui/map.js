@@ -108,19 +108,34 @@ export function regionLayer(nodes, posOf, s, isNight) {
     const known = members.some(n => s.visited && s.visited[n.id]);
     const cur = members.some(n => s.current === n.id);
 
-    const label = known
-      ? `<div class="xx-rgn-nm">${esc(region.name)}</div>
-         <div class="xx-rgn-sub">
-           <span class="xx-rgn-fa">${esc(f ? f.name : '无主')}</span>
-           <span class="xx-dg ${dangerClass(v.danger)}">危 ${v.danger}</span>
-         </div>`
-      : `<div class="xx-rgn-nm xx-rgn-unknown">未探之地</div>`;
+    // ⚠️ XX-MAP-002(2026-10-12 外部审计截图 + 复核):**整个区域都不画**。
+    //
+    //   原来未知区域照样渲染一个框,只是把标签换成「未探之地」——
+    //   而 `css/xiuxian.css` 的 `.xx-rgn-unknown` **只改文字颜色**,框本身
+    //   (虚线边框 + 9% 底色)一点没变。于是新号上 5 个区域全是同样式的框,
+    //   每个都写「未探之地」,挤在 380×274px 里互相交叉 ——
+    //   实测 5 个框、3 对互相重叠、平均每个节点被 1.6 个框穿过。
+    //   而这是玩家进游戏第一眼看到的东西。
+    //
+    //   为什么不「压到极淡」而选择完全不画:
+    //   区域框是**情报**,不是氛围。节点本身已经在图上可见可点,
+    //   「这里还有没去过的地方」这个信息**没有丢**;
+    //   丢的只是「这片区域的矩形边界」—— 那是渲染细节,玩家本来也读不出含义。
+    //   保留框只为了淡,等于用 5 块半透明色斑继续遮着节点和连线。
+    //   踩到任意一个节点,框连同名字、势力、危险度一起出现 —— 刚好也是「探索揭示」该有的节奏。
+    if (!known) return '';
+
+    const label = `<div class="xx-rgn-nm">${esc(region.name)}</div>
+      <div class="xx-rgn-sub">
+        <span class="xx-rgn-fa">${esc(f ? f.name : '无主')}</span>
+        <span class="xx-dg ${dangerClass(v.danger)}">危 ${v.danger}</span>
+      </div>`;
 
     return `<div class="xx-rgn${cur ? ' xx-rgn-cur' : ''}"
       style="left:${rect.x}%;top:${rect.y}%;width:${rect.w}%;height:${rect.h}%;
              --xx-rgn-col:${esc(region.col)}"
       data-region="${esc(region.id)}"
-      title="${known ? esc(region.desc) : ''}">
+      title="${esc(region.desc)}">
       ${label}
     </div>`;
   }).join('');

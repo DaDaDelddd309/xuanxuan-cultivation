@@ -139,6 +139,14 @@
 .xx-chio .h em{font-style:normal;font-size:10px;color:var(--xx-cinnabar);
   border:1px solid var(--xx-cinnabar);padding:1px 6px;border-radius:2px}
 .xx-chio .d{font-size:11.5px;color:rgba(232,220,196,.55);line-height:1.65}
+/* 战败四条路的严重度分级(XX-DUEL-003)。
+   原来「反抗」和「认栽」都是 data-c="ruin",靠一条**内联** border-color 硬凑出区别 ——
+   内联样式 CSS 管不到,任何靠 data-c 驱动的规则都区分不了它们。
+   现在 data-c 与 relations.js 的 type 一一对应(resist/installment/ransom/ruin),
+   严重度就该由 CSS 按语义给,而不是塞在 HTML 里。 */
+.xx-chio[data-c="ruin"]{border-color:color-mix(in srgb, var(--xx-cinnabar) 50%, transparent)}    /* 修为尽废,跌一大境 —— 最重 */
+.xx-chio[data-c="resist"]{border-color:color-mix(in srgb, var(--xx-cinnabar) 26%, transparent)} /* 同样跌境,但留一半修为 */
+.xx-chio[data-c="ransom"]{border-color:color-mix(in srgb, var(--xx-gold) 34%, transparent)}      /* 破财免灾 */
 
 /* 提示气泡 */
 .xx-toast{position:absolute;left:50%;top:31%;transform:translateX(-50%);z-index:95;

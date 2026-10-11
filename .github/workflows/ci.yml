@@ -76,3 +76,25 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - name: 浏览器实测套件
         run: bash tests/run-browser.sh
+      # 视觉巡检(XX-VISUAL-001):tools/visual/audit.py 扫字体缺失/裁切/溢出/
+      # 过小字号/对比度。之前它**从来没在 CI 上跑过** —— 而手机没有 chromium,
+      # 所以这些维度在整轮开发里等于完全没测过(区域框叠成一团就是这么漏掉的)。
+      #
+      # ⚠️ 这里**故意不加 --strict**。已知存量约 199 处对比度命中,一开就是天天红,
+      #   而红了就会被无视 —— 比不测更坏。先只**产出数据**(JSON 存进 artifact),
+      #   等基线录出来再升级成硬门禁。判据取自被测对象本身,不许拍脑袋设阈值。
+      - name: 视觉巡检(只报告,不卡门禁)
+        run: |
+          python3 -m http.server 8899 --bind 127.0.0.1 >/dev/null 2>&1 &
+          SRV=$!
+          sleep 2
+          python3 tools/visual/audit.py --port 8899 --json visual-report.json || true
+          echo "--- 视觉巡检完成(报告见 artifact,暂不卡门禁) ---"
+          kill $SRV 2>/dev/null || true
+      - name: 上传视觉巡检报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-report
+          path: visual-report.json
+          if-no-files-found: ignore

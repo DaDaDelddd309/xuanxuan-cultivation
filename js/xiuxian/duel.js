@@ -416,18 +416,18 @@ export const Duel = {
         `<div class="xx-defeat-in">
            <h3>战 败</h3>
            <div class="sub">你活着。但要付出代价。</div>
-           <div class="xx-chio" data-c="ruin">
+           <div class="xx-chio" data-c="resist">
              <div class="h">硬受一击,转身就走 <em>反抗</em></div>
-             <div class="d">不退。修为倒退,但那股狠劲留在了骨头里。入魔值 +15。</div></div>
+             <div class="d">不退。硬扛下来,照样跌一大境,只剩一半修为;但那股狠劲留在了骨头里。入魔值 +15。</div></div>
            <div class="xx-chio" data-c="installment">
              <div class="h">放下身家,分期偿还 <em>暂缓</em></div>
              <div class="d">欠下 300 道行,三年为期。到期不还,后果自负。</div></div>
            <div class="xx-chio" data-c="ransom">
              <div class="h">交出全部身家 <em>赎金</em></div>
              <div class="d">钱没了,修为在。人还在。</div></div>
-           <div class="xx-chio" data-c="ruin" style="border-color:rgba(181,52,42,.5)">
+           <div class="xx-chio" data-c="ruin">
              <div class="h">认输,任他处置 <em>认 栽</em></div>
-             <div class="d">修为尽废,跌一大境。人物、地图、神通,一样不丢。</div></div>
+             <div class="d">修为尽废,跌一大境。人物、地图、神通,一样不丢。入魔值 +8。</div></div>
          </div>`;
       box.querySelectorAll('.xx-chio').forEach(el => {
         el.onclick = () => {
