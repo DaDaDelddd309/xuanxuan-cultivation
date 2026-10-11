@@ -13,7 +13,15 @@ def ok(n,c):
     print(('  ✅ ' if c else '  ❌ ')+n)
     if not c: fails.append(n)
 
-def visible(pg, id): return pg.evaluate("id=>{const e=document.getElementById(id);return !!e && e.offsetParent!==null}", id)
+def visible(pg, id):
+    # ⚠️ 原来用 `e.offsetParent!==null` 判可见 —— **这是错的**:
+    #   offsetParent 对 `position:fixed` 的元素**恒为 null**,哪怕它就在屏幕上。
+    #   于是 #btn-cult(普通流)判得过、#btn-play(fixed 容器里)判不过,
+    #   CI run 38114334195 实测「能开第二局」就是这么红的。
+    #   改用 playwright 自己的 is_visible(),别自己手搓可见性判据
+    #   —— 本项目第 15 次「度量工具自己比被测对象更武断」。
+    try:    return pg.locator('#'+id).first.is_visible(timeout=2000)
+    except Exception: return False
 
 # 回到主菜单 —— 必须**闭环**,不能「点一次 + sleep 固定秒数」。
 # ⚠️ CI run 38106604992 / 38112455634 两次死在这:只点一次 .xx-back 再 sleep(0.5),
@@ -45,13 +53,15 @@ def to_menu(pg, tries=6):
 def tap(pg, sel, tries=10):
     """点一个选择器;点不到就立刻返回 False —— **绝不交给 pg.click 干等 30 秒**。
     run 38106604992 的教训:一次 30 秒超时,意味着一大片断言根本没跑,
-    而日志上只留下一行 TimeoutError,很容易读成「就一个小问题」。"""
+    而日志上只留下一行 TimeoutError,很容易读成「就一个小问题」。
+    可见性一律用 playwright 的 is_visible(),理由见 visible() 的注释。"""
     for _ in range(tries):
-        if pg.evaluate("s=>{const e=document.querySelector(s);return !!e && e.offsetParent!==null}", sel):
-            try:
-                pg.click(sel, timeout=4000); return True
-            except Exception:
-                pass
+        try:
+            loc = pg.locator(sel).first          # .first:选择器常匹配多个(如 '#char-list > *')
+            if loc.is_visible(timeout=1500):
+                loc.click(timeout=4000); return True
+        except Exception:
+            pass
         unblock(pg); time.sleep(0.3)
     return False
 
