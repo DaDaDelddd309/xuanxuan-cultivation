@@ -185,7 +185,14 @@ export function installNagger() {
   app.__nagged = true;
   const orig = app.appendChild.bind(app);
   app.appendChild = function (el) {
-    const lv = levelOf(el);
+    // ⚠️ 这里原来是 `const lv`。但下面第 194 行要为「必须决策」的卡片重新赋值
+    //   (`lv = NAG.MUST`)—— 给 const 赋值会抛 TypeError。
+    //   后果:凡是带 data-nag="must" 的卡片,append 到 #app 时当场抛异常,
+    //   **元素永远不会被插入 DOM**,异常一路冒回点击处理器。
+    //   也就是玩家点「了结」弹不出结局选择、点石将前的「补完」弹不出半句话 ——
+    //   两个 P0 决策点直接卡死(t88 / t89 两条红就是它,不是测试写错)。
+    //   这个 bug 从 4ba7e2f(V0.96 一体)就在,潜伏了整个 V0.96 周期。
+    let lv = levelOf(el);
     // 非浮层(普通容器)照旧
     if (lv === NAG.HIGH && !/(xx-storycard|xx-banner|xx-ritual)/.test(el.className || '')) {
       return orig(el);

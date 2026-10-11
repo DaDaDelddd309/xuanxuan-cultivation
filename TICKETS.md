@@ -7237,3 +7237,39 @@ CI `browser` job，`b4b932f`，去重 9 条：
 `__xx.pickupKinds()` 只读计数接口），属于生产代码改动，需单独排期 + 升 patch。
 
 **状态**：未做。本轮不动 `js/main.js`。
+
+### XX-QA-063 · 打扰预算的守卫是死代码（未修，等裁定）
+
+**位置**：`js/xiuxian/nag.js:195`（`installNagger()` 的 appendChild 包装器内）
+
+```js
+const orig = app.appendChild.bind(app);
+app.appendChild = function (el) {
+  let lv = levelOf(el);                                       // :188（本轮由 const 改来）
+  ...
+  if (lv < NAG.MUST && this.used >= this.budget) return el;   // :195  ← this === app
+  if (lv >= NAG.MID) NAGER.used++;                            // :196  ← 这里用的是 NAGER
+```
+
+**症状**：包装器里 `this === app`（DOM 元素），`app` 上没有 `used` / `budget` 属性，
+所以 `this.used >= this.budget` 恒为 `undefined >= undefined` → **恒 false**。
+文件头注释里承诺的「预算用完 → 只放行必须决策的」这条规则**从来没有生效过**。
+旁边 `:196` 用的是 `NAGER.used++`，证明作者本意就是 `NAGER` —— 是个笔误。
+
+**同类归因**：与本项目铁律「度量工具自己出错比没有度量工具更危险」同源 ——
+一个**看起来在工作、实际从不工作**的守卫，比没有守卫更坏：
+它让人以为「预算已经管住了」，于是不会再去查它。
+
+**为什么不直接修**：接上之后行为会变。
+现在非 MUST 的卡片**永远**会弹（守卫失效）；接上之后预算爆了就静默丢弃。
+一旦接线，「一局内弹了 4 次浮层之后，结局选择卡不再出现」——
+那正是 XX-QA-062 修的那个 P0 卡死，换了个形态回来。
+而手机端跑不了浏览器套件（无 chromium），改完只能靠 CI 现形，炸了要再等一轮。
+
+**已做的**：`tests/nag-must-card-regression.mjs` 最后一条断言**锁住了当前现状**
+（预算爆了非 MUST 卡照样弹），并注明「修的时候记得把这条断言改成反过来」。
+这样修复必然伴随一次显眼的红，不会被顺手改掉。
+
+**要做**：把 `:195` 的 `this.used` / `this.budget` 改成 `NAGER.used` / `NAGER.budget`，
+同步翻掉那条锁现状的断言，然后在浏览器套件上确认没有新的红。
+**状态**：未做，等 owner 裁定。

@@ -13,6 +13,36 @@ def ok(n,c):
     print(('  ✅ ' if c else '  ❌ ')+n)
     if not c: fails.append(n)
 
+def visible(pg, id): return pg.evaluate("id=>{const e=document.getElementById(id);return !!e && e.offsetParent!==null}", id)
+
+# 回到主菜单 —— 必须**闭环**,不能「点一次 + sleep 固定秒数」。
+# ⚠️ CI run 38106604992 就是死在这:只点一次 .xx-back 再 sleep(0.5),
+#   局内没真的退出来,#btn-cult 一直 not visible,
+#   pg.click 干等 30 秒超时,**后面两段(修仙阁战果 / 篝火护栏)根本没跑**。
+#   一个「看起来只是超时」的失败,实际含义是「一大片没验」。
+#   现在改成「点 → 验 #btn-cult 真的可见」,回不来就立刻判红,不再烧 30 秒。
+def to_menu(pg, tries=8):
+    for _ in range(tries):
+        if visible(pg,'btn-cult'): return True
+        unblock(pg)
+        pg.evaluate("()=>{document.querySelector('.xx-back')?.click();"
+                    "document.getElementById('btn-quit')?.click();}")
+        time.sleep(0.6)
+    return visible(pg,'btn-cult')
+
+def tap(pg, sel, tries=10):
+    """点一个选择器;点不到就立刻返回 False —— **绝不交给 pg.click 干等 30 秒**。
+    run 38106604992 的教训:一次 30 秒超时,意味着一大片断言根本没跑,
+    而日志上只留下一行 TimeoutError,很容易读成「就一个小问题」。"""
+    for _ in range(tries):
+        if pg.evaluate("s=>{const e=document.querySelector(s);return !!e && e.offsetParent!==null}", sel):
+            try:
+                pg.click(sel, timeout=4000); return True
+            except Exception:
+                pass
+        unblock(pg); time.sleep(0.3)
+    return False
+
 with sync_playwright() as p:
     b=p.chromium.launch(executable_path=CHROME or None,args=['--no-sandbox','--disable-dev-shm-usage'])
     pg=b.new_page(viewport={'width':412,'height':915},device_scale_factor=2,is_mobile=True,has_touch=True)
@@ -155,8 +185,7 @@ with sync_playwright() as p:
            (r['s1'] - r['s0']) == r['ret'].get('stones'))
 
     print("\n【修仙阁那边能不能看到】")
-    unblock(pg)
-    pg.evaluate("()=>document.querySelector('.xx-back')?.click()"); time.sleep(0.5)
+    ok("能退回主菜单(修仙阁入口可见)", to_menu(pg))
     pg.click('#btn-cult'); time.sleep(1.5)
     after=pg.evaluate("""async()=>{
       const {Cult}=await import('/js/xiuxian/index.js');
@@ -166,15 +195,17 @@ with sync_playwright() as p:
     print(f"  砍杀后:道行 {after['dao']},碎灵石 {after['stone']}")
     ok("修仙阁里看得到这次的战果", after['dao']>before['dao'] or after['stone']>before['stone'])
     # 行囊页
-    unblock(pg); pg.click('[data-tab=bag]'); time.sleep(0.7)
+    ok("行囊页能点开", tap(pg,'[data-tab=bag]'))
+    time.sleep(0.7)
     bagtxt=pg.inner_text('#xx-body')
     ok("行囊里能看到源石", '石' in bagtxt)
 
     print("\n【局内可见性:护栏和增益】")
     # 点一根源石生火
     pg.evaluate("async()=>{const {CAMP}=await import('/js/xiuxian/camp.js');CAMP.s.stones=60;CAMP.s.burnUntil=Date.now()+600000;CAMP.save();}")
-    unblock(pg); pg.click('[data-tab=camp]'); time.sleep(0.5)
-    pg.click('#btn-play'); time.sleep(0.8); pg.click('#char-list > *'); time.sleep(2.5)
+    unblock(pg); ok("营地页能点开", tap(pg,'[data-tab=camp]')); time.sleep(0.5)
+    ok("能开第二局", tap(pg,'#btn-play')); time.sleep(0.8)
+    ok("能选角色进局", tap(pg,'#char-list > *')); time.sleep(2.5)
     ward=pg.evaluate("()=>{const w=document.getElementById('hud-ward');if(!w)return null;const s=getComputedStyle(w);return {hidden:w.hidden,w:w.style.width,op:s.opacity};}")
     print(f"  护栏圈: {ward}")
     ok("篝火在烧时局内有护栏圈", ward and ward['hidden'] is False and ward['w'])
