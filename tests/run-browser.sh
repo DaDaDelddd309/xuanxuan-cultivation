@@ -93,6 +93,12 @@ for f in tests/t8*.py tests/t9*.py tests/audit-reach.py tests/audit-loop.py test
     failed=$((failed+1)); failed_names="$failed_names $name"
     [ $code -ne 0 ] && echo "  → 退出码 $code"
     grep -E "Traceback|Error:" "$tmp" | head -3 | sed 's/^/    /'
+    # 2026-10-11(XX-AUDIT-033):第 81 行只回显 ✅/❌ 行, 测试自己打的诊断 print()
+    #   (如 audit-loop 的「内部累计:」「场上灵气拾取物:」)一行都进不了日志——
+    #   XX-AUDIT-033 这几轮一直在盲猜,根因就是这里。失败时把**非断言行**也打出来,
+    #   通过时保持安静, 免得成功路径被噪音淹掉。
+    extra=$(grep -vE "✅|❌|JS错误|Traceback|TimeoutError" "$tmp" | grep -vE '^[[:space:]]*$' | tail -12)
+    [ -n "$extra" ] && echo "$extra" | sed 's/^/    · /'
   fi
   rm -f "$tmp"
   echo ""

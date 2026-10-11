@@ -56,7 +56,11 @@ with sync_playwright() as p:
     print(f"  HUD 显示灵气: {ling}")
     tally=pg.evaluate("async()=>{const m=await import('/js/xiuxian/spirit.js');return m.SPIRIT.TALLY.ling;}")
     print(f"  内部累计: {tally}")
-    ok("灵气会被自动吸取并累计", tally > 0)
+    # 2026-10-11(XX-AUDIT-033):把实测值并进断言名本身。
+    #   run-browser.sh:81 只回显含 ✅/❌ 的行, 所以下面那行 print 是**看不见**的
+    #   (现已让失败时回显非断言行)。ling 的来源见 spirit.js:100 —
+    #   只有「这一帧消失 = 被磁吸收走」才累加, 0 就意味着一个都没吸到。
+    ok(f"灵气会被自动吸取并累计(ling={tally})", tally > 0)
     # 局内确实生成了灵气拾取物
     n_spirit=pg.evaluate("()=>{try{const g=window.engine||null;return g?(g.pickups||[]).filter(k=>k.kind==='spirit').length:-1;}catch(e){return -2}}")
     print(f"  场上灵气拾取物: {n_spirit}")
@@ -81,7 +85,10 @@ with sync_playwright() as p:
         print(f"  结算返回: {r['ret']}")
         ok(f"道行真的涨了 {r['d0']}→{r['d1']}", r['d1']>r['d0'])
         print(f"  源石: {r['s0']}→{r['s1']}")
-        ok("源石真的进背包了", r['s1']>r['s0'])
+        # 同上:数值并进断言名, 免得只看得到一个光秃秃的 ❌。
+        # ling=0 时 spirit.js:130 的 `if(stones>0)` 不成立, 这里必挂 ——
+        # 所以本条与上面 ling 那条是**同一个根因**, 不是两个独立 bug。
+        ok(f"源石真的进背包了({r['s0']}→{r['s1']}, ling={tally})", r['s1']>r['s0'])
 
     print("\n【修仙阁那边能不能看到】")
     unblock(pg)

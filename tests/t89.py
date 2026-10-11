@@ -87,6 +87,14 @@ with sync_playwright() as p:
     unblock(pg); pg.click('[data-act=tomb-go][data-v=qdm]') if False else None
     unblock(pg); pg.click('[data-act=tomb-go][data-v=qd]'); time.sleep(0.6)
     unblock(pg); pg.click('[data-act=tomb-go][data-v=sj]'); time.sleep(0.8)
+    # 2026-10-11(XX-AUDIT-033):「弹出补完选项」失败的唯一可能路径是
+    #   ui/tomb.js:97 的 `if(!TOMB.canFinish()) return;` —— 它提前返回就一个
+    #   [data-w] 都不渲染, 随后 click('[data-w="1"]') 必然 30s 超时,
+    #   表现为「1 条断言失败 + 1 个超时」同源。
+    #   墓状态机本身我在模块层造桩验过是通的(enter→qd→ce→qd→sj, canFinish()=true),
+    #   所以这里补一条断言把当时的真实状态打出来, 下一次 CI 就能一次定位。
+    ok("补完前 canFinish(必须在石将前)",
+       pg.evaluate("async()=>{const {TOMB}=await import('/js/xiuxian/tomb.js');return TOMB.canFinish()}"))
     unblock(pg); pg.click('[data-act=tomb-words]'); time.sleep(1.0)
     ok("弹出补完选项", pg.evaluate("()=>document.querySelectorAll('[data-w]').length")==2)
     pg.screenshot(path=_OUT+'/t89_words.png')
