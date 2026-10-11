@@ -37,18 +37,37 @@ def visible(pg, id):
 #   顺便还多验了一层「结算结果真的落盘了」。
 CLICK_EXIT = "()=>{document.querySelector('.xx-back')?.click();document.getElementById('btn-quit')?.click();}"
 CONFIRM = "()=>{const b=[...document.querySelectorAll('button,[data-act]')].find(x=>/确认|确定|退出|结束|放弃/.test(x.textContent||''));if(b){b.click();return b.textContent.trim().slice(0,12)}return null}"
+# 「这个按钮是不是**最上层**那个」= 玩家点得到它。
+# ⚠️ 为什么不能用 is_visible():它只看元素有没有盒子,**不看有没有被遮挡**。
+#   而 Hall.open() 只做 root.classList.remove('hidden'),**并不隐藏菜单屏** ——
+#   修仙阁是全屏浮层,本来就该压住菜单。于是「修仙阁开着」时
+#   #btn-cult 依然 is_visible()==True,而它其实点不到。
+#   CI run 38116586455 的祖先链实测(见下)就是这个状态:
+#     ['DIV.xx-label','DIV.xx-card','DIV#xx-body.xx-body','DIV.xx-screen','DIV#app','BODY']
+#   —— 盖在按钮上的是修仙阁大厅。
+# 这不是产品缺陷:修仙阁本来就是全屏,压住菜单是应该的。是判据不够严。
+ON_TOP = """e=>{const r=e.getBoundingClientRect();
+  if(!r.width||!r.height) return false;
+  const t=document.elementFromPoint(r.left+r.width/2, r.top+r.height/2);
+  return t===e || e.contains(t);}"""
+def on_top(pg, id):
+    try:    return pg.locator('#'+id).first.evaluate(ON_TOP)
+    except Exception: return False
 def to_menu(pg, tries=6):
     for _ in range(tries):
-        if visible(pg,'btn-cult'): return True
+        # 哨兵用「#btn-play 在不在最上层」,不用「#btn-cult 有没有盒子」
+        if on_top(pg,'btn-play'): return True
+        # 修仙阁用**它自己的 API** 关,不靠猜哪个按钮 —— Hall.close() 是 ui.js:94 的正式出口
+        pg.evaluate("async()=>{try{const {Hall}=await import('/js/xiuxian/ui.js');Hall.close();}catch(e){}}")
         pg.evaluate(CLICK_EXIT)
         time.sleep(0.5)
         c = pg.evaluate(CONFIRM)
         if c: time.sleep(0.6)
-    if visible(pg,'btn-cult'): return True
+    if on_top(pg,'btn-play'): return True
     # 兜底:重载。结算已 commit,数据不会丢。
     pg.reload(wait_until='networkidle'); time.sleep(2.0)
     unblock(pg)
-    return visible(pg,'btn-cult')
+    return on_top(pg,'btn-play')
 
 def tap(pg, sel, tries=10):
     """点一个选择器;点不到就立刻返回 False —— **绝不交给 pg.click 干等 30 秒**。
@@ -261,10 +280,10 @@ with sync_playwright() as p:
     #   回不来就如实记红并跳过后半段,让「哪一段没验」清清楚楚,
     #   而不是变成一行看不出所以然的 TimeoutError。
     if not to_menu(pg):
-        ok("能退回主菜单(修仙阁入口可见)", False)
+        ok("能退回主菜单(砍杀按钮在最上层)", False)
         print("  ⚠️ 回不到主菜单,后半段(修仙阁战果 / 篝火护栏)本轮未验 —— 已跳过,不硬点")
     else:
-        ok("能退回主菜单(修仙阁入口可见)", True)
+        ok("能退回主菜单(砍杀按钮在最上层)", True)
         pg.click('#btn-cult'); time.sleep(1.5)
         after=pg.evaluate("""async()=>{
           const {Cult}=await import('/js/xiuxian/index.js');
