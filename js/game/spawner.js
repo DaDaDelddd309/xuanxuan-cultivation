@@ -172,7 +172,16 @@ function ringSpot(g, p) {
 export function spawnOptsFor(type, t, o = {}) {
   const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
   // × runTune:节点越险,怪越硬越痛(妖巢 hp×1.4 dmg×1.3),村庄全 1
-  return { hpMult: spawnHpMultAt(type, t, o) * runTune.hpMult,
+  //
+  // …o 必须透传(XX-ELITE-001,V0.99 起失效):
+  //   本函数**只**产出倍率,但调用方 spawnEnemy 是靠 opts.elite 才肯应用
+  //   精英身份那一整套 —— 血量 ×6、伤害 ×1.5、体型 ×1.3、速度 ×1.08、
+  //   经验 ×5、铜钱概率 ×3,以及 elite 字段本身(渲染标记 / 头顶血条 /
+  //   精英必掉宝箱)。标志不透传 → 全部按普通怪算,精英反而**更弱**
+  //   (它还额外吃了 ELITE_HP_POINTS 那条「较缓」曲线)。
+  //   放在最前面:后面的三个倍率是算出来的,不能被 o 里的同名字段覆盖。
+  return { ...o,
+           hpMult: spawnHpMultAt(type, t, o) * runTune.hpMult,
            dmgMult: dmgM * runTune.dmgMult,
            speedMult: spdM * runTune.speedMult };
 }

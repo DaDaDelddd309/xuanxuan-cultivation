@@ -14,11 +14,13 @@ const STONE_DROP = { elite: 0.05, mob: 0.004 };  // Boss 必掉,不走概率
 // 保持 game/ 不反向依赖 xiuxian/(runcfg 那条单向门禁靠这个成立)。
 //
 // 语义:「相对倍率」,和局内原有概率/数量**相乘**,不做替换。
-// ⚠️ 未决(village):NODE_TUNING.village.loot = { gemBias:0, coinBias:0 }。
-//    0 不是倍率是绝对零,而 gem 是**必掉的经验宝石** —— 按倍率实现会让
-//    村庄局完全拿不到经验、无法升级。这与「平稳开局」的注释意图冲突,
-//    且 test-runcfg.mjs 已把 village:gem0 钉住。**已如实实现,待 owner 裁定**:
-//    若确认「村庄确实不掉落」,应改的是 NODE_TUNING 的取值,而不是这里。
+// ⚠️ 这里以前有一整段「未决(village)」说明,说 NODE_TUNING.village.loot
+//    = { gemBias:0, coinBias:0 } 是笔误、待 owner 裁定。那条已裁定并修掉了
+//    (2026-10-10,f178bab,已随 703549d 上线):两个 0 都改成 1.0。
+//    0 是**乘零**,不是「无掉落」——青石村是 worldgen 固定起点,
+//    照旧实现会让第一局全程拿不到经验、无法升级。
+//    现在 village 是 1.0(与局内原曲线相同);tests/lint-tune-floor.mjs
+//    钉住「loot 倍率不得为 0」,再写回 0 会红。
 const LOOT_TUNE_DEFAULT = { gemBias: 1, coinBias: 1, meatBias: 1, chestBias: 1 };
 let lootTune = { ...LOOT_TUNE_DEFAULT };
 
@@ -34,7 +36,7 @@ export function initPickups(g) {
   // 敌人死亡掉落:宝石/金币 + 肉(回血)+ 精英与 Boss 必掉宝箱
   Bus.on('enemy-death', e => {
     const tier = e.xp >= 5 ? 'gem_r' : e.xp >= 2 ? 'gem_g' : 'gem_b';
-    // gem:经验量 ×gemBias(秘境 2.0 = 经验翻倍;村庄 0 = 见上方未决说明)
+    // gem:经验量 ×gemBias(秘境 2.0 = 经验翻倍;村庄 1.0 = 与局内原曲线相同)
     g.addPickup({ kind: 'gem', x: e.x, y: e.y, sprite: tier, xp: e.xp * lootTune.gemBias, r: 8, t: Math.random() * 7 });
     // coin:掉率 ×coinBias(险地 1.2 = 铜钱更常见)
     if (Math.random() < e.coinP * lootTune.coinBias) g.addPickup({ kind: 'coin', x: e.x + 8, y: e.y, sprite: 'coin', gold: 3, r: 8, t: 0 });
