@@ -2,11 +2,11 @@
 // 运行: node tests/lint-module-identity.mjs
 //
 // 背景(XX-LINK-001 排查时实测撞上,2026-10-10):
-//   ESM 里 `./spawner.js` 和 `./spawner.js?v=18` 是**两个不同的 URL**,
+//   ESM 里 `./spawner.js` 和 `./spawner.js?v=19` 是**两个不同的 URL**,
 //   浏览器/Node 各自建一份模块记录,于是模块级的 `let` 是两份。
 //   实测:
 //     const a = await import('./js/game/spawner.js')
-//     const b = await import('./js/game/spawner.js?v=18')
+//     const b = await import('./js/game/spawner.js?v=19')
 //     a.setRunTune === b.setRunTune   // false
 //     b.setRunTune({hpMult:7}); a.getRunTune().hpMult   // 1 —— 写进去的读不到
 //

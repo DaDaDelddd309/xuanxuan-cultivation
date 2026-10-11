@@ -17,7 +17,7 @@
 // 现在每组都先断言桶非空,认不出的怪一律进 unknown 并判失败。
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-const S = await import('../js/game/spawner.js?v=18');
+const S = await import('../js/game/spawner.js?v=19');
 // enemies.js 必须跟 spawner.js 内部那句 import 同一个戳,否则拿到的是另一份模块实例,
 // combatState.runActive 写不进去,updater 直接 return —— 场上 0 只怪。
 // (这正是 tests/lint-module-identity.mjs 要拦的那类分裂,这里是被它咬过一口。)

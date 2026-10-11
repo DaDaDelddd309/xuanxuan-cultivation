@@ -18,7 +18,7 @@ const { Director, P, WARD_BY_PHASE, wardTarget, stepWard, resetWard, computeWard
          tickEmber, resetEmber, emberPoints } =
   await import('../js/game/director.js');
 const { ENEMY_TYPES } = await import('../js/game/enemies.js?v=17');
-const { setSpawnMode, getSpawnMode } = await import('../js/game/spawner.js?v=17');
+const { setSpawnMode, getSpawnMode } = await import('../js/game/spawner.js?v=19');
 const { spawnEnemy } = await import('../js/game/enemies.js?v=17');
 
 let pass = 0, fail = 0; const failed = [];
