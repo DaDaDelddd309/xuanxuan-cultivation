@@ -24,8 +24,8 @@
 //   各自都把 v099ae 升到了 v099af。VERSION-CONVENTION 规则 3 说过「不要各自升」,
 //   真撞上了按规则 2 由**后合的一方**再升一格, 否则两个不同代码对外声称同一个版本,
 //   已缓存 v099af 的客户端分不出谁新。
-const V = 'xuanxuan-v099ai';
-const BUILD = '20261011-2205';
+const V = 'xuanxuan-v099aj';
+const BUILD = '20261011-2234';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
