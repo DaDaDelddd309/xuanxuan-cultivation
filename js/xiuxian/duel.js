@@ -265,7 +265,9 @@ export const Duel = {
       const b = ev.target.closest('[data-art]');
       if (b && !this.busy) this.playerTurn(b.dataset.art);
     });
-    r.querySelector('#xd-txt').addEventListener('click', () => { if (this.skipType) this.finishType(); });
+    // XX-DUEL-009:点击对白区 = 两段式(打字中出全文 / 出完后进下一句)。
+    // 实现全在 say() 里,这里只做转发 —— 判据留在 typewriter 那一处,免得两处分叉。
+    r.querySelector('#xd-txt').addEventListener('click', () => this._typeClick && this._typeClick());
   },
 
   close() {
@@ -284,7 +286,14 @@ export const Duel = {
     // 为什么能拖到现在:12 轮自动化、87 局,**一次都没打到过 Boss**。
     // 一局里通常只有一场决斗,所以「第二场」这个前提从没被满足过。
     this.busy = false;
-    this.skipType = false;
+    // XX-DUEL-009:`skipType` 已删(它三处赋值全是 false,点击跳过是死代码)。
+    // 换成打字机真正的三个状态。`_advT` 必须一起清 —— 它是那个 260ms 的
+    // "进下一句"定时器,不清的话 close() 之后它仍会触发,对着已经拆掉的
+    // DOM 调 next(),报一个跟决斗毫无关系的错。
+    clearTimeout(this._advT);
+    this._advT = 0;
+    this._typing = false;
+    this._next = null;
     clearTimeout(this._th);
     this.S = null;
   },
@@ -318,26 +327,56 @@ export const Duel = {
     q('xd-epn').textContent = `${Math.max(0, S.e.hp)}/${S.e.hpMax} ${S.e.title}`;
   },
 
-  // 打字机:逐段自动播放,可点击跳过
+  // 打字机:逐段自动播放,**可点击跳过**(XX-DUEL-009)
+  //
+  // ⚠️ 原来这里有个 `skipType`:点击 handler 写的是
+  //    `if (this.skipType) this.finishType()`,而全仓**三处赋值全是 false**
+  //    (close() / 本函数开头 / finishType()),没有任何一处设成 true ——
+  //    那个 if 永远不成立,**点击跳过是死代码**。
+  //    后果:开场 2~4 句对白,每字 26ms、每句结束再等 260ms
+  //    (4 句约 160 字 ≈ 4.2s + 1.0s ≈ 5.2s),玩家每场开场都得站着看五秒不能动。
+  //    而这是 v099p 之后"Boss 出场即进回合制"的第一印象。
+  //    (对端连点 60 次无效后报上来,复核属实 —— 见 tests/duel-skip-regression.mjs)
+  //
+  // 修法是**还原它本来就想做的事**,不是新发明:
+  //    正在打字 → 点一下 = 本句立刻出全文
+  //    已经出完 → 再点一下 = 不等那 260ms,直接进下一句
+  // 两个状态共用同一份出口,所以不存在"跳过只能跳一半"这种中间态。
   say(who, text, cb) {
     const q = id => this.root.querySelector('#' + id);
     q('xd-who').textContent = who;
     const el = q('xd-txt');
-    el.textContent = ''; this.skipType = false;
+    el.textContent = '';
+    this._typing = true;              // 正在逐字打
+    this._next = cb || null;          // 本句结束后去哪(下一句 / 进玩家回合)
+    this._advT = 0;                   // 排程中的"进下一句"定时器
     const cur = $('span', '', '');
     const cur2 = $('span', 'cursor');
     el.append(cur, cur2);
     let i = 0;
     const step = () => {
-      if (this.skipType) { cur.textContent = text; this.finishType(); return; }
       if (i >= text.length) { this.finishType(); return; }
       cur.textContent += text[i++];
       this._th = setTimeout(step, 26);
     };
     this.finishType = () => {
       clearTimeout(this._th);
-      cur.textContent = text; this.skipType = false;
-      if (cb) setTimeout(cb, 260);
+      cur.textContent = text;
+      this._typing = false;           // 已出完 —— 此时再点是"进下一句"
+      const nx = this._next;
+      // 留 260ms 让玩家看清这一句。_next 在这段时间内**不清空**,
+      // 因为玩家可能正好在这段空档里再点一下想直接往下走(见 _typeClick)。
+      this._advT = setTimeout(() => { this._advT = 0; this._next = null; if (nx) nx(); }, 260);
+    };
+    this._typeClick = () => {
+      if (this._typing) { this.finishType(); return; }   // 第一次点:立刻出全文
+      if (this._advT) {                                  // 第二次点:不等了
+        clearTimeout(this._advT);
+        this._advT = 0;
+        const nx = this._next;
+        this._next = null;
+        if (nx) nx();
+      }
     };
     step();
   },
