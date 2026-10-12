@@ -1,0 +1,277 @@
+{
+  "note": "静默 catch 基线。key = 路径::上下文::try体摘要::catch体摘要[#序号],不含行号。",
+  "rule": "只减不增:已登记的不报红,新增的报红。清理一批就该 --write-baseline --force 摘掉一批。",
+  "shortTryMax": 3,
+  "entries": {
+    "js/core/audio.js::init::8c27ea07::2879e71a": {
+      "file": "js/core/audio.js",
+      "ctx": "init",
+      "lineAtCapture": 67,
+      "tryLines": 1,
+      "shape": "静默回落(有语句无日志)",
+      "body": "this.ctx = null; return;",
+      "reason": "人工理由:WebAudio 被拒属预期,init 只做降级 —— 已确认无害"
+    },
+    "js/core/save.js::load::f06b0abd::8907083e": {
+      "file": "js/core/save.js",
+      "ctx": "load",
+      "lineAtCapture": 109,
+      "tryLines": 4,
+      "shape": "静默回落(有语句无日志)",
+      "body": "this.data = defaults(); // JSON 损坏 = 坏档,回默认",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/ui/hud.js::spriteCanvas::943a0dae::a7eddd94": {
+      "file": "js/ui/hud.js",
+      "ctx": "spriteCanvas",
+      "lineAtCapture": 44,
+      "tryLines": 9,
+      "shape": "空 catch",
+      "body": "/* 精灵缺失时留空,不报错 */",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/ui/screens.js::spriteCanvas::a0722e9b::e4994308": {
+      "file": "js/ui/screens.js",
+      "ctx": "spriteCanvas",
+      "lineAtCapture": 30,
+      "tryLines": 9,
+      "shape": "空 catch",
+      "body": "/* 尝试下一候选 */",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/build.js::load::e063ac9f::da39a3ee": {
+      "file": "js/xiuxian/build.js",
+      "ctx": "load",
+      "lineAtCapture": 48,
+      "tryLines": 13,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/camp.js::load::49a78067::da39a3ee": {
+      "file": "js/xiuxian/camp.js",
+      "ctx": "load",
+      "lineAtCapture": 68,
+      "tryLines": 21,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/clock.js::load::a51bcf65::da39a3ee": {
+      "file": "js/xiuxian/clock.js",
+      "ctx": "load",
+      "lineAtCapture": 42,
+      "tryLines": 4,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/clock.js::save::85e0c986::da39a3ee": {
+      "file": "js/xiuxian/clock.js",
+      "ctx": "save",
+      "lineAtCapture": 54,
+      "tryLines": 4,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/codex.js::init::68fa121c::da39a3ee": {
+      "file": "js/xiuxian/codex.js",
+      "ctx": "init",
+      "lineAtCapture": 145,
+      "tryLines": 4,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/companion.js::load::a0717343::da39a3ee": {
+      "file": "js/xiuxian/companion.js",
+      "ctx": "load",
+      "lineAtCapture": 75,
+      "tryLines": 17,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/companion.js::save::28cb0143::da39a3ee": {
+      "file": "js/xiuxian/companion.js",
+      "ctx": "save",
+      "lineAtCapture": 83,
+      "tryLines": 4,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/family.js::load::5aa6443a::da39a3ee": {
+      "file": "js/xiuxian/family.js",
+      "ctx": "load",
+      "lineAtCapture": 51,
+      "tryLines": 13,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/index.js::load::41727c6c::fa41d1d7": {
+      "file": "js/xiuxian/index.js",
+      "ctx": "load",
+      "lineAtCapture": 28,
+      "tryLines": 4,
+      "shape": "静默回落(有语句无日志)",
+      "body": "this.s = defaultState();",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/items.js::load::475e7a92::da39a3ee": {
+      "file": "js/xiuxian/items.js",
+      "ctx": "load",
+      "lineAtCapture": 107,
+      "tryLines": 4,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/mount.js::load::393fee62::da39a3ee": {
+      "file": "js/xiuxian/mount.js",
+      "ctx": "load",
+      "lineAtCapture": 89,
+      "tryLines": 8,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/nag.js::interactive::6d142b2a::3fa97fd8": {
+      "file": "js/xiuxian/nag.js",
+      "ctx": "interactive",
+      "lineAtCapture": 168,
+      "tryLines": 1,
+      "shape": "只有 return/continue/break",
+      "body": "return false;",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/newlife.js::homeId::bc71ec97::350c208f": {
+      "file": "js/xiuxian/newlife.js",
+      "ctx": "homeId",
+      "lineAtCapture": 40,
+      "tryLines": 4,
+      "shape": "只有 return/continue/break",
+      "body": "return 'n0';",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/profile.js::read::36722929::afcc7777": {
+      "file": "js/xiuxian/profile.js",
+      "ctx": "read",
+      "lineAtCapture": 129,
+      "tryLines": 1,
+      "shape": "只有 return/continue/break",
+      "body": "return null;",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/profile.js::import::deed3cbf::5f50fd8b": {
+      "file": "js/xiuxian/profile.js",
+      "ctx": "import",
+      "lineAtCapture": 203,
+      "tryLines": 10,
+      "shape": "只有 return/continue/break",
+      "body": "return { ok:false, msg:'存档码损坏' };",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/profile.js::size::9e0ebfa7::7a7b9fc0": {
+      "file": "js/xiuxian/profile.js",
+      "ctx": "size",
+      "lineAtCapture": 206,
+      "tryLines": 1,
+      "shape": "只有 return/continue/break",
+      "body": "return 0;",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/quest.js::nodesOfTypes::c57b2720::96947880": {
+      "file": "js/xiuxian/quest.js",
+      "ctx": "nodesOfTypes",
+      "lineAtCapture": 55,
+      "tryLines": 5,
+      "shape": "只有 return/continue/break",
+      "body": "return [];",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/quest.js::load::bfe33051::da39a3ee": {
+      "file": "js/xiuxian/quest.js",
+      "ctx": "load",
+      "lineAtCapture": 69,
+      "tryLines": 8,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/seed.js::getMaster::15c007ea::da39a3ee": {
+      "file": "js/xiuxian/seed.js",
+      "ctx": "getMaster",
+      "lineAtCapture": 94,
+      "tryLines": 6,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/spine.js::load::b902f29c::fa41d1d7": {
+      "file": "js/xiuxian/spine.js",
+      "ctx": "load",
+      "lineAtCapture": 147,
+      "tryLines": 4,
+      "shape": "静默回落(有语句无日志)",
+      "body": "this.s = defaultState();",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/story.js::load::7647ed69::da39a3ee": {
+      "file": "js/xiuxian/story.js",
+      "ctx": "load",
+      "lineAtCapture": 179,
+      "tryLines": 7,
+      "shape": "空 catch",
+      "body": "",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/story.js::_nodeTypeOf::8afee6fa::afcc7777": {
+      "file": "js/xiuxian/story.js",
+      "ctx": "_nodeTypeOf",
+      "lineAtCapture": 204,
+      "tryLines": 5,
+      "shape": "只有 return/continue/break",
+      "body": "return null;",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/tomb.js::def::a1ca9706::57da098d": {
+      "file": "js/xiuxian/tomb.js",
+      "ctx": "def",
+      "lineAtCapture": 70,
+      "tryLines": 8,
+      "shape": "静默回落(有语句无日志)",
+      "body": "// 存档坏了:回落到干净初始态,别把半个墓留给玩家 this.s = def();",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/ui/livebar.js::questItem::7e60006a::afcc7777": {
+      "file": "js/xiuxian/ui/livebar.js",
+      "ctx": "questItem",
+      "lineAtCapture": 101,
+      "tryLines": 1,
+      "shape": "只有 return/continue/break",
+      "body": "return null;",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/ui.js::act::04363443::528ce35b": {
+      "file": "js/xiuxian/ui.js",
+      "ctx": "act",
+      "lineAtCapture": 584,
+      "tryLines": 2,
+      "shape": "静默回落(有语句无日志)",
+      "body": "toast('长按上方文字手动复制');",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    },
+    "js/xiuxian/ui.js::pathTo::21ab5608::afcc7777": {
+      "file": "js/xiuxian/ui.js",
+      "ctx": "pathTo",
+      "lineAtCapture": 628,
+      "tryLines": 4,
+      "shape": "只有 return/continue/break",
+      "body": "return null;",
+      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
+    }
+  }
+}

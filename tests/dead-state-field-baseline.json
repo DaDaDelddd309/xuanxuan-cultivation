@@ -1,0 +1,56 @@
+{
+  "_note": "死状态字段 · 人工确认清单。key = kind|file|container|field(**刻意不用行号**:行号会被任何无关改动冲掉)。reason 必须写人话,别只列名字。",
+  "_how": "写进来 = 确认这条已人工看过、暂时留着不报红。确认该删的**不要**写进来 —— 它会一直出现在报告里提醒你删。",
+  "_reviewed": "2026-10-12 逐条人工核对过读点:下面 7 条的「读:零」我都用 grep 独立复核过,不是只信工具。",
+  "entries": {
+    "root|js/xiuxian/profile.js|Profile.data|base": {
+      "kind": "root",
+      "file": "js/xiuxian/profile.js",
+      "container": "Profile.data",
+      "field": "base",
+      "reason": "★XX-AUDIT-006 的原主。profile.js:140 `d.base = read(LEGACY.base)` 把 pxs_save 读进 Profile,此后全仓零消费;却随 flush() 的 `{ ...d }` 写进 xx_profile_v081 —— 一份 pxs_save 的陈旧副本。批 2 已删掉回写 pxs_save 那一行(那才是金币 8888→30 的直接原因),但**字段本身还在**,危险只靠注释和人的纪律挡着。独立复核:除 profile.js:140 这一处写入外,全仓只有注释提到它;js/game/weapons.js:343 的 `d.base.cd` 是 WEAPONS[id],同字母不同物。建议:连同 migrate() 里那行一起删(需确认无人在等旧档的 base)。"
+    },
+    "element|js/xiuxian/build.js|BUILD.s.fires[]|at": {
+      "kind": "element",
+      "file": "js/xiuxian/build.js",
+      "container": "BUILD.s.fires[]",
+      "field": "at",
+      "reason": "build.js:491/493 `this.s.fires.push({ nodeId, at: Date.now() })`。篝火元素的唯一读者是 build.js:488 `fires.some(f => f.nodeId === nodeId)` 和 :489/:138 的 `.length` —— 没人读 at。纯死字段,删掉零风险。"
+    },
+    "element|js/xiuxian/chronicle.js|CHRONICLE.s.log[]|at": {
+      "kind": "element",
+      "file": "js/xiuxian/chronicle.js",
+      "container": "CHRONICLE.s.log[]",
+      "field": "at",
+      "reason": "chronicle.js:86 `this.s.log.unshift({ year, ev, at })`。唯一读者 ui/fam.js:78-79 渲染「第${l.year}年 ${esc(l.ev)}」,只读 year/ev。纯死字段。"
+    },
+    "element|js/xiuxian/story.js|STORY.s.log[]|at": {
+      "kind": "element",
+      "file": "js/xiuxian/story.js",
+      "container": "STORY.s.log[]",
+      "field": "at",
+      "reason": "story.js:414 `logLine()` 写 { arc, text, at, id }。读者只有 story.js:418 `filter(l => l.arc === …)` 与 ui/bag.js:411-412 的 `e.arc`/`e.text`。at 无人读。"
+    },
+    "element|js/xiuxian/story.js|STORY.s.log[]|id": {
+      "kind": "element",
+      "file": "js/xiuxian/story.js",
+      "container": "STORY.s.log[]",
+      "field": "id",
+      "reason": "story.js:414 写 `id:'l'+Date.now().toString(36)`。全仓没有一处按 id 取日志条目(取条目一律用 arc)。纯死字段。"
+    },
+    "element|js/xiuxian/tavern.js|TAVERN.s.log[]|id": {
+      "kind": "element",
+      "file": "js/xiuxian/tavern.js",
+      "container": "TAVERN.s.log[]",
+      "field": "id",
+      "reason": "tavern.js:97 `log.unshift({ id, name, t })`。读者 ui/meta.js:146 只渲染 `l.name`;tests/test-tavern.mjs:132 会**写入** {id,name,t} 并只断言 length。⚠️ 清理时要同步改 tests/test-tavern.mjs:132,否则那条测试写的就是不存在的字段。"
+    },
+    "element|js/xiuxian/tavern.js|TAVERN.s.log[]|t": {
+      "kind": "element",
+      "file": "js/xiuxian/tavern.js",
+      "container": "TAVERN.s.log[]",
+      "field": "t",
+      "reason": "tavern.js:97 写 t: Date.now()。无任何读者。⚠️ 同上,tests/test-tavern.mjs:132 也写了 t:1。"
+    }
+  }
+}
