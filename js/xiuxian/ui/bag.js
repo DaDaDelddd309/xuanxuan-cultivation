@@ -22,7 +22,7 @@ import { NAGER, NAG } from '../nag.js';
 import { STORY } from '../story.js';
 import { TOMB } from '../tomb.js';
 import { WORLD as LORE } from '../lore.js';
-import { PORTRAIT } from './portrait.js';
+import { PORTRAIT, companionPortrait } from './portrait.js';
 import { esc, toast } from './dom.js';
 import { COMPANION } from '../companion.js';
 import { MUTATION } from '../mutation.js';   // V0.99 灵伴变异(XX-MUTATION-003/004)
@@ -75,6 +75,10 @@ export function _vMutCard(hall) {
   const p = MUTATION.progress(m);
   const left = COMPANION.toNextStage();
   const fam = m.family ? MUTATION.FAMILIES[m.family] : null;
+  // 立绘跟着阶段走(XX-COMPANION-006)。此前这里写死 PORTRAIT.companion ——
+  // 于是 docs/COMPANION-MUTATION.md 里「每阶段一次立绘换装」这条规格
+  // 在界面上完全看不出来:投喂十次,脸一点没变。
+  const stageArt = companionPortrait(MUTATION.STAGES[m.stage].key);
   let line;
   if (COMPANION.canChooseFinal()) {
     line = `漩涡停了,${nm}跪坐在墨里,看不清脸。` +
@@ -85,12 +89,18 @@ export function _vMutCard(hall) {
     line = '封印已经全开。';
   }
   return `<div class="xx-card">
-    <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <div class="xx-label" style="color:var(--xx-gold)">灵 伴 · ${nm}</div>
-      <div class="xx-dim">${fam ? fam.sigil + ' ' : ''}${st.name}</div>
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <img src="${stageArt}" alt="" style="width:58px;height:78px;object-fit:cover;
+        border-radius:3px;flex:none;background:rgba(0,0,0,.25)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="xx-label" style="color:var(--xx-gold)">灵 伴 · ${nm}</div>
+          <div class="xx-dim">${fam ? fam.sigil + ' ' : ''}${st.name}</div>
+        </div>
+        <div class="xx-val" style="font-size:13px;margin-top:6px">${p.feeds} / ${p.total}</div>
+        <div class="xx-dim" style="margin-top:5px">${line}</div>
+      </div>
     </div>
-    <div class="xx-val" style="font-size:13px;margin-top:6px">${p.feeds} / ${p.total}</div>
-    <div class="xx-dim" style="margin-top:5px">${line}</div>
     ${COMPANION.canChooseFinal() ? `<button class="xx-btn" style="width:auto;margin:9px 0 0;padding:7px 13px;font-size:12px"
       data-act="feedstop">收 手</button>` : ''}
   </div>`;

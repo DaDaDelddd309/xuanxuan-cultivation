@@ -145,6 +145,11 @@ const ART = [
   'assets/portrait/ranger.jpg',
   'assets/portrait/white.jpg',
   'assets/portrait/companion.jpg',
+  // XX-COMPANION-006:灵伴五阶段立绘。少缓存一张 = 该阶段在离线下退回通用图,
+  // 而玩家看到的会是"我明明投喂了,脸却没变" —— 正是这条规格要解决的事。
+  'assets/portrait/companion_sealed.jpg', 'assets/portrait/companion_awaken.jpg',
+  'assets/portrait/companion_reveal.jpg', 'assets/portrait/companion_morph.jpg',
+  'assets/portrait/companion_true.jpg',
   'assets/portrait/merchant.jpg','assets/mob/bloodriver.jpg','assets/portrait/momocha.jpg',
 ];
 const ASSETS = [...CORE, ...XX, ...ART, 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];

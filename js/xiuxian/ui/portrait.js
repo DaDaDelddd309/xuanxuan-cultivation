@@ -70,3 +70,34 @@ export const BOSS_PORTRAIT = {
 export function bossPortrait(type) {
   return BOSS_PORTRAIT[type] || PORTRAIT.foe;
 }
+
+// ===== 灵伴:按变异阶段取立绘(XX-COMPANION-006)=====
+//
+// 为什么需要它:docs/COMPANION-MUTATION.md 写死了「每阶段一次立绘换装」,
+// 而在此之前 assets/portrait/ 里只有一张 companion.jpg —— 规格写了,
+// 图没有,于是 STAGES[].bg 写进 derive() 就再没人读,COMPANION.form() 零调用点。
+// 图补齐之后,这两处才**有消费方**。
+//
+// 形状刻意与 bossPortrait 完全一致(有专属用专属,没有退回通用),
+// 理由和它一样:**不静默给错的脸**。阶段图缺失时退回原立绘,
+// 而不是给个 undefined 让 <img> 裂开 —— 裂图在暗底页面上比旧图更显眼。
+export const COMPANION_PORTRAIT = {
+  sealed: 'assets/portrait/companion_sealed.jpg',
+  awaken: 'assets/portrait/companion_awaken.jpg',
+  reveal: 'assets/portrait/companion_reveal.jpg',
+  morph:  'assets/portrait/companion_morph.jpg',
+  true:   'assets/portrait/companion_true.jpg',
+};
+
+/**
+ * 灵伴取立绘。
+ * @param {number|string} [stage] MUTATION.STAGES 的索引或 key;
+ *                            缺省 / 认不出 → 退回通用灵伴立绘。
+ * @returns {string} 图片路径(保证非空)
+ */
+export function companionPortrait(stage) {
+  if (stage === undefined || stage === null) return PORTRAIT.companion;
+  const key = typeof stage === 'string' ? stage : null;
+  if (key && COMPANION_PORTRAIT[key]) return COMPANION_PORTRAIT[key];
+  return PORTRAIT.companion;
+}
