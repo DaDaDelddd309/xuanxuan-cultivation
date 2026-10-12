@@ -894,3 +894,26 @@
 .xx-lg-dot{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
 .xx-lg-nm{flex:none;min-width:4.6em}
 .xx-lg-fa{flex:1;color:var(--xx-paper-faint);font-size:10px}
+
+/* ===== XX-FIX-AR:aspect-ratio 渐进增强兜底(Safari < 15 不支持该属性)=====
+ *
+ * 问题(对端实测,复核属实):全项目只有两处用 aspect-ratio,两处都**没有 height 兜底**。
+ *   .xx-map   aspect-ratio:1/.72    → 不支持时高度塌成 0,只剩 padding-bottom:24px
+ *   .bd-slot  aspect-ratio:1/1.15   → 不支持时高度塌成 0,领地格变成一条线
+ * 地图里的节点是 `position:absolute` + 百分比坐标,容器一塌,15 个节点**全部不可见**,
+ * 整页等于不可用。
+ *
+ * 数字怎么来的(不是拍脑袋):
+ *   全局 `* { box-sizing: border-box }`(css/style.css:35),所以 aspect-ratio 算出的
+ *   高度**已含 padding**。对端实测 380px 宽时容器高 274px —— 380 × 0.72 = 273.6,
+ *   与实测吻合,证明这条推导成立。于是:
+ *     .xx-map   height = 宽度 × 0.72 = 72vw,max-width:400px 处封顶 288px
+ *     .bd-slot  它在三列 grid 里,宽约占视口 1/3(约 30vw),高 = 宽 × 1.15 ≈ 34.5vw
+ *
+ * ⚠️ 兜底值本身**未在真 Safari 上目视验证**(本机装不上 WebKit,见对话记录)。
+ *   本条只保证"不再塌成 24px",像素是否与 WebKit 下逐像素一致,待对端复核。
+ *   结构性保障由 tests/lint-aspect-ratio-fallback.mjs 钉住。 */
+@supports not (aspect-ratio: 1/1) {
+  .xx-map  { height: 72vw; max-height: 288px; }
+  .bd-slot { height: 35vw; max-height: 132px; }
+}
