@@ -148,29 +148,47 @@ console.log('\n[7] 门禁提示:差多少写出来,而不是点了才弹');
   }
 }
 
-console.log('\n[8] 灵伴在局内:真的动、真的捡');
+console.log('\n[8] 灵伴在局内:真的动、真的捡、**真的送到手上**');
 {
+  // ⚠️ XX-COMPANION-004:本段断言**整段重写**。
+  // 原来最后一条是 `ok('捡到的宝石变成了玩家经验', fake.player._xp === 3)` ——
+  // 那条断言的是**被 owner 要求换掉的行为**:旧实现宝石一消失,经验直接进
+  // 玩家身上,玩家的手根本没动。现在必须是「她捡起来 → 走回来 → 伸触手 →
+  // 触碰到玩家」才交付。所以这不是"测试坏了",是契约换了。
   COMPANION.reset(); COMPANION.init('宝宝');
   const { CompanionActor } = await import('../js/xiuxian/companion-actor.js');
   const fake = {
-    player: { x: 0, y: 0, hp: 100, stats: { maxHp: 100 }, _xp: 0, addXp(v) { this._xp += v; } },
+    player: { x: 0, y: 0, hp: 100, stats: { maxHp: 100, goldMult: 1 }, _xp: 0, addXp(v) { this._xp += v; } },
     pickups: [], enemies: [], cam: { x: 0, y: 0 }, texts: [],
+    stats: { gold: 0 }, time: 0,
     remove(a, i) { a[i] = a[a.length - 1]; a.pop(); },
-    spawnText(x, y, t) { this.texts.push({ x, y, t }); },
+    spawnText() {}, addParticles() {}, shake() {},
+    // Director.onGemPickup 在捡宝石时会调它(加生成压力)。少了这个桩,
+    // 交付那一刻会抛 TypeError,把真正的断言结果盖掉 —— 实测踩过。
+    addEnemy(e) { this.enemies.push(e); return e; },
   };
   const a = new CompanionActor(fake);
   a.begin();
   const x0 = a.x;
   fake.pickups.push({ kind: 'gem', x: 80, y: 0, xp: 3, r: 8, t: 0 });
-  // 她捡完会走回跟随位,所以要看**过程中的最远位置**,不是最终位置
-  let maxX = a.x, maxY = a.y;
-  for (let i = 0; i < 300; i++) { a.update(1 / 60); if (a.x > maxX) maxX = a.x; if (Math.abs(a.y) > Math.abs(maxY)) maxY = a.y; }
+
+  // 跟 60 秒 @60fps —— 开局节奏是 28 秒一次,5 秒只够走一半。
+  let maxX = a.x, xpWhenGone = null, gone = false, touched = -1;
+  for (let i = 0; i < 3600; i++) {
+    a.update(1 / 60);
+    if (a.x > maxX) maxX = a.x;
+    if (!gone && fake.pickups.length === 0) { gone = true; xpWhenGone = fake.player._xp; }
+    if (gone && touched < 0 && fake.player._xp > 0) touched = i;
+  }
+
   ok('她真的跑过去了', maxX > 55, `最远到 x=${maxX.toFixed(1)}(宝石在 80)`);
   ok('她不是瞬移过去的', maxX - x0 < 200 && maxX > x0, `位移 ${(maxX - x0).toFixed(1)}`);
-  ok('捡完回到跟随位', Math.abs(a.x - (fake.player.x - 36)) < 2, `x=${a.x.toFixed(1)}`);
-  ok('她把宝石捡走了', fake.pickups.length === 0, `剩 ${fake.pickups.length}`);
-  ok('捡到的宝石变成了玩家经验', fake.player._xp === 3, `xp=${fake.player._xp}`);
-  ok('年表记了这一笔', COMPANION.s.log.length === 0 || typeof COMPANION.s.log[0].picks === 'number');
+  ok('她把宝石从地上拿走了', fake.pickups.length === 0, `剩 ${fake.pickups.length}`);
+  // ↓↓↓ 这三条是本段的核心:递送必须看得见,不能瞬移
+  ok('宝石消失时玩家**没有**拿到经验(不能瞬移到玩家身上)', xpWhenGone === 0, `xp=${xpWhenGone}`);
+  ok('稍后触手碰到玩家才交付', touched > 0, `第 ${touched} 帧`);
+  ok('最终玩家拿到全部经验', fake.player._xp === 3, `xp=${fake.player._xp}`);
+  ok('年表记了这一笔(捡了几颗)', COMPANION.s.run.picked === 1, `picked=${COMPANION.s.run.picked}`);
 }
 
 

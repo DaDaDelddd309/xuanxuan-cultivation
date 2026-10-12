@@ -39,14 +39,20 @@ const read = f => readFileSync(ROOT + '/' + f, 'utf8');
 function mkEngine() {
   return {
     player: {
-      x: 0, y: 0, hp: 100, stats: { maxHp: 100 },
+      x: 0, y: 0, hp: 100, stats: { maxHp: 100, goldMult: 1 },
       _xp: 0, addXp(v) { this._xp += v; },
     },
     pickups: [], enemies: [],
     cam: { x: 0, y: 0 },
     texts: [],
+    stats: { gold: 0 }, time: 0,
     remove(arr, i) { arr[i] = arr[arr.length - 1]; arr.pop(); },
     spawnText(x, y, t) { this.texts.push({ x, y, t }); },
+    addParticles() {}, shake() {},
+    // ⚠️ XX-COMPANION-004:递送那一刻会走 applyPickup → Director.onGemPickup
+    //   → g.addEnemy(加生成压力)。桩里缺它,交付帧就会抛 TypeError,
+    //   后面所有断言都跑不到 —— 而且报错看起来跟灵伴无关,极难定位。
+    addEnemy(e) { this.enemies.push(e); return e; },
   };
 }
 const mkCtx = () => {
@@ -156,13 +162,26 @@ console.log('\n[6] XX-COMP-002 局内行为:捡东西 / 会受伤 / 会躲');
   a.begin();
   ok('开局跟到玩家身后', Math.abs((g.player.x - a.x) - 36) < 2, `gap=${g.player.x - a.x}`);
 
-  // 捡宝石:玩家右边放一颗,她应该跑过去并捡走
+  // 捡宝石:玩家右边放一颗,她应该跑过去、捡起来、**走回来递给你**。
+  // ⚠️ XX-COMPANION-004:这里三条断言全改了。
+  //   旧写法 `宝石经验给了玩家` 断言的是"宝石一消失经验就到账",那正是 owner
+  //   要求换掉的行为 —— 玩家没动,东西已经到了。现在必须先确认**没到账**,
+  //   确认她走过场,最后才确认到账。
+  //   帧数从 240(4秒)提到 3600(60秒):开局节奏是 28 秒一次,4 秒连锁定都等不到。
   g.pickups.push({ kind: 'gem', x: 70, y: 0, xp: 3, r: 8 });
-  run(a, g, 240);
-  ok('她把宝石捡走了', g.pickups.length === 0, `还剩 ${g.pickups.length} 颗`);
-  ok('宝石经验给了玩家', g.player._xp === 3, `实际 ${g.player._xp}`);
+  let xpWhenGone = null, gone = false;
+  for (let i = 0; i < 3600; i++) {
+    a.update(1 / 60);
+    if (!gone && g.pickups.length === 0) { gone = true; xpWhenGone = g.player._xp; }
+  }
+  ok('她把宝石从地上拿走了', g.pickups.length === 0, `还剩 ${g.pickups.length} 颗`);
+  ok('宝石消失时玩家**没**拿到经验(不能瞬移)', xpWhenGone === 0, `实际 ${xpWhenGone}`);
+  ok('触手碰到后玩家才拿到经验', g.player._xp === 3, `实际 ${g.player._xp}`);
   ok('本局计数 +1', COMPANION.s.run.picked === 1, `实际 ${COMPANION.s.run.picked}`);
-  ok('场上出现过"她捡走了"提示', g.texts.some(t => t.t === '她捡走了'));
+  // 旧的「场上出现过"她捡走了"提示」断言已删除:那条 spawnText 在旧 _pick() 里,
+  // 而 _pick() 整个被 companion-gather 取代了。现在"她捡了"这件事由
+  // **头顶红外线 + 触手动画**表达,不再靠一行飘字 —— 那行飘字本来也只是
+  // 在说"我帮你按了",与新设计的"过程可见"是冲突的。
 
   // 会受伤:怪贴脸
   COMPANION.beginRun();
