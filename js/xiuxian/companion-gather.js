@@ -82,6 +82,15 @@ const RETREAT_LAG = 82;        // 玩家残血时她退开(旧 actor 的行为,�
 const SWEEP_ARC = 0.95;        // 左右各摆多少弧度(≈54°,狙击手找目标的视野)
 const SWEEP_HZ  = 1.45;        // 摆动频率(弧度/秒)—— 太快看不清,太慢等不及
 
+// —— 起手预告窗口(XX-COMPANION-005)——
+// owner 原话:「红外线需要在拾取前 1.5 秒就要射出瞄准好物品之类的,
+//              就像激光炮像素版一样」。
+// 1.5 秒是按玩家反应时间定的:割草局里玩家正在躲弹幕,余光捕捉一个
+// 突然出现的准星约需 0.3~0.5s,再留点"看清她在瞄谁"的时间,1.5s 够用且不拖沓。
+// 期间她**只瞄准不动** —— 提前动会让"预告"失去意义(玩家会以为她要扑过去,
+// 结果她停住了,反而更困惑)。
+const WINDUP_MS = 1500;
+
 export const GATHER_STATE = {
   FOLLOW: 'follow',   // 跟着玩家,红外线在扫
   FETCH:  'fetch',    // 锁定了,正在走过去
@@ -98,6 +107,7 @@ export class CompanionGather {
     this.cool = 0;               // 距下次可以出发多久
     this.elapsed = 0;            // 本局已过秒数(两个 ramp 都用它)
     this.lock = null;            // 当前锁定目标
+    this.charge = 0;              // 充能进度 0~1(XX-COMPANION-005 起手预告)
     this.sweep = 0;              // 当前摆角(弧度,相对「面向玩家」)
     this.sweepT = 0;             // 摆动相位(累加时间)
     this.tentacle = 0;           // 触手已伸出的长度(像素)
@@ -111,6 +121,7 @@ export class CompanionGather {
     this.cool = 0;
     this.elapsed = 0;
     this.lock = null;
+    this.charge = 0;
     this.sweep = 0;
     this.sweepT = 0;
     this.tentacle = 0;
@@ -183,8 +194,17 @@ export class CompanionGather {
     const lag = retreating ? RETREAT_LAG : FOLLOW_LAG;
     this._stepToward(p.x - lag, p.y + (retreating ? 44 : 22), SPD_FOLLOW, dt);
 
-    if (this.cool > 0) { this.lock = null; return; }   // 冷却中:只跟着,不伸手
-    if (!COMPANION.autoPick()) { this.lock = null; return; }   // 坐骑在捡 → 让它
+    // ⚠️ 起手窗口(XX-COMPANION-005):冷却**还剩 1.5 秒时就开始瞄准**,但不许动。
+    //
+    // 为什么:原来只要 `cool > 0` 就完全不扫,于是玩家看到的是"她突然动了"。
+    // 割草游戏里玩家同时在躲弹幕,一个毫无预兆的位移既吓人又看不懂 ——
+    // 玩家不知道她在干嘛,只会被绊一下手脚。
+    // 提前 1.5 秒把红外线射出去、让准星慢慢收拢,等于给玩家一个
+    // 「她在瞄那个」的可读预告,动起来的时候就是玩家**预期之内**的反应。
+    // 这就是"充能 → 锁定 → 发射"的三段式,激光炮该有的节奏。
+    const winding = this.cool > 0 && this.cool <= WINDUP_MS;
+    if (this.cool > 0 && !winding) { this.lock = null; this.charge = 0; return; }
+    if (!COMPANION.autoPick()) { this.lock = null; this.charge = 0; return; }  // 坐骑在捡 → 让它
 
     // 扫描:射线在玩家前方来回摆,扫到能拾取的东西才锁。
     // 扫到怪/妖物**不锁** —— 这正是"红外线扫过去,只锁地上的东西"。
@@ -207,11 +227,24 @@ export class CompanionGather {
       if (along <= 0) continue;                    // 在射线背后,不锁
       const perp = Math.abs(dx * (-ruy) + dy * rux);
       if (perp > LOCK_R) continue;
-      const score = perp * 1000 + along;           // 越正对、越近,优先
+      // 场上几十颗时的取舍:正对程度权重远大于距离。
+      //   若按距离优先,她会一路扑向最近的那颗,准星在两三个候选之间来回跳 ——
+      //   玩家看到的是"激光乱晃",反而读不出她在瞄谁。
+      //   现在的权重(垂距×1000)保证:先稳住一个,再谈靠近。
+      const score = perp * 1000 + along;
       if (score < bestD) { bestD = score; best = k; }
     }
+
+    // 锁定要**粘住**:已经锁上的就别被下一个候选抢走,除非它跑了或失效了。
+    //   几十颗同时在地上时,逐帧重选会让准星闪烁,起手预告就废了。
+    if (this.lock && this.g.pickups.includes(this.lock) && this.canPick(this.lock)
+        && Math.hypot(this.lock.x - p.x, this.lock.y - p.y) <= R) {
+      best = this.lock;
+    }
     this.lock = best;
-    if (best) this.state = GATHER_STATE.FETCH;
+    // 充能进度:锁上之后准星从散到收,给玩家一个"越来越准"的读数
+    this.charge = best ? Math.min(1, this.charge + dt * 1000 / WINDUP_MS) : 0;
+    if (best && this.cool <= 0) this.state = GATHER_STATE.FETCH;
   }
 
   // —— FETCH:锁定后走过去捡 ——
@@ -297,7 +330,15 @@ export class CompanionGather {
   //   红外线 → under 层(贴着地面,压在所有实体下面,像瞄准线)
   //   触手   → player 层(从她身上长出来,要压在实体上面才看得见)
 
-  /** 狙击红外线:扫过去,只锁地上的可拾取物 */
+  /** 狙击红外线 + 起手充能(XX-COMPANION-005)
+   *
+   * 三个阶段对应玩家的三段阅读:
+   *   未锁定(charge=0)  → 一道扫来扫去的细线,「她在找」
+   *   锁定中(charge 0→1)→ 准星从散到收、线变粗变亮,「她瞄上了」
+   *   冷却归零          → 进入 fetch,线断开,她扑过去
+   * 充电度直接画成准星半径与线宽,所以"还剩多久动手"是**看得见**的,
+   * 不需要任何文字提示。
+   */
   drawLaser(ctx) {
     const g = this.g, a = this.actor;
     if (!g || !a || !a.present) return;
@@ -305,14 +346,12 @@ export class CompanionGather {
     if (!p) return;
     const cam = g.cam;
     const base = Math.atan2(p.y - a.y, p.x - a.x) + this.sweep;
+    const ch = this.charge;                 // 0~1
 
     let ex, ey, locked = false;
     if (this.lock && this.g.pickups && this.g.pickups.includes(this.lock)) {
       ex = this.lock.x; ey = this.lock.y; locked = true;
     } else {
-      // 没锁定:射线沿当前摆角伸出去。长度要比扫描半径**多留一截** ——
-      // 扫描半径是从玩家算的,而射线起点在她眼睛(默认落在玩家身后 44px),
-      // 不加这截的话,射线够不到玩家正前方的东西,视觉上就是"明明在范围内却扫不到"。
       const R = this.scanRadius() + 90;
       ex = a.x + Math.cos(base) * R; ey = a.y + Math.sin(base) * R;
     }
@@ -321,36 +360,55 @@ export class CompanionGather {
     const x1 = ex - (cam ? cam.x : 0), y1 = ey - (cam ? cam.y : 0);
 
     ctx.save();
-    // 外层柔光 + 内层细芯 = 红外线的样子;锁定时更亮更实
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = locked ? PAL.cinnabar : 'rgba(140,58,46,.42)';
-    ctx.lineWidth = locked ? 3.2 : 2.0;
-    ctx.globalAlpha = locked ? 0.30 : 0.16;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-
-    ctx.globalAlpha = locked ? 0.92 : 0.46;
-    ctx.lineWidth = locked ? 1.3 : 0.9;
-    ctx.strokeStyle = locked ? '#e0664f' : PAL.cinnabar;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-
-    // 沿线往返的亮点 —— 扫描感全靠它
-    const t = (this.sweep * 0.6) % 1;
-    const sx = x0 + (x1 - x0) * t, sy = y0 + (y1 - y0) * t;
-    ctx.globalAlpha = 0.85; ctx.fillStyle = locked ? '#e0664f' : PAL.cinnabar;
-    ctx.beginPath(); ctx.arc(sx, sy, locked ? 2.2 : 1.4, 0, Math.PI * 2); ctx.fill();
-
-    // 锁定端:准星(空心圆 + 四根短刻度)
+    // 像素激光炮的"炮口辉光":充能越高越亮越大,给一个蓄力的实体感
     if (locked) {
-      ctx.globalAlpha = 0.9; ctx.strokeStyle = '#e0664f'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.arc(x1, y1, LOCK_R * 0.62, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = `rgba(224,102,79,${0.10 + 0.32 * ch})`;
+      ctx.beginPath();
+      ctx.arc(x0, y0, 3 + 7 * ch, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 主体:外辉 + 内芯,线宽随充能变粗(像素激光的"能量变粗"直觉)
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(140,58,46,${locked ? 0.24 + 0.16 * ch : 0.16})`;
+    ctx.lineWidth = locked ? 3.0 + 2.4 * ch : 2.0;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+
+    ctx.strokeStyle = locked ? '#e0664f' : 'rgba(140,58,46,.55)';
+    ctx.lineWidth = locked ? 1.2 + 1.1 * ch : 0.9;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+
+    // 充能脉冲:沿线来回跑的光点。未锁定时匀速跑,锁定后**越跑越快** ——
+    // 速度差本身就是"要发射了"的信号,不用任何文字。
+    const speed = locked ? 0.6 + 1.5 * ch : 0.45;
+    const t = (this.sweepT * speed) % 1;
+    const sx = x0 + (x1 - x0) * t, sy = y0 + (y1 - y0) * t;
+    ctx.fillStyle = locked ? '#e0664f' : PAL.cinnabar;
+    ctx.globalAlpha = locked ? 0.95 : 0.5;
+    ctx.beginPath(); ctx.arc(sx, sy, locked ? 1.8 + 1.6 * ch : 1.3, 0, Math.PI * 2); ctx.fill();
+
+    if (locked) {
+      // 准星:半径从 LOCK_R 收到 LOCK_R*0.3,四根刻度同步内收 —— "越来越准"
+      const rr = LOCK_R * (1.3 - 0.75 * ch);
+      ctx.globalAlpha = 0.92; ctx.strokeStyle = '#e0664f';
+      ctx.lineWidth = 1 + 0.6 * ch;
+      ctx.beginPath(); ctx.arc(x1, y1, Math.max(2, rr), 0, Math.PI * 2); ctx.stroke();
       for (let i = 0; i < 4; i++) {
         const ang = i * Math.PI / 2 + Math.PI / 4;
         const cx = Math.cos(ang), sy2 = Math.sin(ang);
+        const o1 = rr + 2, o2 = o1 + 4 + 3 * (1 - ch);
         ctx.beginPath();
-        ctx.moveTo(x1 + cx * LOCK_R * 0.85, y1 + sy2 * LOCK_R * 0.85);
-        ctx.lineTo(x1 + cx * LOCK_R * 1.35, y1 + sy2 * LOCK_R * 1.35);
+        ctx.moveTo(x1 + cx * o1, y1 + sy2 * o1);
+        ctx.lineTo(x1 + cx * o2, y1 + sy2 * o2);
         ctx.stroke();
       }
+      // 充能环:外圈圆弧随充能扫过,这是"倒计时"的像素化读数
+      ctx.globalAlpha = 0.75;
+      ctx.strokeStyle = PAL.gold;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(x1, y1, LOCK_R * 1.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ch);
+      ctx.stroke();
     }
     ctx.restore();
   }
