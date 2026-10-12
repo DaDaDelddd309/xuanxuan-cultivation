@@ -59,6 +59,11 @@ const mkCtx = () => {
   const rec = { ellipse: [], arc: [], fill: 0, stroke: 0 };
   return { rec,
     save() {}, restore() {}, beginPath() {}, moveTo() {},
+    // 变换三件套:draw() 现在用 translate/rotate/scale 做倾斜、转身与挤压
+    // (对齐玩家那套动作词汇)。原来的桩只实现了旧 draw() 恰好用到的 API,
+    // 于是一升级动作就抛 "ctx.translate is not a function" ——
+    // 报错还发生在渲染里,很容易误以为是产品 bug。
+    translate() {}, rotate() {}, scale() {},
     quadraticCurveTo() {}, lineTo() {},
     ellipse(x, y) { rec.ellipse.push([x, y]); },
     arc(x, y, r) { rec.arc.push([x, y, r]); },
@@ -222,9 +227,22 @@ console.log('\n[7] 镜头偏移用 cam(不是 camera)');
   a.draw(ctx);
   ok('她被画出来了', ctx.rec.fill > 0 && ctx.rec.stroke > 0);
   const [ex, ey] = ctx.rec.ellipse[0] || [NaN, NaN];
-  // 影子画在脚下:偏移为 (0, +2)
-  ok('投影减去了 cam', Math.abs(ex - (a.x - 1000)) < 0.001 && Math.abs(ey - (a.y - 500 + 2)) < 0.001,
-     `画在(${ex},${ey}),期望(${a.x - 1000},${a.y - 498})`);
+  // 影子画在脚下:竖向 +2;横向要加上走路时的**横摆**。
+  //
+  // ⚠️ 原来这里是 < 0.001 的精确相等。XX-COMPANION-006 给她补了动作词汇
+  //   (横摆 bx = sin(ph+π/2) * 1.1 * facing)之后,画出的 x 会偏离基准最多 1.1px,
+  //   于是这条变红了 —— 但它**没有失效**:减的仍然是 cam,只是多了动画偏移。
+  //
+  // 所以不放宽容差,而是把容差**绑定到动作的实际振幅**(见 companion-actor.js
+  // `bx = Math.sin(ph + Math.PI / 2) * 1.1 * this.facing`)。
+  // 1.25px 的界仍然比"误用 camera"的 1000px 差三个数量级,反证那条依然成立。
+  const SWAY_MAX = 1.25;
+  ok('投影减去了 cam(容差=动作振幅)', Math.abs(ex - (a.x - 1000)) < SWAY_MAX,
+     `画在 ${ex},基准 ${a.x - 1000},偏差 ${(ex - (a.x - 1000)).toFixed(3)}px(振幅上限 ${SWAY_MAX})`);
+  // 竖向不受横摆影响,但受呼吸/浮动影响(振幅 2.2+1.1),同样按振幅给界
+  const BOB_MAX = 3.5;
+  ok('投影竖向也减去了 cam', Math.abs(ey - (a.y - 500 + 2)) < BOB_MAX,
+     `画在 ${ey},基准 ${a.y - 498},偏差 ${(ey - (a.y - 498)).toFixed(3)}px(振幅上限 ${BOB_MAX})`);
   ok('若误用 camera 会明显偏移(反证)', Math.abs(a.x - 1000 - (a.x)) > 1);
 }
 

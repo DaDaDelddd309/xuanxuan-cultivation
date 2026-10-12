@@ -51,6 +51,15 @@ export class CompanionActor {
     this.target = null;      // 当前要捡的那颗宝石
     this._downT = 0;         // 被打散后的消失计时
     this.line = null;        // 头顶正在说的话 { text, until }
+    // —— 动作状态(XX-COMPANION-006)——
+    // 原来她只有 this.bob 一个 ±2.2px 的单频浮动,和玩家那套
+    // 「4 帧步态 + bob + 横摆 + 倾斜 + 挤压 + 影子呼吸 + 扬尘 + 双频呼吸」
+    // 相比约等于**站着不动**。玩家在跑,她在飘 —— 这正是"立绘不会变"体感
+    // 的真正来源(而且这层**不需要美术**,纯代码就能补)。
+    this.animT = 0;          // 步态相位
+    this.moving = false;     // 是否在位移
+    this.facing = 1;         // 朝向 1/-1
+    this.spd = 0;            // 本帧实际速度(px/s),由 gather 每帧喂进来
     this.gather = new CompanionGather(this);   // 移动/锁定/拾取/递送全归它
   }
 
@@ -97,8 +106,23 @@ export class CompanionActor {
     // 移动与拾取**全部**交给独立系统(XX-COMPANION-004)。
     // 旧的「看到宝石→删掉→经验直接进玩家身上」已经不存在了:
     // 现在是 锁定 → 走过去 → 捡起来 → 走回来 → 伸触手 → 才交付。
+    const bx = this.x, byy = this.y;
     this.gather.update(dt);
     this.target = this.gather.lock;
+
+    // 由**实际位移**反推动作状态,而不是由状态机猜。
+    // 这么做的原因:gather 在 FETCH/CARRY/HANDOFF 三态的移动意图完全不同,
+    // 猜错就会出现"她脚在往右滑、身体在往左摆"。位移是唯一不会说谎的信号。
+    const dx = this.x - bx, dy = this.y - byy;
+    const dist = Math.hypot(dx, dy);
+    this.spd = dt > 0 ? dist / dt : 0;
+    this.moving = this.spd > 6;                 // 6px/s 以下算"站着"(避免原地微抖被当成走路)
+    if (dx > 0.35) this.facing = 1;
+    else if (dx < -0.35) this.facing = -1;
+    // 步态频率跟着**真实速度**走:SPD_FOLLOW 96 时慢慢晃,
+    // SPD_CARRY 120 送东西回来时会明显急一点。固定频率会让她两种状态看起来一样。
+    if (this.moving) this.animT += dt * (2.6 + this.spd / 46);
+    else this.animT = 0;
 
     this._checkHurt(dt);
   }
@@ -141,65 +165,101 @@ export class CompanionActor {
     return r;
   }
 
-  /** 暗色剪影 + 金线(ART-GUIDELINES 方案 B) */
+  /** 暗色剪影 + 金线(ART-GUIDELINES 方案 B)
+   *
+   * 动作词汇对齐玩家(js/game/player.js:301-320 那套):
+   *   走路  bob(竖) + 横摆 + 转角倾斜 + 挤压拉伸 + 影子随步伐缩放 + 落脚扬尘
+   *   待机  **双频**呼吸(sin(t*1.9)*2.2 + sin(t*3.7)*0.35,与玩家同式)
+   *
+   * 原来这里只有一个 `Math.sin(this.bob) * 2.2` 的竖直浮动 ——
+   * 她有影子、有金线、有头,整个身体却只做上下平移,看起来就是一张贴纸在滑。
+   * 这层**不需要美术**,纯代码就能补;但它要成为像素图的过渡方案:
+   * 有了 PIX 点阵之后,步态交给 4 帧图,本文件只保留挤压/倾斜/影子那部分。
+   */
   draw(ctx) {
     if (!this.present) return;
     const cam = this.g.cam;                       // 镜头在 engine.cam,不是 camera
-    const x = this.x - (cam ? cam.x : 0);
-    const y = this.y - (cam ? cam.y : 0);
-    const bob = Math.sin(this.bob) * 2.2;
+    const x0 = this.x - (cam ? cam.x : 0);
+    const y0 = this.y - (cam ? cam.y : 0);
     const hpRatio = COMPANION.s.run.hp / COMPANION.s.run.maxHp;
+
+    // —— 动作解算 ——
+    let bx = 0, by = 0, ang = 0, sx = 1, sy = 1, shScale = 1, shAlpha = 0.34;
+    if (this.moving) {
+      const ph = this.animT * 12;
+      by = Math.sin(ph) * 3.0;                               // 与玩家同幅度
+      bx = Math.sin(ph + Math.PI / 2) * 1.1 * this.facing;  // 横向摆,跟朝向
+      ang = Math.sin(ph) * 0.08 * this.facing;               // 落脚时身体侧倾
+      const k = Math.abs(Math.sin(ph));
+      sy = 1 - k * 0.072; sx = 1 + k * 0.055;                // 挤压拉伸
+      shScale = 1 - k * 0.28;                                // 影子跟着缩
+      shAlpha = 0.16 + k * 0.16;
+    } else {
+      // 双频呼吸:和玩家待机同一组系数,她与玩家同屏时才是同一个呼吸节奏
+      const t = (this.g && this.g.time) || 0;
+      by = Math.sin(t * 1.9) * 2.2 + Math.sin(t * 3.7) * 0.35;
+    }
+    // 旧的 bob 保留但降权,不与上面的呼吸叠加成抽搐
+    by += Math.sin(this.bob) * 1.1;
+    const x = x0 + bx, y = y0 + by;
 
     ctx.save();
     ctx.globalAlpha = this.retreating ? 0.45 : 0.92;
 
-    // 影:脚下淡墨,让她"站"在地上而不是飘着
-    ctx.fillStyle = 'rgba(8,7,6,.34)';
+    // 影:随步伐缩放,不是固定的一个椭圆
+    ctx.fillStyle = `rgba(8,7,6,${shAlpha})`;
     ctx.beginPath();
-    ctx.ellipse(x, y + 2, 11, 4.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y0 + 2, 11 * shScale, 4.2 * shScale, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // 身体:绕脚下做倾斜 + 挤压;x 乘 facing 做转身(靠 scale 的符号翻转)
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    ctx.scale(sx * this.facing, sy);
 
     // 水墨剪影(上窄下阔的袍形)
     ctx.fillStyle = PAL.ink3;
     ctx.beginPath();
-    ctx.moveTo(x, y - 30 + bob);
-    ctx.quadraticCurveTo(x + 9, y - 20 + bob, x + 8, y + 1);
-    ctx.lineTo(x - 8, y + 1);
-    ctx.quadraticCurveTo(x - 9, y - 20 + bob, x, y - 30 + bob);
+    ctx.moveTo(0, -30);
+    ctx.quadraticCurveTo(9, -20, 8, 1);
+    ctx.lineTo(-8, 1);
+    ctx.quadraticCurveTo(-9, -20, 0, -30);
     ctx.fill();
 
     // 头
     ctx.fillStyle = PAL.ink2;
     ctx.beginPath();
-    ctx.arc(x, y - 35 + bob, 5.4, 0, Math.PI * 2);
+    ctx.arc(0, -35, 5.4, 0, Math.PI * 2);
     ctx.fill();
 
     // 金线轮廓:唯一亮点,也是她在水墨里被看见的原因
     ctx.strokeStyle = hpRatio > 0.5 ? PAL.gold : PAL.goldDim;
     ctx.lineWidth = 1.1;
     ctx.beginPath();
-    ctx.moveTo(x, y - 30 + bob);
-    ctx.quadraticCurveTo(x + 9, y - 20 + bob, x + 8, y + 1);
-    ctx.moveTo(x, y - 30 + bob);
-    ctx.quadraticCurveTo(x - 9, y - 20 + bob, x - 8, y + 1);
+    ctx.moveTo(0, -30);
+    ctx.quadraticCurveTo(9, -20, 8, 1);
+    ctx.moveTo(0, -30);
+    ctx.quadraticCurveTo(-9, -20, -8, 1);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(x, y - 35 + bob, 5.4, 0, Math.PI * 2);
+    ctx.arc(0, -35, 5.4, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.restore();
 
-    // 头顶台词(XX-COMPANION-004)。
-    //
-    // 为什么画在 canvas 里而不是 DOM:她跟着玩家在世界坐标里跑,
-    // DOM 气泡要每帧同步 screen 坐标,窗口滚动/分辨率一变就飘。
-    // canvas 里直接减 cam 就贴住了,和她的身体用同一套坐标系。
-    //
-    // 为什么不用 Bond.bubble():那个是被明文批评过「突兀、妨碍视野」的弹窗,
-    // 而且每局有 6 条预算、要占打扰队列。这里是**她自己头顶的一行小字**,
-    // 不遮弹幕、不进预算、不排队 —— 台词还是同一句(say() 是唯一真源),
-    // 只是"说什么"和"怎么显示"分开了(与 companion-broadcast 同一个分工)。
-    if (this.line) this._drawLine(ctx, x, y - 46 + bob);
+    // 落脚扬尘:与玩家同做法,但用**朱砂墨色**而非纸色 ——
+    //   她是半透明的墨影,扬起纸色尘会像踩到了别人。
+    if (this.moving && this.g.addParticles) {
+      const cur = Math.floor(this.animT) % 2;
+      const prv = Math.floor(this.animT - 0.016) % 2;
+      if (cur !== prv && cur === 0) {
+        this.g.addParticles(this.x, this.y + 4,
+          { n: 2, color: 'rgba(140,58,46,.55)', speed: 20, life: 0.24, size: 2.2 });
+      }
+    }
+
+    // 头顶台词
+    if (this.line) this._drawLine(ctx, x, y - 46);
   }
 
   /** 头顶小字:纸色底 + 金边,宽度不够就换行 */
