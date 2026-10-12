@@ -206,10 +206,8 @@ export const COMPANION = {
     return !!(MOUNT.s && MOUNT.s.pick && MOUNT.s.pick.on);
   },
 
-  /** 拾取半径(随时间轻微起伏,避免机械感) */
-  pickRadius() {
-    return 46 + Math.sin(Date.now() / 900) * 10;
-  },
+  // ⚠️ 原来的 pickRadius() 已删(XX-COMPANION-004):它本来就零调用点,且与新系统的
+  //   扫描半径不是一回事。理由与替代实现见 companion-gather.js 顶部的 SCAN_MAX。
 
   autoPick() {
     if (!this.s.run.present) return false;

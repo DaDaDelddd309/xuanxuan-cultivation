@@ -12,16 +12,23 @@
 //   · 每局最多 2 句台词,且由「本局表现」触发,不是随机池
 //
 import { COMPANION } from './companion.js';
+import { CompanionGather, GATHER_STATE } from './companion-gather.js';
 import { PAL } from '../core/palette.js';
 
 // 行为参数(全部集中在这里,方便调)
 const FOLLOW_LAG   = 36;    // 跟随时落后玩家的横向距离
 const RETREAT_LAG  = 82;    // 玩家残血时她退到多远
-const SEEK_RANGE   = 210;   // 玩家身边多大范围内她才会去捡
-const PICK_REACH   = 18;    // 她离宝石多近算捡到
-const MOVE_SPEED   = 132;   // 像素/秒(比玩家慢,追不上才像"跟着")
 const HURT_REACH   = 26;    // 怪离她多近能打中
 const HURT_CD      = 1100;  // 挨打间隔,免得一瞬间被打空
+// ⚠️ SEEK_RANGE / PICK_REACH / MOVE_SPEED 三个常量已随 _findGem/_pick 一起移除。
+//   它们的职责整体交给了 companion-gather.js(XX-COMPANION-004):
+//     · 移动速度 → SPD_FOLLOW / SPD_FETCH / SPD_CARRY
+//     · 搜索范围 → SCAN_MAX(不再是拍脑袋的 210,是玩家磁铁满级值 215)
+//     · 拾取距离 → FETCH_REACH
+//   留着旧常量会让人以为还能调它们,改了却没效果 —— 本仓库最恨这种假承诺。
+//
+// 头顶台词气泡的停留时长(毫秒)。台词由「本局表现」触发,不是随机池。
+const LINE_MS = 3200;
 
 // 局内形象:画布剪影,**不用立绘**。
 //
@@ -43,6 +50,8 @@ export class CompanionActor {
     this.hurtCd = 0;
     this.target = null;      // 当前要捡的那颗宝石
     this._downT = 0;         // 被打散后的消失计时
+    this.line = null;        // 头顶正在说的话 { text, until }
+    this.gather = new CompanionGather(this);   // 移动/锁定/拾取/递送全归它
   }
 
   /** 开局:跟玩家初始位置,并决定本局是否出场 */
@@ -53,6 +62,8 @@ export class CompanionActor {
     this.hurtCd = 0;
     this.target = null;
     this._downT = 0;
+    this.line = null;
+    this.gather.begin(this.g);          // 拾取系统跟着一起重置
     COMPANION.beginRun();                  // 开局重置局内状态(含连死3次不出场)
     this.present = COMPANION.s.run.present;
     return this.present;
@@ -72,70 +83,37 @@ export class CompanionActor {
     if (!COMPANION.s.run.present) { this.present = false; return; }
     this.present = true;
     this.bob += dt * 2.2;
+    if (this.line && Date.now() > this.line.until) this.line = null;
 
     const maxHp = p.stats && p.stats.maxHp ? p.stats.maxHp : 1;
     const ratio = Math.max(0, Math.min(1, p.hp / maxHp));
     this.retreating = COMPANION.shouldRetreat(ratio);
-    if (this.retreating) COMPANION.say('hiding');
+    // ⚠️ 这里原来写的是 `if (this.retreating) COMPANION.say('hiding');` ——
+    //   say() 的返回值**当场丢掉**。和本轮 Titles.check() 是同一类病:
+    //   台词算出来了、也进预算了,但没人接,于是「你越来越会躲了。」
+    //   这句话**从来没被显示过**。现在接住它,冒到头顶去。
+    if (this.retreating) this._say(COMPANION.say('hiding'));
 
-    // 目标点:有宝石就去捡,没有就跟玩家
-    const tk = this._findGem(p);
-    let tx, ty;
-    if (tk) { tx = tk.x; ty = tk.y; }
-    else {
-      const back = this.retreating ? RETREAT_LAG : FOLLOW_LAG;
-      tx = p.x - back; ty = p.y + (this.retreating ? 44 : 18);
-    }
-    this._moveToward(tx, ty, dt);
-
-    // 走到宝石跟前才捡 —— 玩家看得见她跑过去捡
-    if (tk && Math.hypot(tk.x - this.x, tk.y - this.y) < PICK_REACH) this._pick(tk);
-    else if (!tk) this.target = null;
+    // 移动与拾取**全部**交给独立系统(XX-COMPANION-004)。
+    // 旧的「看到宝石→删掉→经验直接进玩家身上」已经不存在了:
+    // 现在是 锁定 → 走过去 → 捡起来 → 走回来 → 伸触手 → 才交付。
+    this.gather.update(dt);
+    this.target = this.gather.lock;
 
     this._checkHurt(dt);
   }
 
-  _moveToward(tx, ty, dt) {
-    const dx = tx - this.x, dy = ty - this.y;
-    const d = Math.hypot(dx, dy);
-    if (d < 0.5) return;
-    const step = Math.min(d, MOVE_SPEED * dt);
-    this.x += (dx / d) * step;
-    this.y += (dy / d) * step;
+  /** 接到一句台词就冒到头顶;null / 已满预算 一律静默 */
+  _say(line) {
+    if (!line) return null;          // say() 返回 null = 本局说过了 / 不出场
+    this.line = { text: line, until: Date.now() + LINE_MS };
+    return line;
   }
 
-  /** 找玩家身边最近的一颗宝石 */
-  _findGem(p) {
-    if (!this.g.pickups || !COMPANION.autoPick()) { this.target = null; return null; }
-    let best = null, bestD = SEEK_RANGE;
-    for (let i = this.g.pickups.length - 1; i >= 0; i--) {
-      const k = this.g.pickups[i];
-      if (!k || k.kind !== 'gem') continue;
-      const d = Math.hypot(k.x - p.x, k.y - p.y);
-      if (d < bestD) { bestD = d; best = k; }
-    }
-    // 锁定后别每帧换目标,免得她原地抖动
-    if (this.target && this.g.pickups.includes(this.target)) {
-      const d = Math.hypot(this.target.x - p.x, this.target.y - p.y);
-      if (d < SEEK_RANGE * 1.3) return this.target;
-    }
-    this.target = best;
-    return best;
-  }
-
-  _pick(k) {
-    const g = this.g, idx = g.pickups.indexOf(k);
-    if (idx < 0) { this.target = null; return; }
-    g.remove(g.pickups, idx);
-    if (g.player && g.player.addXp) g.player.addXp(k.xp);
-    COMPANION.onPick(1);
-    this.target = null;
-    if (g.spawnText) {
-      g.spawnText(this.x, this.y - 30, '她捡走了', { color: PAL.gold, size: 13, life: 1.1 });
-    }
-  }
-
-  /** 怪打她:掉血,掉光就消失一会儿 */
+  /** 怪打她:掉血,掉光就消失一会儿。
+   *  ⚠️ 单向:怪能打她,**她不会打任何人**。XX-COMPANION-004 追加 ——
+   *  owner 明确要求「不会伤害玩家」,所以本类没有任何一行对 player 造成伤害的代码,
+   *  也不做与 player 的碰撞。新拾取系统同样没有 —— 递送不是攻击。 */
   _checkHurt(dt) {
     const g = this.g;
     this.hurtCd -= dt * 1000;
@@ -209,6 +187,39 @@ export class CompanionActor {
     ctx.arc(x, y - 35 + bob, 5.4, 0, Math.PI * 2);
     ctx.stroke();
 
+    ctx.restore();
+
+    // 头顶台词(XX-COMPANION-004)。
+    //
+    // 为什么画在 canvas 里而不是 DOM:她跟着玩家在世界坐标里跑,
+    // DOM 气泡要每帧同步 screen 坐标,窗口滚动/分辨率一变就飘。
+    // canvas 里直接减 cam 就贴住了,和她的身体用同一套坐标系。
+    //
+    // 为什么不用 Bond.bubble():那个是被明文批评过「突兀、妨碍视野」的弹窗,
+    // 而且每局有 6 条预算、要占打扰队列。这里是**她自己头顶的一行小字**,
+    // 不遮弹幕、不进预算、不排队 —— 台词还是同一句(say() 是唯一真源),
+    // 只是"说什么"和"怎么显示"分开了(与 companion-broadcast 同一个分工)。
+    if (this.line) this._drawLine(ctx, x, y - 46 + bob);
+  }
+
+  /** 头顶小字:纸色底 + 金边,宽度不够就换行 */
+  _drawLine(ctx, x, top) {
+    const txt = this.line.text;
+    ctx.save();
+    ctx.font = '11px "Kaiti SC","STKaiti","KaiTi","SimSun",serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = Math.min(150, ctx.measureText(txt).width + 12);
+    const h = 17;
+    ctx.fillStyle = 'rgba(8,7,6,.72)';
+    ctx.strokeStyle = PAL.goldDim;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, top - h / 2, w, h, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = PAL.paper;
+    ctx.fillText(txt, x, top);
     ctx.restore();
   }
 }

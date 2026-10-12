@@ -24,7 +24,7 @@
 //   各自都把 v099ae 升到了 v099af。VERSION-CONVENTION 规则 3 说过「不要各自升」,
 //   真撞上了按规则 2 由**后合的一方**再升一格, 否则两个不同代码对外声称同一个版本,
 //   已缓存 v099af 的客户端分不出谁新。
-const V = 'xuanxuan-v099ak';
+const V = 'xuanxuan-v099al';
 const BUILD = '20261011-2330';
 
 const CORE = [
@@ -79,6 +79,10 @@ const XX = [
   'js/xiuxian/codex.js',
   'js/xiuxian/story.js', 'js/xiuxian/spine.js',
   'js/xiuxian/companion-actor.js', 'js/xiuxian/illust.js', 'js/xiuxian/clock.js', 'js/xiuxian/market.js', 'js/xiuxian/tavern.js', 'js/xiuxian/artstar.js', 'js/xiuxian/craft.js',
+  // XX-COMPANION-004:灵伴的独立拾取系统。companion-actor.js 静态 import 它,
+  // 离线拉不到 → actor 整条 import 图失败 → 局内白屏。
+  // 由 tests/lint-precache-reverse.mjs 兜住(它正是为"磁盘有、清单没有"这类漏项存在的)。
+  'js/xiuxian/companion-gather.js',
   // 程序化生成 + 分层种子 + 局内配置链(V0.97~V0.98)。
   // world.js 已经 import 了 worldgen/seed,vendor/rot-rng 是它们的底座,
   // ui.js 又 import 了 runcfg —— 4 个文件全在静态 import 图上,一个都不能少。
@@ -91,7 +95,11 @@ const XX = [
   // 它们就在 ui.js 的**静态 import 图**上 —— 原生 ESM 全有或全无,
   // 离线拉不到任意一个就是整页白屏。dom.js 是共享 DOM 辅助(esc/toast),
   // 视图模块和 ui.js 都依赖它,漏掉等于整页转义失效。
-  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/gear.js', 'js/xiuxian/ui/map.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
+  'js/xiuxian/ui/arts.js', 'js/xiuxian/ui/bag.js', 'js/xiuxian/ui/build.js', 'js/xiuxian/ui/dexsys.js', 'js/xiuxian/ui/dom.js', 'js/xiuxian/ui/fam.js', 'js/xiuxian/ui/gear.js',
+  // 修仙阁顶部「正在发生」动态区(XX-LIVE-001)。ui.js 静态 import 它,
+  // 原生 ESM 全有或全无 —— 不在清单里,离线点开修仙阁就是整页白屏。
+  'js/xiuxian/ui/livebar.js',
+  'js/xiuxian/ui/map.js', 'js/xiuxian/ui/meta.js', 'js/xiuxian/ui/portrait.js', 'js/xiuxian/ui/realm.js', 'js/xiuxian/ui/story.js', 'js/xiuxian/ui/title.js', 'js/xiuxian/ui/tomb.js',
   // 存档键集中注册表(XX-AUDIT-006 批 1)。
   // 它在 15 个模块的静态 import 图上 —— 原生 ESM 是全有或全无,
   // 离线拉不到就是整页白屏。

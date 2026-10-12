@@ -67,9 +67,25 @@ engine.addDrawer('player', ctx => { if (engine.player) engine.player.draw(ctx); 
 const companion = new CompanionActor(engine);
 engine.addUpdater(dt => companion.update(dt));
 engine.addDrawer('player', ctx => companion.draw(ctx));
+// 独立拾取系统(XX-COMPANION-004)的两层特效,分图层是有理由的:
+//   红外线 → under:它是**贴在地上**的瞄准线,压在所有实体下面才对。
+//             放 player 层会盖在怪物身上,看起来像在打怪而不是在瞄地面。
+//   触手   → player:它从她身上**长出来**,要压在实体上面才看得见。
+engine.addDrawer('under', ctx => companion.gather.drawLaser(ctx));
+engine.addDrawer('player', ctx => companion.gather.drawTentacle(ctx));
 
 let inRun = false;
 let lastChar = 'knight';
+
+// ---------- 局内 → 局外(XX-VISIBLE-001)----------
+// 本局唯一 token。每开一局换一个新的,结算时交给 CAMP.recordRun ——
+// 它拿这个 token 做幂等:同一局结算两次,火候和战败纪念都只记一次。
+// (endRun 自己有 inRun 守卫,但结算屏的 onAgain / 断点重入都可能二次触达,
+//  而「结算两次把累计值翻倍」不会崩,只会悄悄把数字做虚。)
+let runSeq = 0;
+let curRunId = '';
+// 本局遇到过的妖谱 key。用来回答「这一局见过什么」,不是成就系统。
+const curRunMet = new Set();
 
 // ---------- 音效/反馈事件 ----------
 Bus.on('sfx', name => SFX.play(name));
@@ -130,6 +146,25 @@ function endRun(victory) {
   // —— 灵伴收尾(V0.98):年表记一笔,累计生死 ——
   // 台词仍走 say():受「每局 ≤2 句」预算约束,不绕过规则。
   COMPANION.markRun({ deaths: victory ? 0 : 1, picks: COMPANION.s.run.picked, present: companion.present });
+  // —— 局内 → 局外(XX-VISIBLE-001):这一局的成果记进营地 ——
+  //
+  // 记两件事,都只影响「局外看得见什么」:
+  //   ① 砍了多少 → 火候(篝火旺不旺),刻度直接用 CAMP_TIERS,不另立一套;
+  //   ② 战败 → 战败纪念(议事堂挂白布 / 丹炉灭),只记最近一次。
+  //
+  // ⚠️ 这里**不改任何平衡**:totalSec / earn() / 掉落 / 战力一个字节都没动,
+  //   砍杀不会因此多给一块道行。整段包 try/catch —— 结算层抛异常会把玩家
+  //   锁死在暂停的局里(main.js:174 起那段注释说的就是这件事)。
+  try {
+    CAMP.recordRun({
+      id: curRunId,
+      kills: (engine.stats && engine.stats.kills) || 0,
+      runTime: Math.floor(engine.time || 0),
+      victory: victory !== false,
+      choice: lastDefeatChoice || null,
+      met: [...curRunMet],
+    });
+  } catch (e) { console.warn('[camp-record]', e); }
   if (victory) {
     COMPANION.onRunClear();
     runEventLines('noDeath3', { say: t => Bond.bubble(t) });
@@ -374,6 +409,9 @@ function showMenu() {
 function startRun(charId) {
   SFX.play('click');
   lastChar = charId;
+  // 本局 token + 妖谱集清场。上一局见过什么不能漏进这一局。
+  curRunId = `${Date.now().toString(36)}-${(++runSeq)}`;
+  curRunMet.clear();
   engine.reset();
   resetEmber();          // 上一局的余烬不能漏进这一局
   Director.setMateMods(TAVERN.mods());
@@ -517,7 +555,7 @@ import { NAGER, installNagger } from './xiuxian/nag.js';
 import { Ritual } from './xiuxian/ritual.js';
 import { Bond } from './xiuxian/bond.js';
 import { clearBroadcast } from './xiuxian/companion-broadcast.js';
-import { Profile, Seed } from './xiuxian/profile.js';
+import { Profile, Seed, AUTO_EVERY } from './xiuxian/profile.js';
 import { Titles, Nemesis, DEFEAT } from './xiuxian/relations.js';
 import { FAMILY } from './xiuxian/family.js';
 import { CHRONICLE } from './xiuxian/chronicle.js';
@@ -562,6 +600,14 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     document.addEventListener('visibilitychange', () => { if (document.hidden) autosave(); });
     window.addEventListener('pagehide', autosave);
     window.addEventListener('beforeunload', autosave);
+    // 周期兜底(V0.99.5 接上)。上面三个钩子只在**玩家主动离开页面**时触发;
+    // 崩掉 / 被系统杀进程 / 移动端后台被回收时,三个一个都不触发 ——
+    // 上次落盘之后的进度全丢,玩家重开就是重新开局(owner 亲口提的场景)。
+    // 这是**补一个兜底**,不替换、不削弱上面三个真落盘点。
+    // 间隔取 Profile.AUTO_EVERY(定值依据见 profile.js 里的注释与实测);
+    // 二次节流在 Profile.auto() 里(硬间隔 2s,突发调用只合并不刷屏)。
+    // 落盘全程只碰 localStorage,不触任何 DOM —— 玩家看不到任何东西。
+    setInterval(() => Profile.auto(mods), AUTO_EVERY);
     // 暴露给 UI(存档码/换种子)
     window.__xx = { Profile, Seed, mods, FAMILY, CHRONICLE, BUILD, COMPANION, Bag, CLOCK,
                     get ward(){ return COMPANION.wardRadius(); } };
@@ -743,6 +789,9 @@ import { BESTIARY } from './xiuxian/bestiary.js';
     Bus.on('enemy-death', e => {
       try { Director.onKill(engine, e); } catch (err) { console.warn('[director]', err); }
       const kind = _kindOf(e);
+      // 局内遇到过的妖谱(XX-VISIBLE-001):这一局碰过什么,局末一起带走。
+      // 这里**只记不判定** —— 解锁/白泽那套判定在局外,不在这条线上。
+      try { curRunMet.add(kind); } catch {}
       const g1 = BUILD.onKill(kind) || BUILD.onKillTier(e.boss ? 2 : e.elite ? 1 : 0);
       if (g1 && engine.player) {
         engine.spawnText(engine.player.x, engine.player.y - 44,

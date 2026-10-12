@@ -32,6 +32,84 @@ export function getLootTune() { return lootTune; }
 
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 
+/**
+ * 拾取**效果**的唯一真源(XX-COMPANION-004 抽出)。
+ *
+ * 为什么抽出来:灵伴要「跟玩家一样的拾取」。这句话如果只写在文档里,
+ * 迟早会漂 —— 玩家这边加了新 kind,灵伴那边忘了跟,就变成两套规则。
+ * 抽成函数后,两边**调用同一个**,规则不可能分叉。
+ *
+ * ⚠️ 只搬「效果」,不搬判定:磁吸半径、拉拽速度、`d < 18` 的拾取距离
+ *   仍留在玩家的 updater 里 —— 那是**玩家自己**的手感参数,灵伴不该共用。
+ *   灵伴有自己的距离与节奏(见 companion-gather.js)。
+ *
+ * 本函数**不修改 g.pickups**,由调用方决定何时移除 —— 灵伴是「先拿走、
+ * 走一段路、伸触手交给玩家」,中间那段时间这东西不能还在地上。
+ *
+ * @param {Engine} g
+ * @param {object} k    pickups 数组里的一项
+ * @returns {boolean} true = 效果已生效(应移除);false = 局内没有 player,本帧不动
+ *
+ * ⚠️ 返回值**只有**「没有 player」一种情况是 false。源石背包未就绪也返回 true
+ *   —— 那是原码的真实行为,原因见下面 stone 分支的注释。改动前先读那段。
+ */
+export function applyPickup(g, k) {
+  const p = g.player;
+  if (!p) return false;
+  if (k.kind === 'stone') {
+    // 源石 → 直接进修仙阁背包。它是篝火燃料,不是局内资源。
+    // 走 XX 层(全局可达),不需要把背包传进局内。
+    const BR = globalThis.__xx && globalThis.__xx.Bag;
+    if (BR && BR.add(k.id || 'stone_1', k.count || 1)) {
+      g.spawnText(k.x, k.y - 24, '源石 +' + (k.count || 1), { color: PAL.gold, size: 13, life: 1.1 });
+      Bus.emit('sfx', 'pickup');
+      return true;
+    }
+    // ⚠️⚠️ 这里有一处**注释与代码矛盾**,本函数**刻意保持原样**,没有顺手"修"。
+    //    原码在这个分支上写着「背包没就绪(极少见):留在地上,不吞掉」,
+    //    但因为它是 `if (k.kind === 'stone')` 而不是 `else if`,
+    //    背包没就绪时会**继续往下走**,命中末尾那句无条件的 `g.remove(...)`
+    //    —— 也就是说:**源石实际被静默吞掉,并没有留在地上**。
+    //
+    //    为什么不在这里修:那是「背包没就绪时源石该不该丢」的产品决策,
+    //    不是重构该顺手做的事;而且本文件的承诺是"玩家与灵伴共用同一套效果",
+    //    一旦这里行为不同步,灵伴就会和玩家表现不一致 —— 那才是真 bug。
+    //    已单开工单跟踪,见 TICKETS:拾取-源石-背包未就绪被吞。
+    //    门禁 tests/pickup-effect-parity-regression.mjs 钉住当前真实行为。
+    //    —— 注意下面的 sfx + return true 是**原码就有的**,不是本次新增。
+  }
+  if (k.kind === 'gem') {
+    p.addXp(k.xp);
+    // V0.99 核心闭环:捡宝石 → 加压力 → 当场刷出同档位的妖物。
+    Director.onGemPickup(g, k);
+  } else if (k.kind === 'coin') {
+    g.stats.gold += Math.round(k.gold * p.stats.goldMult);
+  } else if (k.kind === 'meat') {
+    const heal = Math.min(k.heal, p.stats.maxHp - p.hp);
+    p.hp = Math.min(p.stats.maxHp, p.hp + k.heal);
+    g.spawnText(p.x, p.y - 30, '+' + Math.max(1, Math.round(heal || k.heal)) + ' 气血', { color: PAL.xp, size: 14 });
+    g.addParticles(k.x, k.y, { n: 6, color: PAL.xp, speed: 80, life: 0.4, size: 3 });
+    Bus.emit('sfx', 'pickup');
+    return true;   // 原码在此 remove+continue,音效只发一次 —— 别落到末尾再发一遍
+  } else if (k.kind === 'chest') {
+    const gold = Math.round((40 + Math.random() * 30) * p.stats.goldMult);
+    const xp = 60;
+    g.stats.gold += gold;
+    p.addXp(xp);
+    p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.3);
+    g.spawnText(p.x, p.y - 36, '开箱!经验 +' + xp + ' 金币 +' + gold, { color: PAL.gold, size: 16, life: 1.2 });
+    g.addParticles(k.x, k.y, { n: 26, color: PAL.gold, speed: 170, life: 0.7, size: 4, grav: 120 });
+    g.addParticles(k.x, k.y, { n: 14, color: PAL.cinnabar, speed: 130, life: 0.6, size: 3 });
+    g.shake(3, 0.18);
+    Bus.emit('sfx', 'chest');
+    return true;
+  } else {
+    g.addParticles(k.x, k.y, { n: 4, color: PAL.gold, speed: 70, life: 0.3, size: 3 });
+  }
+  Bus.emit('sfx', k.kind === 'coin' ? 'coin' : 'pickup');
+  return true;
+}
+
 export function initPickups(g) {
   // 敌人死亡掉落:宝石/金币 + 肉(回血)+ 精英与 Boss 必掉宝箱
   Bus.on('enemy-death', e => {
@@ -119,51 +197,9 @@ export function initPickups(g) {
         const v = 260 + (mag - d) * 3;
         k.x += dx / d * v * dt; k.y += dy / d * v * dt;
       }
-      if (d < 18) { // 拾取
-        if (k.kind === 'stone') {
-          // 源石 → 直接进修仙阁背包。它是篝火燃料,不是局内资源。
-          // 走 XX 层(全局可达),不需要把背包传进局内。
-          const BR = globalThis.__xx && globalThis.__xx.Bag;
-          if (BR && BR.add(k.id || 'stone_1', k.count || 1)) {
-            g.spawnText(k.x, k.y - 24, '源石 +' + (k.count || 1), { color: PAL.gold, size: 13, life: 1.1 });
-            Bus.emit('sfx', 'pickup');
-            g.remove(g.pickups, i); continue;
-          }
-          // 背包没就绪(极少见):留在地上,不吞掉
-        }
-        if (k.kind === 'gem') {
-          p.addXp(k.xp);
-          // V0.99 核心闭环:捡宝石 → 加压力 → 当场刷出同档位的妖物。
-          // 妖物的来源因此变成**玩家的行为**,而不是计时器。
-          Director.onGemPickup(g, k);
-        }
-        else if (k.kind === 'coin') { g.stats.gold += Math.round(k.gold * p.stats.goldMult); }
-        else if (k.kind === 'meat') {
-          const heal = Math.min(k.heal, p.stats.maxHp - p.hp);
-          p.hp = Math.min(p.stats.maxHp, p.hp + k.heal);
-          g.spawnText(p.x, p.y - 30, '+' + Math.max(1, Math.round(heal || k.heal)) + ' 气血', { color: PAL.xp, size: 14 });
-          g.addParticles(k.x, k.y, { n: 6, color: PAL.xp, speed: 80, life: 0.4, size: 3 });
-          Bus.emit('sfx', 'pickup');
-          g.remove(g.pickups, i); continue;
-        } else if (k.kind === 'chest') { // 宝箱:大量经验 + 金币 + 回血
-          const gold = Math.round((40 + Math.random() * 30) * p.stats.goldMult);
-          const xp = 60;
-          g.stats.gold += gold;
-          p.addXp(xp);
-          p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * 0.3);
-          g.spawnText(p.x, p.y - 36, '开箱!经验 +' + xp + ' 金币 +' + gold, { color: PAL.gold, size: 16, life: 1.2 });
-          g.addParticles(k.x, k.y, { n: 26, color: PAL.gold, speed: 170, life: 0.7, size: 4, grav: 120 });
-          g.addParticles(k.x, k.y, { n: 14, color: PAL.cinnabar, speed: 130, life: 0.6, size: 3 });
-          g.shake(3, 0.18);
-          Bus.emit('sfx', 'chest');
-          g.remove(g.pickups, i); continue;
-        }
-        g.addParticles(k.x, k.y, { n: 4, color: PAL.gold, speed: 70, life: 0.3, size: 3 });
-        // 金币不喂压力 —— 只有宝石是"燃料"。否则捡一次钱就凭空多出妖物,
-        // 玩家会很快摸出规律,机制就被看穿了。
-        Bus.emit('sfx', k.kind === 'coin' ? 'coin' : 'pickup');
-        g.remove(g.pickups, i);
-      }
+      // 效果走唯一真源 —— 灵伴递送时也调它,保证两边规则不会分叉。
+      // 距离判定(`d < 18`)留在这里:这是**玩家自己**的手感,灵伴不共用。
+      if (d < 18 && applyPickup(g, k)) g.remove(g.pickups, i);
     }
   });
 
