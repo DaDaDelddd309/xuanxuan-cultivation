@@ -1,5 +1,5 @@
 {
-  "version": "xuanxuan-v099al",
+  "version": "xuanxuan-v099am",
   "build": "20261011-2330",
   "count": 184,
   "files": {
@@ -173,7 +173,7 @@
     "package-lock.json": "6fb5c19e9431",
     "package.json": "3c451494c555",
     "probe.html": "c2d3540d9ecd",
-    "sw.js": "78a414b155f8",
+    "sw.js": "66de2840c0c2",
     "tests/.hardcoded-baseline.json": "04d5108d7c93",
     "tests/dead-state-field-baseline.json": "0c6d616b54ea",
     "tests/silent-catch-baseline.json": "0cec8ffd34a6",
