@@ -22,6 +22,9 @@ import { showStoryBeat as showStoryBeatImpl, showLegend as showLegendImpl, vQues
 import { artHow as artHowImpl, vArts as vArtsImpl, vCamp as vCampImpl } from './ui/arts.js';
 // meta页已拆出(XX-AUDIT-005)。下面几个是转发壳,实现见 ui/meta.js。
 import { vMarket as vMarketImpl, vCraft as vCraftImpl, vTavern as vTavernImpl } from './ui/meta.js';
+// 「当前正在发生」动态区(XX-LIVE-001)。不是某个页的实现,是**每一页**的头一条,
+// 所以它挂在 render() 的分发点上 —— 见 render() 里那处插入。
+import { livebarHTML, livebarOn, livebarOff } from './ui/livebar.js';
 // 仙人墓页已拆出(XX-AUDIT-005)。下面 4 个是转发壳,实现见 ui/tomb.js。
 import { vTomb as vTombImpl, tombRoom as tombRoomImpl, askTombWords as askTombWordsImpl, tombEnding as tombEndingImpl } from './ui/tomb.js';
 import { REALMS, PILLS, getRealm, maxLayerOf, layerCost, canBreakthrough, doBreakthrough, addExp, realmTitle } from './realms.js';
@@ -98,7 +101,7 @@ export const Hall = {
     warmup();          // 预取地点插画,消除首次切页的等待
     this.render();
   },
-  close() { root && root.classList.add('hidden'); },
+  close() { livebarOff(); root && root.classList.add('hidden'); },
   isOpen() { return root && !root.classList.contains('hidden'); },
 
   // 离线收益弹层
@@ -937,8 +940,11 @@ export const Hall = {
           for (const el of bodyEl.querySelectorAll('.xx-node')) el.classList.remove('onpath');
       });
     }
-    bodyEl.innerHTML =
-      tab === 'realm' ? this.vRealm(s)
+    // 【XX-LIVE-001】「当前正在发生」动态区 —— **一个插入点,覆盖全部 14 个页签**。
+    // 为什么必须在分发处而不是逐页插:逐页插的话,以后加页签一定会漏,
+    // 而漏掉的页签顶部空着,玩家读起来是「这页坏了」,不是「这页没有在发生的事」。
+    // 动态区自己保证零态有话说,所以这里无条件拼在最前面。
+    const page = tab === 'realm' ? this.vRealm(s)
       : tab === 'map'   ? (TOMB.s.in ? this.vTomb() : this.vMap(s))
       : tab === 'camp'  ? this.vCamp(s)
       : tab === 'bag'   ? this.vBag(s)
@@ -952,6 +958,10 @@ export const Hall = {
       : tab === 'dex'   ? this.vDex()
       : tab === 'sys'   ? this.vSys()
       : this.vTitle(s);
+    bodyEl.innerHTML = livebarHTML(tab) + page;
+    // 挂在渲染之后:定时器要按在已经存在的节点上。
+    // 每次调用都先收掉上一颗(livebarOn 内第一行),切页签不会攒定时器。
+    livebarOn(bodyEl, tab);
   },
 
   // ---------- 奇遇(后台推进,不打断操作) ----------

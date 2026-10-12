@@ -30,7 +30,29 @@ export function vDex(hall) {
     // V0.98:三选一路线(kiss/cold/ghost)删了,「灵伴三形」随之消失。
     // 这里只列与路线无关的 NPC。灵伴本人的来历走「传说妖谱」与年表。
     const order = ['momocha','merchant','moying'];
+    // 「档案馆」的三件事之一:还差多少 —— 读的是真实见过的那几只,不是写死的数。
+    const met = STORY.metList().length;
+    const unseen = LEGEND_LIST.length - met;
     return `
+      <div class="xx-card"><div class="xx-label">图 鉴</div>
+        <div class="xx-dim">这里记的是「你见过什么」。没见过的那几行,只剩名字,故事还锁着。</div>
+        <div class="xx-dim" style="margin-top:6px">
+          ${met ? `传说妖谱 已见 ${met} / ${LEGEND_LIST.length} · 还差 ${unseen} 只`
+                 : `传说妖谱 一只都还没见过 · 共 ${LEGEND_LIST.length} 只`}
+        </div>
+      </div>
+
+      <div class="xx-card"><div class="xx-label">什 么 时 候 才 长 得 出 来</div>
+        <div class="xx-dim" style="margin-bottom:9px">
+          图鉴不是自己长的,是<b>撞见</b>才长的:在山里亲眼见到一只传说妖,
+          它的来历、传闻、随身的支线当场就记到这儿;路上遇见的山中人也是这么来的。
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="xx-btn" data-tab="map">往 山 里 走 · 撞 见</button>
+          <button class="xx-btn" data-tab="quest">它 的 事 · 支 线</button>
+        </div>
+      </div>
+
       <div class="xx-card"><div class="xx-label">山 中 人</div>
         <div class="xx-dim">路上遇见的,不是选项。</div></div>
       ${order.map(k=>{

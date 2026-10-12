@@ -24,17 +24,25 @@ export const CAMP_TIERS = [
   { lv:5, name:'山门',   need:9000,  col:PAL.crit, d:'立了旗,挂匾。从这天起,它叫「宗门」。' },
 ];
 
+// 一杀折算多少秒火候 —— **从 CAMP_TIERS 推,不另立一套数值**。
+//
+// 为什么是 ÷100:CAMP_TIERS 第 1 阶(篝火→围栏)的门槛是 120 秒,
+// 拿它当「一级火候」的刻度,100 只 ≈ 一级 —— 正好对上 owner 说的
+// 「砍死 100 只,篝火旺了」。所以这里的口径和营地升级那张表**同源**:
+// 火候和累计燃烧时间用同一个单位(秒)、同一把梯子(CAMP_TIERS),
+// 玩家看到的「旺到第几档」不需要再记第二套数字。
+//
+// ⚠️ 它**只喂 display-only 的 warmSec**。totalSec(升级用)与 earn(收益)
+//   一个字节都没动 —— 砍杀不能改变挂机收益、掉落或经济。
+const SEC_PER_KILL = CAMP_TIERS[1].need / 100;   // = 1.2
+
+// 幂等 token 只留最近几局。存档里存整局历史没有意义,也不会有人回看第 40 局。
+const SEEN_RUNS_MAX = 8;
+
 export const CAMP = {
-  s: {
-    lit:false, nodeId:null,
-    fuelEnd:0,          // 燃料耗尽时间戳(真实时间)
-    lastTick:0,         // 上次结算时间戳
-    totalSec:0,         // 累计燃烧秒数(升级用,熄火也不清零)
-    members:[],         // 在营地的人
-    invites:0,          // 累计招揽次数
-    formed:false,       // 是否已立宗
-    rep:0,              // 营地声望
-  },
+  // 初始状态。CAMP.s 与 reset() 共用同一个工厂 —— 照 companion.js 的做法。
+  // (原来两处各抄一份字面量,加字段时漏抄 reset() 就会静默丢档。)
+  s: defaultState(),
 
   load() {
     try {
@@ -45,11 +53,116 @@ export const CAMP = {
         this.s = { ...def, ...d };
         for (const k in def) if (this.s[k] === undefined) this.s[k] = def[k];
         if (!Array.isArray(this.s.members)) this.s.members = [];
+        // —— XX-VISIBLE-001 新增字段的老存档兜底 ——
+        // 上面那个 for 循环只认 `undefined`。存档里这几个字段是**对象/数组**,
+        // 半截旧档或手改档完全可能写成 null,那样 warmLv()/mourning() 会
+        // 在 `.length` 上炸掉。「存档金币 8888→30」那类事故就是这么来的:
+        // 新字段没默认值,旧存档一读就整块塌。
+        if (typeof this.s.warmSec !== 'number' || !isFinite(this.s.warmSec)) this.s.warmSec = 0;
+        if (typeof this.s.warmKills !== 'number' || !isFinite(this.s.warmKills)) this.s.warmKills = 0;
+        if (typeof this.s.runs !== 'number' || !isFinite(this.s.runs)) this.s.runs = 0;
+        if (!Array.isArray(this.s.seenRuns)) this.s.seenRuns = [];
+        if (!Array.isArray(this.s.seen)) this.s.seen = [];
+        if (this.s.moor != null && typeof this.s.moor !== 'object') this.s.moor = null;
       }
     } catch {}
     return this.s;
   },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); } catch {} },
+
+  // ══════════════ 局内 → 局外(XX-VISIBLE-001)══════════════
+  //
+  // 这一整块只回答一个问题:**「局内发生的事,局外看得见吗」**。
+  //
+  // 硬边界(改这块之前先读):
+  //  · tier() / earn() / feed() / light() 一个字节都没动
+  //    → 砍杀**不改变**挂机收益、掉落、经济、战力。
+  //  · warmSec / moor / seen 只被写、只被读出来显示,
+  //    没有任何一处拿它们去乘除玩家的钱或伤害。
+  //  · 数值口径全部取自 CAMP_TIERS(见上面 SEC_PER_KILL),
+  //    不自创「旺度 1~5」这种第二套刻度。
+
+  /**
+   * 记一局:火候(篝火旺不旺) + 战败纪念(议事堂挂白布)。
+   *
+   * **幂等**:同一个 id 结算第二次直接返回 { ok:false, dup:true } 且不改任何值。
+   *   endRun 自己有 inRun 守卫,但这里仍要再钉一道 ——
+   *   结算屏的 onAgain、页面隐藏时的 autosave、离线补算都可能二次触达,
+   *   而「同一局结算两次,累计值翻倍」这类错不会崩,只会悄悄把数字做虚。
+   *
+   * @param {object} o
+   * @param {string} o.id      本局唯一 token(必填,幂等靠它)
+   * @param {number} [o.kills] 本局击杀数
+   * @param {number} [o.runTime] 本局时长(秒)
+   * @param {boolean}[o.victory]
+   * @param {string|null} [o.choice] 战败路线(回合制里选的哪条)
+   * @param {string[]} [o.met] 本局遇到的妖谱 key
+   */
+  recordRun(o) {
+    const r = o || {};
+    const id = r.id == null ? '' : String(r.id);
+    const runs = Array.isArray(this.s.seenRuns) ? this.s.seenRuns : (this.s.seenRuns = []);
+    if (id && runs.includes(id)) return { ok:false, dup:true, sec:0, kills:0 };
+
+    const kills = Math.max(0, Math.floor(Number(r.kills) || 0));
+    const sec = Math.round(kills * SEC_PER_KILL);
+    if (kills > 0) {
+      this.s.warmSec = (Math.max(0, Number(this.s.warmSec) || 0)) + sec;
+      this.s.warmKills = (Math.max(0, Number(this.s.warmKills) || 0)) + kills;
+    }
+    this.s.runs = (Math.max(0, Number(this.s.runs) || 0)) + 1;
+
+    // 本局遇到的妖谱。bestiary 的 key 是稳定字符串,重复遇见不该重复占位。
+    for (const k of (Array.isArray(r.met) ? r.met : [])) {
+      const key = typeof k === 'string' ? k : '';
+      if (!key) continue;
+      const seen = Array.isArray(this.s.seen) ? this.s.seen : (this.s.seen = []);
+      if (!seen.includes(key)) seen.push(key);
+    }
+
+    // 战败纪念:只记**最近一次**,不叠层 —— 议事堂挂的是一块白布,不是一面墙。
+    // 没有「挂多久」的时长:那是个产品决定,不在这里编。
+    if (r.victory === false) {
+      this.s.moor = {
+        at: Date.now(),
+        kills, runTime: Math.max(0, Math.floor(Number(r.runTime) || 0)),
+        choice: r.choice || null,
+        tier: this.tier().lv,
+      };
+    }
+
+    if (id) { runs.push(id); while (runs.length > SEEN_RUNS_MAX) runs.shift(); }
+    this.save();
+    return { ok:true, dup:false, sec, kills, warm: this.warmLv() };
+  },
+
+  /**
+   * 火旺到第几档。**刻度就是 CAMP_TIERS**,和营地升级同一张表 ——
+   * UI 拿到的 tier / col / name 可以直接用,不用再映射一次。
+   * 注意它读的是 warmSec(砍杀喂的),**不是** totalSec(烧出来的):
+   * 两者单位相同(秒)、来源不同,混在一起就没法回答「旺是因为砍还是因为烧」。
+   */
+  warmLv() {
+    const sec = Math.max(0, Number(this.s.warmSec) || 0);
+    let t = CAMP_TIERS[0];
+    for (const c of CAMP_TIERS) if (sec >= c.need) t = c;
+    const next = CAMP_TIERS.find(c => c.lv === t.lv + 1) || null;
+    return {
+      lv: t.lv, tier: t, next, sec,
+      kills: Math.max(0, Number(this.s.warmKills) || 0),
+      toNext: next ? Math.max(0, next.need - sec) : 0,
+      pct: next ? Math.min(1, (sec - t.need) / Math.max(1, next.need - t.need)) : 1,
+    };
+  },
+
+  /** 战败纪念。老存档没有这字段 → null(等于「没打过白布」),不崩。 */
+  mourning() {
+    const m = this.s.moor;
+    if (!m || typeof m !== 'object') return null;
+    return { on:true, at:Number(m.at)||0, kills:Math.max(0,Number(m.kills)||0),
+             runTime:Math.max(0,Number(m.runTime)||0), choice:m.choice||null,
+             tier:Math.max(1,Number(m.tier)||1) };
+  },
 
   // —— 状态 ——
   tier() {
@@ -243,9 +356,32 @@ export const CAMP = {
     return { ok:true, msg:'旗立了,匾挂了。从这天起,它叫宗门。' };
   },
 
-  reset() { this.s = { lit:false,nodeId:null,fuelEnd:0,lastTick:0,totalSec:0,
-                       members:[],invites:0,formed:false,rep:0 }; this.save(); },
+  // 换世重置。走 defaultState() 而不是再抄一份字面量 ——
+  // 原来这里和 s: 各写一遍,加字段时只改一处就会静默丢档(companion.js 同款教训)。
+  reset() { this.s = defaultState(); this.save(); },
 };
+
+// 初始状态。CAMP.s 与 reset() 共用,避免两处写漂移。
+function defaultState() {
+  return {
+    lit:false, nodeId:null,
+    fuelEnd:0,          // 燃料耗尽时间戳(真实时间)
+    lastTick:0,         // 上次结算时间戳
+    totalSec:0,         // 累计燃烧秒数(升级用,熄火也不清零)
+    members:[],         // 在营地的人
+    invites:0,          // 累计招揽次数
+    formed:false,       // 是否已立宗
+    rep:0,              // 营地声望
+    // —— 局内 → 局外(XX-VISIBLE-001):下面这六个**只用于显示**,
+    //    收益/掉落/战力一个都不读。详见 recordRun 的注释。
+    warmSec:0,          // 火候秒(砍杀折算)—— 与 CAMP_TIERS 同单位
+    warmKills:0,        // 折出这些火候的累计击杀
+    runs:0,             // 记过几局
+    seen:[],            // 局内遇到过的妖谱 key(有界)
+    seenRuns:[],        // 已结算的局 token(有界,幂等用)
+    moor:null,          // 战败纪念:{at,kills,runTime,choice,tier}
+  };
+}
 
 // 挂机离线收益汇总(玩家进游戏时调一次)
 export function offlineReport() {

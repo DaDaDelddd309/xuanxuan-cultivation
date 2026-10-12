@@ -25,6 +25,29 @@ const LEGACY = {
   base:       'pxs_save',
 };
 
+// —— 周期自动存档的定值 ——
+//
+// AUTO_EVERY:周期落盘间隔(主循环侧 setInterval 用,见 js/main.js)。
+//   定值依据(实测数据与复现命令见 tests/periodic-autosave-regression.mjs 头注):
+//     · 一次 Profile.collect() 写 **9 个键**(8 个老键 + 统一档),
+//       真机 localStorage 是**同步** IPC + 落盘,写在主线程上。
+//       本机(in-memory Map)实测 ≈120μs/KB,真机比这贵 —— 所以这个数只能
+//       当下限看,不能当预算看。
+//       复现:node tests/periodic-autosave-regression.mjs --cost
+//     · 15s = 每分钟 4 次 × 9 键 = 每分钟 36 次同步写。
+//       60fps 下一分钟 3600 帧,即**每 100 帧才 1 次同步写**,帧预算上不可见。
+//     · 2s(下面 MIN_GAP 的原型值)是**事件合并**节流,对应「人手动作速率」
+//       (各模块 commit 由点击/掉落触发)。拿它当无条件定时器 = 每分钟 30 次
+//       × 9 = 270 次主线程写,是 15s 方案的 7.5 倍,换来的只是把最坏
+//       丢失窗口从 15s 压到 2s。不值。
+//     · 代价侧:最坏丢失窗口 15s,不到最短一局的四分之一 ——
+//       正好压在 owner 要的「别切个后台就重新开局」之上。
+//   (js/ui/screens.js bindTap 的 300ms 不作参考:那是防人连点,
+//    单位是「一次手势」,不是「一次后台巡检」。)
+export const AUTO_EVERY = 15000;
+// 两次落盘之间的**硬**间隔。节流兜底,防止任何高频调用方把它刷成每帧写盘。
+const MIN_GAP = 2000;
+
 // ————— 种子 PRNG(mulberry32)—————
 function mulberry32(a) {
   return function () {
@@ -183,10 +206,43 @@ export const Profile = {
 
   size() { try { return (localStorage.getItem(KEY) || '').length; } catch { return 0; } },
 
-  // 自动存档:各模块 commit 时顺带 flush(节流 2s)
+  // 周期自动存档(V0.99.5 接上,此前全仓零调用 = 死代码)
+  //
+  // 为什么必须有它 —— 这是「存在 ≠ 生效」的又一例:
+  //   main.js 的三个钩子(visibilitychange / pagehide / beforeunload)
+  //   只在**玩家主动离开页面**时触发。崩掉、系统杀进程、移动端后台被回收 ——
+  //   一个都不触发。上次落盘之后的进度全丢,重开就是重新开局。
+  //   周期落盘是**兜底**:三个钩子一个都不删、不改、不替换。
+  //
+  // ⚠️ 这里**必须**走 collect(mods),绝不能退回 flush():
+  //   flush() 写的是 this.data —— 那是**上一次 collect 时的快照**。
+  //   只 flush 不 collect,就是每 15 秒把开机那一刻的陈旧快照原样重写一遍。
+  //   这与 XX-AUDIT-006(`d.base` 只在 migrate() 里读进来、此后从未被消费,
+  //   每次 flush 原样写回,把金币盖回迁移时的 30、局数盖回 1)
+  //   是**同一个动作**,只是把 `d.base` 换成了整个 `this.data`。
+  //   所以拿不到模块表时本方法**宁可不写**,也绝不退回 flush()。
+  _lastWrite: 0,
   _t: 0,
+  _mods: null,
+  /**
+   * 节流落盘。返回 true = 这次真的写了盘。
+   * @param {object} [mods] 模块表;省略时沿用上次记住的那份
+   */
   auto(mods) {
-    clearTimeout(this._t);
-    this._t = setTimeout(() => this.collect(mods), 2000);
+    if (mods) this._mods = mods;
+    if (!this._mods) return false;                 // 没有真源 ⇒ 不写(见上 ⚠️)
+    const wait = MIN_GAP - (Date.now() - this._lastWrite);
+    if (wait > 0) {
+      // 窗口内的重复请求**合并**成一次尾写,不丢弃。
+      // 原型只有 clearTimeout + setTimeout:调用方只要比 MIN_GAP 更频繁,
+      // 定时器就会被无限推迟 —— 永远写不了盘(饿死)。保留尾写,
+      // 既限流,又不把请求丢掉。
+      clearTimeout(this._t);
+      this._t = setTimeout(() => { this._t = 0; this.auto(); }, wait);
+      return false;
+    }
+    this._lastWrite = Date.now();
+    this.collect(this._mods);
+    return true;
   },
 };

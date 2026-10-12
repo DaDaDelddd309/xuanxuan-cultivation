@@ -74,10 +74,27 @@ export function vQuest(hall) {
     const act = QUEST.activeList();
     const done = QUEST.doneList();
     const avail = QUEST.availableList();
+    const ready = STORY.readyList();
     return `
       <div class="xx-card">
         <div class="xx-label">眼 下 的 事</div>
         <div class="xx-dim">见过传说妖,它的来历就变成你的事。办成了,会来找你要个说法。</div>
+        <div class="xx-dim" style="margin-top:6px">
+          手 上 ${act.length} 件 · 看 完 等 选 ${ready.length} 件 · 了 结 ${done.length} 件
+          ${avail.length ? ` · 接 得 下 ${avail.length} 件` : ''}
+        </div>
+      </div>
+
+      <div class="xx-card">
+        <div class="xx-label">账 是 怎 么 记 上 的</div>
+        <div class="xx-dim" style="margin-bottom:9px">
+          支线不是去「接任务」接来的,是<b>撞上</b>的:在山里亲眼见到那只传说妖,
+          它的事当场就记到这儿 —— 不用跑回村口领。图鉴里认出它,账的来源就是那条来历。
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="xx-btn" data-tab="map">去 山 里 · 撞 见</button>
+          <button class="xx-btn" data-tab="dex">图 鉴 · 看 来 历</button>
+        </div>
       </div>
 
       ${act.length ? act.map(q=>`
@@ -94,13 +111,12 @@ export function vQuest(hall) {
         </div>`).join('')
         : hall.empty('手 上 没 有 事',
             '传说妖只在你亲眼见到它时才会现身。走远一点,别总待在村口。',
-            [['荒野(n1 / n2)','灯尸、当康出没一带'],
-             ['黑风岭(n5)','姥姥、剑骨'],
-             ['青岚秘境(n4)','白泽'],
-             ['古战场遗迹(n8)','青穹每回经过']])}
+            [['荒野','灯尸、当康出没一带'],
+             ['黑风岭','姥姥、剑骨'],
+             ['青岚秘境','白泽'],
+             ['古战场遗迹','青穹每回经过']])}
 
       ${(() => {
-        const ready = STORY.readyList();
         if (!ready.length) return '';
         return `<div class="xx-card" style="border-color:rgba(181,52,42,.45)">
           <div class="xx-label">看 完 了 · 等 你 选</div>

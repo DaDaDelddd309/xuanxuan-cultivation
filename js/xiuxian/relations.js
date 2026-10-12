@@ -12,6 +12,17 @@ import { REALMS, maxLayerOf } from './realms.js';
 // 昼夜/年表/篝火三套计时已经被合并过一次,再给债单独造一套就是把它拆回去。
 // clock.js 不 import 任何东西,所以这条边不会成环(lint-deps 的 Tarjan 会查)。
 import { CLOCK, CLOCK_CONST } from './clock.js';
+// 解锁提示要用的两样东西:
+//   · toast —— 修仙阁**既有**的提示通道(ui/dom.js),不是新写的弹层系统。
+//     它把节点挂在 document.body 上(不是 #app),所以 installNagger() 那层
+//     appendChild 拦截根本看不到它 —— 称号解锁因此**不占打扰预算、不排队**,
+//     也不会把叙事卡的浮层位顶掉。
+//   · TITLES —— 称号中文名的唯一一份(lore.js)。
+// ⚠️ 这两个文件都是**零 import 的叶子**(各自一条 import 都没有),
+//   所以从本文件 import 它们不可能成环 —— lint-deps 的 Tarjan 查的就是这个。
+//   规矩是「不带 ?v= 戳」:带戳会被 lint-module-identity 判成同一个模块的两份实例。
+import { toast } from './ui/dom.js';
+import { TITLES } from './lore.js';
 
 const NK = SAVE_KEYS.nemesis;
 
@@ -285,8 +296,55 @@ export const Titles = {
   track(action, n = 1) {
     this.s.flags[action] = (this.s.flags[action] || 0) + n;
     this.save();
-    this.check();
+    // ⚠️ 这一行原来**调了 check() 却把返回值扔了**(gained 声明了、push 了、
+    //   return 了,全仓零个读取点)。后果:玩家拼十几局拿到「入魔」,
+    //   落地时一声不吭,只能自己想起来去称号页看那面墙。
+    //
+    // 为什么接在 track() 而不是别处:
+    //   check() 全仓**只有这一个调用点**(就在上面一行),而 s.flags 全仓也**只有
+    //   这一处被写**(track() 里那句 `flags[action] += n`)。也就是说 check() 的
+    //   判定条件**只可能因为 track() 被调用而发生变化** —— 它是唯一的漏斗。
+    //   「每局结算」「每次 commit」「打开修仙阁」都不成立:
+    //     · commit 不碰 titles,且结算早于 track(见 ui.js:776-779 先 commit 再 track)
+    //     · 称号页只是读 list(),那时候通知已经晚了,玩家还是得自己想起来去看
+    //   所以「解锁的那一刻」在结构上就是 track()。
+    //
+    // 消费返回值(而不是改 check 本身):check() 的判定一个字没动,
+    // 解锁条件、阈值、add() 的落盘行为全部原样 —— 这里只多了「说出来」。
+    const gained = this.check();
+    if (gained && gained.length) this._announce(gained);
+    return gained;
   },
+
+  /** 解锁提示:多枚**合成一条**,零枚**一条都不发**。
+   *
+   * 为什么不一枚弹一个:一次 track() 可能同时点亮多枚(例如 ui.js:776-779
+   * 连着 track 了 challenge/spare/rescue 三个),逐枚弹就是逐枚顶掉前一枚,
+   * 玩家只看得见最后那枚 —— 既吵,又丢信息。合成一条反而把「这一局拿到了
+   * 什么」完整说清楚了。
+   *
+   * 为什么零解锁必须绝对安静:本项目反复栽「零态显示成空白/0」的坑。
+   * track() 那边有一道 `if (gained.length)`,本函数里又有一道 —— 两道都要,
+   * 因为「不吵」这条不变量属于本函数,不该依赖「只有那一个调用点」这种会失效的前提。
+   *
+   * 只读不写:不碰 flags、不碰 active、不碰任何数值 —— 纯提示。
+   */
+  _announce(gained) {
+    // ⚠️ 这道闸不是冗余:门禁的反向自检直接调 _announce([]),只靠 track() 那道会漏
+    //   —— 少了它,空数组会渲染出「得 0 枚新印:。」。
+    if (!Array.isArray(gained) || !gained.length) return;
+    // 名字取自 lore.js 的 TITLES(称号页 ui/title.js 用的是同一份)。
+    // 查不到就退回 id 本身:宁可显示一个英文 id,也不显示「undefined」或空串。
+    const names = gained.map(id => {
+      const t = TITLES.find(x => x.id === id);
+      return t ? t.name : id;
+    });
+    const msg = names.length === 1
+      ? `得一枚新印:${names[0]}。`
+      : `得 ${names.length} 枚新印:${names.join('、')}。`;
+    try { toast(msg); } catch {}
+  },
+
   add(id) {
     if (this.s.active.includes(id)) return false;
     this.s.active.push(id);
