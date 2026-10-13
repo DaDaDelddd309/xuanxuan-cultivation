@@ -4,6 +4,8 @@
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
 //
+// v099ao(2026-10-13)· 更新公告页 changelog.html 上线:版本修了什么、模块有哪些、哪些全绿,
+//   以及**还没做完的**——全部从仓库实况生成,不手写数字。
 // v099an(2026-10-13)· 预缓存失败不再静默吞掉;预缓存不完整时**保留旧缓存**。
 //   同时把 `?v=` 戳的职责写死在 ignoreSearch 那段注释里(见下),防止有人
 //   因为「它不参与缓存键」而去删那 80 多处戳 —— 那是模块身份,不是装饰品。
@@ -28,11 +30,11 @@
 //   各自都把 v099ae 升到了 v099af。VERSION-CONVENTION 规则 3 说过「不要各自升」,
 //   真撞上了按规则 2 由**后合的一方**再升一格, 否则两个不同代码对外声称同一个版本,
 //   已缓存 v099af 的客户端分不出谁新。
-const V = 'xuanxuan-v099an';
-const BUILD = '20261013-1302';
+const V = 'xuanxuan-v099ao';
+const BUILD = '20261013-1844';
 
 const CORE = [
-  './', 'index.html', 'manifest.webmanifest',
+  './', 'index.html', 'changelog.html', 'manifest.webmanifest',
   'css/style.css', 'css/xiuxian.css', 'css/palette.css', 'js/core/palette.js',
   'css/illust.css', 'css/wash.css',
   // 装备页改版:新样式表由 index.html 引用,离线取不到就是无样式裸奔。

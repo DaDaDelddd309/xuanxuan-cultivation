@@ -383,6 +383,8 @@ h2::after {
   transition: transform .05s steps(2), filter .12s, box-shadow .05s steps(2);
 }
 .btn:hover { filter: brightness(.94); transform: translateY(-1px); }
+/* 更新日志入口是 <a> 不是 <button>:<a> 自带下划线,套上 .btn 会多一道线 */
+.btn-link { text-decoration: none; }
 .btn:active {
   transform: translateY(2px);
   box-shadow:

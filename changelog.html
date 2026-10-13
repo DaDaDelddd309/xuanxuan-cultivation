@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>轩轩修仙传 · 更新日志</title>
+<meta name="description" content="轩轩修仙传的版本更新、质量门禁与模块清单。">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{
+  --ink:#080706; --ink2:#131110; --ink3:#1c1917; --line:rgba(236,229,211,.12);
+  --paper:#ece5d3; --dim:#c9c0ab; --faint:#8a8378;
+  --gold:#c9a227; --gold-dim:#8a6f1c; --jade:#5a7a6a; --cinnabar:#8c3a2e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--paper);
+  font:16px/1.75 "Noto Serif SC",'Songti SC',serif;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:780px;margin:0 auto;padding:28px 18px 64px}
+header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:26px}
+h1{margin:0 0 6px;font-size:26px;letter-spacing:.12em;font-weight:600}
+.sub{color:var(--faint);font-size:13px;letter-spacing:.06em}
+.back{display:inline-block;margin-top:14px;color:var(--gold);text-decoration:none;
+  border:1px solid var(--line);padding:7px 15px;border-radius:3px;font-size:14px}
+.back:hover{border-color:var(--gold-dim)}
+h2{font-size:17px;letter-spacing:.1em;margin:34px 0 14px;color:var(--gold);
+  border-left:3px solid var(--gold-dim);padding-left:10px}
+h3{font-size:15px;margin:0 0 10px;letter-spacing:.06em;display:flex;
+  align-items:baseline;gap:10px;flex-wrap:wrap}
+h3 small{color:var(--faint);font-weight:400;font-size:12px}
+.tag{background:var(--gold-dim);color:#1a1508;font-size:11px;padding:1px 7px;
+  border-radius:2px;letter-spacing:.05em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
+.card{background:var(--ink2);border:1px solid var(--line);border-radius:3px;padding:13px 15px}
+.card .n{font-size:25px;color:var(--gold);line-height:1.25}
+.card .l{color:var(--faint);font-size:12px;letter-spacing:.05em}
+.card .s{color:var(--jade);font-size:12px;margin-top:3px}
+.rel{background:var(--ink2);border:1px solid var(--line);border-radius:3px;
+  padding:16px 18px;margin-bottom:14px}
+.rel.cur{border-color:var(--gold-dim)}
+ul.items{list-style:none;padding:0;margin:0}
+ul.items li{display:flex;gap:9px;align-items:baseline;padding:5px 0;
+  border-bottom:1px dashed rgba(236,229,211,.07);font-size:14px;line-height:1.6}
+ul.items li:last-child{border-bottom:0}
+.badge{flex:none;font-size:11px;padding:1px 6px;border-radius:2px;letter-spacing:.04em;
+  border:1px solid var(--line);color:var(--faint)}
+.t-fix .badge{color:var(--jade);border-color:var(--jade)}
+.t-feat .badge{color:var(--gold);border-color:var(--gold-dim)}
+.t-test .badge{color:var(--dim)}
+.t-docs .badge{color:var(--faint)}
+.t-chore .badge{color:var(--cinnabar);border-color:rgba(140,58,46,.5)}
+.scope{flex:none;color:var(--gold-dim);font-size:12px;min-width:2.6em}
+.ti{flex:1;color:var(--dim)}
+code{color:var(--faint);font-size:11px;opacity:.7}
+.more{color:var(--faint);font-size:12px;margin:8px 0 0}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--faint);font-weight:400;font-size:12px;letter-spacing:.05em}
+td.n{color:var(--gold);white-space:nowrap}
+td.files{color:var(--faint);font-size:11.5px;line-height:1.6}
+.note{background:var(--ink3);border-left:3px solid var(--cinnabar);
+  padding:12px 15px;font-size:13.5px;color:var(--dim);margin:12px 0}
+.note b{color:var(--cinnabar)}
+.ok{color:var(--jade)} .warn{color:var(--gold-dim)}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--faint);font-size:12px}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>轩轩修仙传 · 更新日志</h1>
+  <div class="sub">当前版本 xuanxuan-v099ao · 构建 20261013-1844 · 本页由 tools/ops/make-changelog.mjs 从 git 与仓库实况生成</div>
+  <a class="back" href="index.html">← 回到游戏</a>
+</header>
+
+<h2>这一版的完成度</h2>
+<div class="cards">
+  <div class="card"><div class="n">38</div><div class="l">代码门禁</div><div class="s ok">全部通过</div></div>
+  <div class="card"><div class="n">90</div><div class="l">逻辑测试</div><div class="s ok">全部通过</div></div>
+  <div class="card"><div class="n">14</div><div class="l">兼容 / 随机 / 端到端</div><div class="s ok">全部通过</div></div>
+  <div class="card"><div class="n">107</div><div class="l">JS 模块</div><div class="s">188 个文件在版本清单内</div></div>
+</div>
+
+<div class="note">
+  <b>门禁全绿 ≠ 没问题。</b>它只说明「当前这些检查全部通过」。
+  浏览器实测在持续集成里跑（playwright + chromium），
+  本机（Android/Termux）装不了 playwright，没有 bionic wheel —— 所以本地跑不了这一套。
+</div>
+
+<h2>模块清单</h2>
+<table>
+  <tr><th>区域</th><th>模块数</th><th>文件</th></tr>
+  <tr><td>核心引擎</td><td class="n">6</td><td class="files">core/audio.js、core/camera.js、core/engine.js、core/input.js、core/palette.js、core/save.js</td></tr>
+  <tr><td>战斗与掉落</td><td class="n">13</td><td class="files">game/boss.js、game/collatz.js、game/director.js、game/enemies.js、game/gear.js、game/gearIcons.js、game/map.js、game/particles.js、game/pickups.js、game/player.js、game/spawner.js、game/upgrades.js、game/weapons.js</td></tr>
+  <tr><td>像素素材</td><td class="n">13</td><td class="files">pix/bosses.js、pix/brush.js、pix/enemies-a.js、pix/enemies-b.js、pix/fx.js、pix/ground.js、pix/hero-knight.js、pix/hero-mage.js、pix/hero-ranger.js、pix/hero-white.js、pix/items.js、pix/palette.js、pix/projectiles.js</td></tr>
+  <tr><td>局内界面</td><td class="n">5</td><td class="files">ui/bestiary.js、ui/codex.js、ui/hud.js、ui/joystick.js、ui/screens.js</td></tr>
+  <tr><td>修仙系统</td><td class="n">49</td><td class="files">xiuxian/ambience.js、xiuxian/arts.js、xiuxian/artstar.js、xiuxian/assets.js、xiuxian/battle.js、xiuxian/bestiary.js、xiuxian/bond.js、xiuxian/build.js、xiuxian/camp.js、xiuxian/chronicle.js、xiuxian/clock.js、xiuxian/codex.js、xiuxian/companion-actor.js、xiuxian/companion-broadcast.js、xiuxian/companion-gather.js、xiuxian/companion.js、xiuxian/craft.js、xiuxian/duel.js、xiuxian/family.js、xiuxian/illust.js、xiuxian/index.js、xiuxian/items.js、xiuxian/legend.js、xiuxian/loot.js、xiuxian/lore.js、xiuxian/market.js、xiuxian/merchant.js、xiuxian/mount.js、xiuxian/mutation.js、xiuxian/nag.js、xiuxian/newlife.js、xiuxian/outcomes.js、xiuxian/profile.js、xiuxian/quest.js、xiuxian/realms.js、xiuxian/relations.js、xiuxian/ritual.js、xiuxian/runcfg.js、xiuxian/save-keys.js、xiuxian/seed.js、xiuxian/spine.js、xiuxian/spirit.js、xiuxian/story.js、xiuxian/tavern.js、xiuxian/tomb.js、xiuxian/ui.js、xiuxian/vendor/rot-rng.js、xiuxian/world.js、xiuxian/worldgen.js</td></tr>
+  <tr><td>修仙界面</td><td class="n">15</td><td class="files">xiuxian/ui/arts.js、xiuxian/ui/bag.js、xiuxian/ui/build.js、xiuxian/ui/dexsys.js、xiuxian/ui/dom.js、xiuxian/ui/fam.js、xiuxian/ui/gear.js、xiuxian/ui/livebar.js、xiuxian/ui/map.js、xiuxian/ui/meta.js、xiuxian/ui/portrait.js、xiuxian/ui/realm.js、xiuxian/ui/story.js、xiuxian/ui/title.js、xiuxian/ui/tomb.js</td></tr>
+  <tr><td>大世界</td><td class="n">6</td><td class="files">xiuxian/world/network.js、xiuxian/world/nodes.js、xiuxian/world/regions.js、xiuxian/world/types.js、xiuxian/world.js、xiuxian/worldgen.js</td></tr>
+</table>
+
+<h2>更新历史</h2>
+
+  <section class="rel cur">
+    <h3>V0.99 · an <span class="tag">当前</span><small>2026-10-13 · 9 条</small></h3>
+    <ul class="items">
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">版本清单</span><span class="ti">补上被漏掉的 version.json —— 手工挑文件造成本地绿/CI 红</span><code>43f1aa0</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">持续集成</span><span class="ti">线上站点自检 —— 直接打线上爬整棵模块图(第 144 条门禁)</span><code>6a0f7a7</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">版本清单</span><span class="ti">清单漏掉 3 个刚提交的文件 —— CI 判红,以及为什么本地看不出来</span><code>7e61df1</code></li>
+      <li class="t-chore"><span class="badge">维护</span><span class="scope">门禁</span><span class="ti">摘掉 silent-catch 基线里 quest.js::load 的 stale 条目</span><code>9616038</code></li>
+      <li class="t-docs"><span class="badge">文档</span><span class="ti">三审/独立复核/音频/PWA 四轮复验底稿 + 本地真机调试页不入库</span><code>8b63a5f</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">门禁</span><span class="ti">死成员门禁 —— 补上「导出对象成员」与「导出常量表字段」两个盲区</span><code>742170a</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">工具</span><span class="ti">Pillow 废弃 API getdata() → getpixel(),并加一条会红的体检</span><code>5125dd2</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">lint-precache</span><span class="ti">稀疏空洞与空串条目此前被解析阶段丢掉 —— 门禁假通过</span><code>7dbd18e</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">离线缓存</span><span class="ti">预缓存失败不再静默吞掉 —— 预缓存不完整时不删旧缓存(升 v099an)</span><code>e8c48e3</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · am<small>2026-10-13 · 4 条</small></h3>
+    <ul class="items">
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">音频</span><span class="ti">mp3 BGM 之前不听「音乐」开关 —— 玩家关掉音乐它照播</span><code>d4e28ce</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">修仙</span><span class="ti">QUEST.finish() 幂等闸 + 换世 toast 必须提支线进度归零</span><code>74310cb</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">局内难度</span><span class="ti">Collatz modAt/parityAt 在冻结态必须中性 —— 断崖少掉 16 个百分点</span><code>8b721e6</code></li>
+      <li class="t-chore"><span class="badge">维护</span><span class="scope">release</span><span class="ti">升 v099am —— 灵伴动态/激光炮/五阶段立绘</span><code>f55dbd2</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · al<small>2026-10-12 · 11 条</small></h3>
+    <ul class="items">
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">companion</span><span class="ti">拾取前 1.5 秒射出瞄准线 + 像素激光炮 + 递送碎碎念</span><code>718375a</code></li>
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">companion</span><span class="ti">五阶段立绘出图并接线 —— 此前投喂十次,脸一点没变</span><code>ddc6d5d</code></li>
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">companion</span><span class="ti">局内动态对齐玩家 —— 她原来整局只在上下平移</span><code>7088b98</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入对端把 Z8 侧 v099aj→v099ak 合进 main 的那一笔(5e5d8fd)</span><code>51b3445</code></li>
+      <li class="t-chore"><span class="badge">维护</span><span class="scope">release</span><span class="ti">升 v099al + 门禁接线(87 test 段 / 38 lint 段)</span><code>5b437d8</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">门禁</span><span class="ti">静默 catch 与「只写不读字段」两条 lint(只减不增基线机制)</span><code>105acaf</code></li>
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">修仙</span><span class="ti">称号通知 / 每页动态区 / 周期存档 / 三页降级为入口</span><code>588c09d</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">css</span><span class="ti">aspect-ratio 加 height 兜底 —— Safari 15 以下地图会塌成 24px</span><code>144ff8c</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">duel</span><span class="ti">开局对白可以跳过了 —— skipType 是个从没有为 true 的开关</span><code>8374e0b</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">companion</span><span class="ti">灵伴递送门禁 —— 核心是「东西不能凭空到玩家身上」</span><code>6839398</code></li>
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">companion</span><span class="ti">灵伴独立拾取系统 —— 她捡到的东西必须亲手送到你手上</span><code>0117b27</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ak<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入对端 3 笔(quotepath 事故复盘 + 清单不依赖本机 git 配置)</span><code>eeaecff</code></li>
+      <li class="t-chore"><span class="badge">维护</span><span class="scope">release</span><span class="ti">升 v099ak —— 种子同步修好(丢档)+ Boss 预告 + 门禁改造</span><code>7c040f3</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · aj<small>2026-10-11 · 5 条</small></h3>
+    <ul class="items">
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">duel</span><span class="ti">simulate() 不再抄公式,改成 DOM 桩驱动真 Duel.start</span><code>0bf5f71</code></li>
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">hud</span><span class="ti">第 240 秒提示「前方有强敌」+ 战败四条路的门禁</span><code>fa7aa13</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">修仙</span><span class="ti">换种子从来同步不进去 —— 重开页面整个世界回到旧种子</span><code>25c5d5d</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">Merge remote-tracking branch 'origin/main' into merge/p1-elite</span><code>9c9d43d</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">duel</span><span class="ti">修三处「尺子自己不对」+ 升 v099aj</span><code>e752942</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ai<small>2026-10-11 · 4 条</small></h3>
+    <ul class="items">
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">duel</span><span class="ti">宿敌强敌按战力自动挂护体 —— 结怨 0.0% → 27.9%,不再一击必死</span><code>f05a580</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">duel</span><span class="ti">冷却按「已掌握神通数」封顶 —— 玩家不再整场只出得起 1 招</span><code>d933180</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">Merge remote-tracking branch 'origin/main' into merge/p1-elite</span><code>b0cbf1d</code></li>
+      <li class="t-chore"><span class="badge">维护</span><span class="scope">release</span><span class="ti">升 v099ai —— 装备页改版玩家可见 + gearIcons.js 进预缓存</span><code>d6c20c4</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ah<small>2026-10-11 · 7 条</small></h3>
+    <ul class="items">
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">门禁</span><span class="ti">两个门禁把注释里的示例路径/令牌当成了真引用 —— 尺子瞎了</span><code>1c991c5</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">equip</span><span class="ti">装备页四条新门禁 —— 链长 75 段,124 个门禁全部接线</span><code>8aa5b95</code></li>
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">equip</span><span class="ti">装备页改成梦幻西游式 —— 槽位网格 + 背包网格 + 点选/拖拽穿戴 + 物品图标</span><code>70e35b0</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">Merge remote-tracking branch 'origin/main' into merge/p1-elite</span><code>b28be58</code></li>
+      <li class="t-docs"><span class="badge">文档</span><span class="scope">ops</span><span class="ti">记接手决策 —— 先补版本号再合对端 P1,并把两件事合成一次推送</span><code>97c590f</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">门禁</span><span class="ti">收紧 feature-flag-wiring 判据 —— 只认键不认值,假接线能过</span><code>5d11a13</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">Merge remote-tracking branch 'origin/fix/feature-flag-wiring' into merge/p1-elite</span><code>c8a4cdf</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ag<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-feat"><span class="badge">新增</span><span class="scope">spine/debt/duel</span><span class="ti">主线抉择阶段接上了；战败债务开始被收；墨影的四句结局回声真的上屏</span><code>3337faa</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入 Z8 侧 XX-WORLD-005 阶段 2(赶路按实际耗时规划)</span><code>d6f8199</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · af<small>2026-10-11 · 4 条</small></h3>
+    <ul class="items">
+      <li class="t-chore"><span class="badge">维护</span><span class="ti">移除临时探针 _probe_deaddata.mjs（已被 tests/lint-dead-effect-key.mjs 取代）</span><code>ed5a21e</code></li>
+      <li class="t-docs"><span class="badge">文档</span><span class="scope">ops</span><span class="ti">AUTONOMY.md —— 无人值守运转章程</span><code>8e07b4f</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入 Z8(锤子)侧 26 个提交,叠上 v099af 的两个回合制 P0</span><code>da1b004</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">duel/lint</span><span class="ti">冷却冻结 + 打死敌人反而输 + lint-syntax 长期假绿（v099ae→v099af）</span><code>c60973c</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ae<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-chore"><span class="badge">维护</span><span class="ti">与远端 4423296 对齐（内容同 SHA 不同，github.com:443 当时不可达走的 API 直传）</span><code>9b63981</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">nag/duel</span><span class="ti">战败四选项终于是真选择；打扰预算从 V0.96 起一直是装饰（v099ad→v099ae）</span><code>b7d873a</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ad<small>2026-10-11 · 3 条</small></h3>
+    <ul class="items">
+      <li class="t-docs"><span class="badge">文档</span><span class="ti">记录一次「同内容不同 SHA」的双头状态与收敛方法</span><code>fb89f8c</code></li>
+      <li class="t-docs"><span class="badge">文档</span><span class="scope">tickets</span><span class="ti">补上 XX-INPUT-001 的实机证据 —— kills 终于不再是 0</span><code>1fe610b</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">duel</span><span class="ti">败北没有出口 + Duel.busy 是单向闩 —— 两个只在「第二场」才暴露的 P0（v099ac→v099ad）</span><code>ec542a6</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ac<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">tests</span><span class="ti">局内 bot 一直是站着的 —— keyboard.press 等于没移动（kills 恒为 0 的根因）</span><code>e48ea6e</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">map/duel</span><span class="ti">未探索区域不再画框；战败「反抗」照实说 + 四条路各有标记（v099ab→v099ac）</span><code>ad012a1</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · ab<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-docs"><span class="badge">文档</span><span class="scope">门禁</span><span class="ti">订正 AudioContext 报错的触发条件</span><code>5e32ee0</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">界面</span><span class="ti">篝火一点着营地页整页崩 —— feedN 是自由变量（v099aa→v099ab）</span><code>8a7721d</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · aa<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">audit-loop</span><span class="ti">篝火 setup 写的是没人读的字段，改用 CAMP.light() + 加防呆断言</span><code>3b5ced3</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">音频</span><span class="ti">全项目第二个 AudioContext —— 氛围音从来没响过（v099z→v099aa）</span><code>2fc0b0a</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · z<small>2026-10-11 · 10 条</small></h3>
+    <ul class="items">
+      <li class="t-test"><span class="badge">门禁</span><span class="ti">to_menu 的哨兵改成「按钮在最上层」—— 修仙阁一直开着没关（v099z 不变）</span><code>7cd2f49</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="ti">诊断追加祖先链 —— 认出盖住菜单按钮的是哪个面板（v099z 不变）</span><code>73c0f7e</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="ti">诊断函数漏传选择器 —— 上一轮那堆「诊断」全是假数据</span><code>eed0cee</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="ti">让 audit-loop 的「点不到」自己说出原因（v099z 不变）</span><code>a366f2f</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="ti">可见性判据改用 playwright 自己的 is_visible（v099z 不变）</span><code>766a09a</code></li>
+      <li class="t-docs"><span class="badge">文档</span><span class="scope">tickets</span><span class="ti">登记 XX-QA-066 —— t87 的 visited.n4 是哑弹 + 全仓硬编码节点 id 扫描结论</span><code>41314e3</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="ti">audit-loop 末段少了「退回主菜单」这一步（v099z 不变）</span><code>8c4d194</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="ti">修 t88 内联 JS 语法错 + audit-loop 退回主菜单的闭环（v099z 不变）</span><code>446c832</code></li>
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">qa-064</span><span class="ti">关掉「种子化地图让剧情/支线条件不可达」整个 bug 类</span><code>09789e4</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="scope">nag</span><span class="ti">「了结」弹不出结局选择 —— data-nag=&quot;must&quot; 的卡片全在插入前崩掉（v099y→v099z）</span><code>34cd6b6</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · y<small>2026-10-11 · 3 条</small></h3>
+    <ul class="items">
+      <li class="t-test"><span class="badge">门禁</span><span class="scope">audit-loop</span><span class="ti">重设计灵气门槛断言，固化穷举门禁 XX-QA-099</span><code>db54bfd</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入锤子侧 e4d4168(它已把我 v099x 那批合进 main)</span><code>f59786e</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="ti">R0 止血 —— 叙事卡点不动 + 灵气门槛测试钉错（v099x→v099y）</span><code>59c9f72</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · x<small>2026-10-11 · 2 条</small></h3>
+    <ul class="items">
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入锤子侧 247e21b(它已合我 v099w + 修 XX-AUDIT-033 的 4 个红) + fdfbb30 browser 3/8</span><code>b4b932f</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入锤子侧 elite 标志丢失修复(XX-ELITE-001)+ 升戳 v099w→v099x</span><code>ae1f973</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · w<small>2026-10-11 · 3 条</small></h3>
+    <ul class="items">
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入锤子侧 elite 标志丢失修复(b4b2948)+ 两份门禁</span><code>e446582</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入锤子侧 703549d(它已把我前两笔合进 main) + browser job 6 红定性</span><code>b51422b</code></li>
+      <li class="t-fix"><span class="badge">修复</span><span class="ti">修 4 处静默失效缺陷 + 升星接线 + weapon 权重 20（v099v→v099w）</span><code>b0fcc62</code></li>
+    </ul>
+  </section>
+  <section class="rel">
+    <h3>V0.99 · v<small>2026-10-11 · 3 条</small></h3>
+    <ul class="items">
+      <li class="t-chore"><span class="badge">维护</span><span class="scope">版本清单</span><span class="ti">重生成 version.json —— 并入 WORKING-TOGETHER.md 后探针失效</span><code>fe613d6</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入桌面侧最新 origin/main(dfc186f,2 个文档提交)</span><code>96c5e0f</code></li>
+      <li class="t-other"><span class="badge">其他</span><span class="ti">merge: 并入锤子侧 village 经验恒 0 修复(f178bab) + 升版 v099u→v099v</span><code>e5e8528</code></li>
+    </ul>
+  </section>
+
+<h2>还没做完的</h2>
+<div class="note">
+  这些是<b>已知且未复核/未完成</b>的部分，写在这里以免「全绿」被误读成「已完工」：
+  <ul style="margin:8px 0 0;padding-left:18px">
+    <li>死成员清单 174 条<b>只抽样复核了 6 条</b>，其余逐条未复核（门禁为 report-only）</li>
+    <li>音频电平结论全部来自<b>数值仿真</b>（真跑 audio.js 量总线），<b>未经实机听感确认</b></li>
+    <li>赶路遭遇系统、搜打撤等特性由 FEATURE_FLAGS 显式关闭，属未接线而非缺陷</li>
+  </ul>
+</div>
+
+<footer>
+  生成时间取自构建号 20261013-1844。页面内容全部取自仓库实况（git log / version.json / package.json / 文件树），
+  不含手写数字；重跑 <code>npm run changelog</code> 即可与代码同步。
+</footer>
+
+</div></body></html>
