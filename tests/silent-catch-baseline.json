@@ -192,15 +192,6 @@
       "body": "return [];",
       "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
     },
-    "js/xiuxian/quest.js::load::bfe33051::da39a3ee": {
-      "file": "js/xiuxian/quest.js",
-      "ctx": "load",
-      "lineAtCapture": 69,
-      "tryLines": 8,
-      "shape": "空 catch",
-      "body": "",
-      "reason": "TODO: 人工判读 —— 这处 catch 到底该不该被吞"
-    },
     "js/xiuxian/seed.js::getMaster::15c007ea::da39a3ee": {
       "file": "js/xiuxian/seed.js",
       "ctx": "getMaster",
