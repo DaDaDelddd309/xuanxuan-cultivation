@@ -128,9 +128,20 @@ export function parityAt(traj, t, secondsPerStep = 20) {
 export function modAt(traj, t, secondsPerStep = 20) {
   if (!traj || !traj.seq || traj.seq.length < 2) return 1;
   const i = stepAt(traj, t, secondsPerStep);
-  if (i >= traj.seq.length) return 1;                 // 走完/超限 → 中性
 
   const v = traj.seq[i];
+  // ⚠️ 原来这里是 `if (i >= traj.seq.length) return 1;` —— **一行死代码**。
+  //   stepAt() 的上界是 `Math.min(seq.length - 1, idx)`,返回值恒 < seq.length,
+  //   所以那个条件一次都不会成立(2000 条轨迹穷举命中 0 次)。
+  //   后果不是「无害的死代码」:Collatz 必然收敛到 1,而 1 是奇数,
+  //   于是调制约在「爆发」档 —— 每一局最终都**永久**钉在 +15% 难度地板上。
+  //   而且冻结前最后一个活步在数学上必然是偶数(进入 1 的前一步只能是 2,即 ÷2),
+  //   实测 2000/2000 条轨迹的冻结前一帧全是偶数、断崖 100% 向上、幅度 +25.5%~+26.3%
+  //   ⇒ 玩家体感是「连续几分钟变简单 → 某一帧突然 +26% → 再也不回去」。
+  //   修法就是跟 parityAt() 对齐:**落到 1 就是 settle,调制备中性**。
+  if (v === 1) return 1;                            // 已落到 1 → 中性
+  if (i >= traj.seq.length) return 1;               // 兜底(stepAt 若将来改成不夹上界)
+
   const peak = Math.max(1, traj.peak || 1);
 
   // 奇数步 +0.14,偶数步 -0.10。奇数步是 3n+1 之后的位置,值本来就大,

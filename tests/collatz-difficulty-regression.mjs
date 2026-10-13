@@ -326,6 +326,75 @@ console.log('\n[7] 机制必须**落到界面上**,否则玩家看不见就等�
   S.setCollatzTrajectory(null);
 }
 
+// ————————————————— 8. 冻结后必须回到中性(2026-10-12 新增) —————————————————
+//
+// 【这个 bug 当初为什么能活下来】
+//   modAt() 里有一行 `if (i >= traj.seq.length) return 1;` —— 一行**死代码**:
+//   stepAt() 的上界是 Math.min(seq.length - 1, idx),返回值恒 < seq.length,
+//   2000 条轨迹穷举命中 **0 次**。
+//   而前面 47 条断言**没有一条断言冻结之后的 modAt 取值** —— 它们断的是
+//   parity(odd/even/settle),parityAt() 当时已经做对了(v === 1 → 'settle')。
+//   于是两处「对冻结的处理」不一致,只有 modAt 那处错,且没人看。
+//
+// 【后果不是无害的死代码】
+//   Collatz 必然收敛到 1,而 1 是奇数 ⇒ 调制约在「爆发」档。
+//   2000/2000 条轨迹最终**永久**钉在 +15% 难度地板;
+//   且冻结前一帧必然是偶数(进入 1 的前一步只能是 2),所以那是一次
+//   100% 向上、幅度 +25.5%~+26.3% 的断崖。
+//   实测修复前:永久非中性 2000/2000、断崖中位 +26.10%。
+//   实测修复后:永久非中性    0/2000、断崖中位  +9.76%。
+//
+// 【本组断言的分工】
+//   下面几条是**反向自检**:任何把「冻结后回到中性」改回去的改动,
+//   都会在这里变红 —— 也就是把这个 bug 钉死在它当初没被钉住的地方。
+{
+  const seeds = [];
+  for (let n = 64; n < 2064; n++) { const t = C.trajectory(n); if (t) seeds.push(t); }
+
+  let stuck = 0;
+  for (const tr of seeds) if (C.modAt(tr, 1e9, 20) !== 1) stuck++;
+  ok('轨迹走完后必须回到中性(不得永久钉在爆发档)',
+     stuck === 0, `${stuck}/${seeds.length} 条仍非中性`);
+
+  // 断崖不该再有「每局必然发生的一次大跳」
+  const cliffs = [];
+  for (const tr of seeds) {
+    let tf = null;
+    for (let t = 20; t <= 6000; t += 20) if (C.stepAt(tr, t, 20) >= tr.seq.length - 1) { tf = t; break; }
+    if (tf == null || tf <= 20) continue;
+    const b = C.modAt(tr, tf - 20, 20), a = C.modAt(tr, tf, 20);
+    if (b > 0) cliffs.push((a - b) / b);
+  }
+  cliffs.sort((a, b) => a - b);
+  const med = cliffs.length ? cliffs[Math.floor(cliffs.length / 2)] : 0;
+  // 红线 15%:修之前是 +26.10%(100% 向上);修之后 +9.76%。
+  // 取 15 而不是贴着 9.76 —— 贴着实测值写死,调参一动就红,那是假尺子。
+  ok('冻结那一帧不该是 +26% 级断崖(红线 15%)',
+     cliffs.length > 0 && med < 0.15, `中位 ${(med * 100).toFixed(2)}%,实测 ${cliffs.length} 条`);
+
+  // 修 modAt 不能顺手把「呼吸」弄没:奇数步爆发、偶数步回落必须还在
+  let burst = 0, dip = 0;
+  for (const tr of seeds.slice(0, 300)) {
+    for (let k = 0; k < tr.seq.length - 2; k++) {
+      const v = tr.seq[k];
+      if (v === 1) continue;
+      const m = C.modAt(tr, k * 20, 20);
+      if (v % 2 === 1 && m > 1) burst++;
+      if (v % 2 === 0 && m < 1) dip++;
+    }
+  }
+  ok('奇数步仍在给正向爆发(修冻结没把呼吸弄没)', burst > 0, `${burst} 次`);
+  ok('偶数步仍在给回落(修冻结没把呼吸弄没)', dip > 0, `${dip} 次`);
+
+  // 取值仍夹在契约区间内
+  let lo = Infinity, hi = -Infinity;
+  for (const tr of seeds.slice(0, 200)) for (let t = 0; t < 600; t += 5) {
+    const m = C.modAt(tr, t, 20); if (m < lo) lo = m; if (m > hi) hi = m;
+  }
+  ok('取值仍落在 [MOD_MIN, MOD_MAX]',
+     lo >= C.MOD_MIN && hi <= C.MOD_MAX, `实测 [${lo.toFixed(4)}, ${hi.toFixed(4)}] 契约 [${C.MOD_MIN}, ${C.MOD_MAX}]`);
+}
+
 console.log(`\n通过 ${pass} / 失败 ${fail}`);
 if (failed.length) { console.log('\n失败明细:'); for (const f of failed) console.log('  ✗ ' + f); }
 process.exit(fail ? 1 : 0);
