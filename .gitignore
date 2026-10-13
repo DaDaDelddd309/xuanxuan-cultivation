@@ -37,3 +37,11 @@ assets/_legacy/
 DEPLOY-REQUEST.md
 DEV-SYNC.md
 MERGE-GUIDE.md
+
+# 本地真机调试页(2026-10-13)。
+# `_realdev.html` / `_realdev_map.html` 是常驻探针伺服(_devserve.cjs, 8777)用的页面,
+# 把整个 js/ 以 <script> 标签平铺引入好抓真机控制台 —— 对排查有用, 但**不是产品**:
+# 它们不进预缓存、不进 version.json, 推上去只会让仓库多两个谁也维护不了的 HTML。
+# 之前没被忽略, 一次 `git add -A` 就会把它们带进公开发布。
+_realdev.html
+_realdev_map.html
