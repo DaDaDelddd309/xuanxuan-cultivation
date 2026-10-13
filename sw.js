@@ -4,6 +4,10 @@
 //  2. index.html 走 cache-first → 一旦缓存就永远不更新,用户被钉死在旧版本。
 // 策略:导航请求 network-first(离线回退缓存);静态资源 stale-while-revalidate。
 //
+// v099an(2026-10-13)· 预缓存失败不再静默吞掉;预缓存不完整时**保留旧缓存**。
+//   同时把 `?v=` 戳的职责写死在 ignoreSearch 那段注释里(见下),防止有人
+//   因为「它不参与缓存键」而去删那 80 多处戳 —— 那是模块身份,不是装饰品。
+// v099am(2026-10-13)· 灵伴动态/激光炮/五阶段立绘。
 // v099r(2026-10-11)· 合并方统一升版。
 // 本次并入 Z8 侧 5 个提交(XX-LINK-001 / XX-LINK-003 / XX-MATH-001b 等,
 // 其中「局外节点倾向接入局内刷怪与掉落」是玩家可见改动,却一直挂在 v099q 上),
@@ -24,8 +28,8 @@
 //   各自都把 v099ae 升到了 v099af。VERSION-CONVENTION 规则 3 说过「不要各自升」,
 //   真撞上了按规则 2 由**后合的一方**再升一格, 否则两个不同代码对外声称同一个版本,
 //   已缓存 v099af 的客户端分不出谁新。
-const V = 'xuanxuan-v099am';
-const BUILD = '20261011-2330';
+const V = 'xuanxuan-v099an';
+const BUILD = '20261013-1302';
 
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
@@ -66,6 +70,14 @@ const XX = [
   //   但 CI 的预缓存双向核对是按「js/ 下所有 .js」一刀切的,已经因此红了三个提交。
   //   而 XX-WORLD-005 马上就要把 planRoute 接进 ui.js travel 分支 ——
   //   **那正是它们被 fetch 的那一刻**。阶段 0 落地的意义就是「代码库始终完整可运行」,
+  //
+  // ⚠️ 2026-10-12 更正:上面这段论证**对 network.js 仍成立、对 types.js 已不成立**。
+  //   network.js:ui.js 确实 import 了 planRoute(见 ui.js routePlan()),链条是真的。
+  //   types.js:**全仓零 import**。它是 types-only 模块,类型经 JSDoc 传递、
+  //   运行时没有对应物 —— 预缓存它是因为它「迟早会用到」,而不是因为「现在取不到就白屏」。
+  //   「预缓存双向核对」只保证「磁盘有的清单里有」,**不保证「清单里的东西真有人用」** ——
+  //   这两条不是一回事,别拿前者给后者背书。types.js 若将来仍无人 import,
+  //   可以从这里摘掉;先摘会掉一个将来可能要用的文件,权衡见 TICKETS.md。
   //   提前进预缓存比等接完线再补要安全:漏补的后果是离线白屏(P0)。
   'js/xiuxian/world/nodes.js', 'js/xiuxian/world/regions.js',
   'js/xiuxian/world/network.js', 'js/xiuxian/world/types.js',
@@ -154,10 +166,33 @@ const ART = [
 ];
 const ASSETS = [...CORE, ...XX, ...ART, 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png'];
 
+// 预缓存完整性标记的键。装在**缓存内部**(不是真实文件),
+// 只给 activate 判断「这一版的缓存是不是完整的」。
+const STAMP = './__precache_complete__';
+
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const cache = await caches.open(V);
-    await Promise.allSettled(ASSETS.map(a => cache.add(new Request(a, { cache: 'reload' }))));
+    // ⚠️ 这里原来直接 allSettled 然后 skipWaiting,把 rejection 原样丢掉。
+    //   两个后果:
+    //   ① **零可观测性** —— 就算漏了 30 张立绘,控制台一个字都没有,
+    //      没人知道漏了什么,只能等玩家报「我明明投喂了,脸却没变」。
+    //   ② **activate 照样删旧缓存** —— 移动端安装时网络抖动是常态,
+    //      漏存几项就会得到「新 SW + 不完整缓存 + 旧缓存已被删」,
+    //      一断网就是白屏。
+    //   (lint-precache 保证清单里的项都真实存在,所以「永久 404」不是主要风险;
+    //    主要风险是**瞬时**网络失败。)
+    //
+    // 为什么**不**改成失败就 throw:一个永久失效的资源(比如将来某张图下线了)
+    // 会让 install 永久失败,用户从此再也收不到任何更新 —— 比漏存几项更糟。
+    // 所以这里选第三条路:失败**留痕** + activate **按完整性决定要不要清旧缓存**。
+    const results = await Promise.allSettled(ASSETS.map(a => cache.add(new Request(a, { cache: 'reload' }))));
+    const failed = results.map((r, i) => (r.status === 'rejected' ? ASSETS[i] : null)).filter(Boolean);
+    if (failed.length) {
+      console.warn(`[sw] ${V} 预缓存失败 ${failed.length}/${ASSETS.length} 项,这些资源离线时将回退到网络:`, failed);
+    } else {
+      await cache.put(STAMP, new Response('ok'));
+    }
     self.skipWaiting();
   })());
 });
@@ -165,7 +200,14 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== V).map(k => caches.delete(k)));
+    // **只有预缓存完整才清旧缓存。**
+    // 缓存查找是 `caches.match(req, {ignoreSearch:true})`,它搜**所有**缓存 ——
+    // 留着旧缓存 = 漏掉的资源仍然能命中上一版,退化成"这几次更新没生效"
+    // 而不是"一断网就白屏"。取舍很明确:宁可让更新晚一拍,也不能拿可用性去换。
+    const fresh = await caches.open(V);
+    const complete = !!(await fresh.match(STAMP));
+    if (complete) await Promise.all(keys.filter(k => k !== V).map(k => caches.delete(k)));
+    else console.warn(`[sw] ${V} 预缓存不完整,保留旧缓存 ${keys.filter(k => k !== V).join(', ')}`);
     await self.clients.claim();
   })());
 });
@@ -201,6 +243,23 @@ self.addEventListener('fetch', e => {
 
   // —— 静态资源:stale-while-revalidate ——
   e.respondWith((async () => {
+    // ⚠️ `ignoreSearch: true` 让这一行**忽略 query string**。
+    //   也就是说 `js/game/spawner.js?v=19` 与 `?v=18` 命中的是**同一条**缓存,
+    //   真正决定缓存新鲜度的是上面的 `V`,不是这些戳。
+    //
+    //   ⇒ 所以 `?v=` **不是**刷缓存用的装饰品,别按「它不参与缓存所以没用」去删。
+    //   它真正的职责是另一件事:**浏览器里的 ESM 模块身份**。
+    //   `import './spawner.js?v=19'` 与 `?v=18` 是**两个不同的模块实例**,
+    //   各存各的模块级状态。本仓踩过这个坑:collatz 局内难度曲线写进
+    //   一份 spawner、hud.js 从另一份读,渲染出来的时间后缀整个消失
+    //   (tests/collatz-difficulty-regression.mjs 里有完整记录)。
+    //
+    //   这个约束由 tests/lint-module-identity.mjs 守住(产品侧要求「每个模块
+    //   只有一个实例」)。**删戳之前先看那条门禁,别只数一下有多少个戳。**
+    //
+    //   附:戳是**按模块**递增的,不是全项目一个号 —— main.js?v=18、
+    //   pickups.js?v=18、spawner.js?v=19、其余 ?v=17,各自一致即合规。
+    //   拿不同模块的戳互相比大小,得出的「版本号混用」是伪命题。
     const cached = await caches.match(req, { ignoreSearch: true });
     const network = fetch(req).then(async resp => {
       if (resp && resp.ok) {

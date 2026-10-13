@@ -4,7 +4,7 @@ const __ROOT__=_rv(_dn(_fu(import.meta.url)),'..');
 // 清单里有文件不存在 → 整个 install 失败,SW 不注册
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import path, { normalize } from 'path';
-import { stripComments } from './lib-swlist.mjs';
+import { stripComments, precacheEntries } from './lib-swlist.mjs';
 const ROOT=__ROOT__+'';
 const s=readFileSync(ROOT+'/sw.js','utf8');
 // 去注释后再取条目 —— 见 lib-swlist.mjs 顶部的说明:
@@ -13,6 +13,47 @@ const s=readFileSync(ROOT+'/sw.js','utf8');
 const per=[...s.matchAll(/const\s+\w+\s*=\s*\[([\s\S]*?)\]/g)]
   .map(m=>[...stripComments(m[1]).matchAll(/'([^']+)'/g)].map(x=>x[1].replace(/^\.\//,'')));
 let bad=0;
+// 0) **结构完整性**(2026-10-12 新增,修一个实测坐实的假通过)
+//    下面第 1~3 条全部用 `/'([^']+)'/g` 抽条目,于是:
+//      · 数组稀疏空洞 `['a', , 'b']`  —— 没有引号,解析阶段就被丢掉
+//      · 空字符串条目 `''`            —— 正则要 1+ 字符,同样被丢掉
+//    这两类条目在运行时是 `undefined` / `''`,`cache.addAll` 会去请求
+//    `<scope>/undefined`,每次 install 白白几次 404。
+//    阴性对照实测(注入 `'js/main.js', , 'js/sprites.js',`):
+//        修之前 EXIT=0 报绿;修之后 EXIT=1。
+//    ⚠️ 这个坑本仓栽过两次(V0.98「检查方向搞反」、这次「解析不完整」),
+//       两次都是同一类:lint 报绿但实际有问题。
+//    解析器在 lib-swlist.mjs 的 precacheEntries() —— 刻意不用 eval,
+//    对仓库内容求值等于给自己开一个执行口子。
+{
+  const ents = precacheEntries(s);
+  const holes = ents.filter(e=>e.kind==='hole');
+  const empty = ents.filter(e=>e.kind==='empty');
+  const undef = ents.filter(e=>e.kind==='undef');
+  const notStr = ents.filter(e=>e.kind==='notstring');
+  if(holes.length){
+    console.log(`  ❌ 预缓存清单有 ${holes.length} 个稀疏空洞(运行时是 undefined,每次 install 白白 404):`);
+    for(const h of holes) console.log(`     第 ${h.blockIndex} 个清单块`);
+    bad++;
+  }
+  if(empty.length){
+    console.log(`  ❌ 预缓存清单有 ${empty.length} 个空字符串条目:`);
+    for(const e of empty) console.log(`     第 ${e.blockIndex} 个清单块`);
+    bad++;
+  }
+  if(undef.length){
+    console.log(`  ❌ 预缓存清单有 ${undef.length} 个 undefined/null 条目(等价于空洞):`);
+    for(const e of undef) console.log(`     第 ${e.blockIndex} 个清单块: ${e.raw.trim()}`);
+    bad++;
+  }
+  // ⚠️ 非字符串条目**只提示不判红** —— 第一版把它判红,当场误伤第 4 个清单块里
+  //   合法的 `...CORE` / `...XX` / `...ART` 展开。展开/字符串拼接都能求值出字符串,
+  //   静态查不了「它展开后存不存在」,所以只能提示,判红就是造假红。
+  if(notStr.length){
+    console.log(`  ℹ️  预缓存清单有 ${notStr.length} 个非字面量条目(展开/拼接,本 lint 校验不了它们):`);
+    for(const e of notStr) console.log(`     第 ${e.blockIndex} 个清单块: ${e.raw.trim().slice(0,60)}`);
+  }
+}
 // 1) 块内重复
 per.forEach((items,i)=>{
   const d=[...new Set(items.filter(x=>items.filter(y=>y===x).length>1))];
@@ -95,5 +136,47 @@ per.forEach(items=>items.forEach(x=>{
     console.log('✅ 磁盘上的 js/css 全部在预缓存清单里(反向也查了)');
   }
 }
+// ── install / activate 的失败处理(XX-PWA-001)──
+//
+// 原来的 install 是:
+//     await Promise.allSettled(ASSETS.map(...));
+//     self.skipWaiting();
+// 两个问题,都是**静默**的:
+//   ① rejection 被原样丢掉 —— 漏存多少项、控制台一个字都没有,没人知道漏了什么。
+//   ② activate 照常执行 `caches.delete(k !== V)` —— 新缓存不完整 + 旧缓存已删,
+//      移动端安装时网络抖动(极常见)就会得到这个组合,一断网即白屏。
+//
+// 为什么**不**要求「失败就 throw 让 install 失败」:
+//   一个永久失效的资源(比如将来某张图下线)会让 install 永久失败,
+//   用户从此再也收不到任何更新 —— 比漏存几项更糟。
+//   所以钉的是「留痕 + 按完整性决定清不清旧缓存」,不是「必须 throw」。
+{
+  const sw = readFileSync(ROOT+'/sw.js','utf8');
+  const install = sw.slice(sw.indexOf("addEventListener('install'"), sw.indexOf("addEventListener('activate'"));
+  const activate = sw.slice(sw.indexOf("addEventListener('activate'"));
+
+  console.log('\n=== install/activate 不得静默丢预缓存失败 ===');
+  const chk=(name,cond,detail)=>{
+    if(cond) console.log(`  ✅ ${name}`);
+    else { console.log(`  ❌ ${name}${detail?' — '+detail:''}`); bad++; }
+  };
+  chk('install 不得裸调 allSettled 就 skipWaiting',
+      !/await\s+Promise\.allSettled\([^;]*\)\s*;?\s*\n\s*self\.skipWaiting/.test(install),
+      '失败被吞 + 照样激活 = 漏存项无人知晓');
+  chk('install 必须算出失败清单(failed)',
+      /const\s+failed\s*=/.test(install), '没提取 failed 就等于没打算用它');
+  chk('install 必须把失败项打出来(console.warn)',
+      /failed\.length[\s\S]{0,240}console\.warn/.test(install),
+      '有 failed 却不输出 = 仍然不可观测');
+  chk('activate 必须先判断预缓存完整性',
+      /const\s+complete\s*=/.test(activate), 'activate 不判断完整性就会照删旧缓存');
+  chk('删旧缓存必须受完整性门控',
+      /if\s*\(\s*complete\s*\)[\s\S]{0,160}caches\.delete/.test(activate),
+      'precache 不完整时删旧缓存 = 断网即白屏');
+  chk('完整性标记只在 install 全成功时写入',
+      /put\(\s*STAMP/.test(install) && /else\s*\{\s*[\s\S]{0,80}put\(\s*STAMP/.test(install),
+      '无条件写标记 = 完整性判断恒为 true,等于没门');
+}
+
 console.log(bad?`\n预缓存问题: ${bad} 项`:'✅ 预缓存清单干净');
 process.exit(bad?1:0);
