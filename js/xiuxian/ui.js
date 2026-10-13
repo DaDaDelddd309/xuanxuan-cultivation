@@ -64,7 +64,7 @@ import { CHRONICLE } from './chronicle.js';
 import { LEGEND, LEGEND_LIST } from './legend.js';
 import { STORY, ARCS } from './story.js';
 import { PHASES } from './ambience.js';
-import { QUEST } from './quest.js';
+import { QUEST, QUEST_COND } from './quest.js';
 import { NAGER, NAG } from './nag.js';
 import { ARC_REWARD } from './story.js';
 import { TOMB, ROOMS as TOMB_ROOMS, WORDS as TOMB_WORDS } from './tomb.js';
@@ -572,8 +572,17 @@ export const Hall = {
         if (reset.cleared.land) lost.push(`领地 ${reset.cleared.land} 处`);
         if (reset.cleared.fires) lost.push(`篝火 ${reset.cleared.fires} 处`);
         if (reset.cleared.placed) lost.push(`灵田 ${reset.cleared.placed} 处`);
+        // ⚠️ 支线进度(2026-10-12):8 条支线里 **5 条是 type:'visit'**,
+        //   它们的进度数的是 p.visited[...] —— 而 visited 正是换世清掉的东西。
+        //   所以「已接未完成」的 visit 支线进度会**静默归零**。
+        //   toast 说了「已重置足迹」,但玩家得自己推出这一步;这里直接说透。
+        //   (不是新增清档 —— 支线本身还在 active,是它的计数底座没了。)
+        const visitBack = reset.cleared.visited
+          ? QUEST.s.active.filter(k => QUEST_COND[k] && QUEST_COND[k].type === 'visit').length
+          : 0;
         toast(`新的一世:${Seed.cur} · ${w.nodes.length} 个节点`
-          + (lost.length ? ` · 已重置${lost.join('、')}并回到青石村` : ''));
+          + (lost.length ? ` · 已重置${lost.join('、')}并回到青石村` : '')
+          + (visitBack ? ` · ${visitBack} 条在办支线的进度回到 0` : ''));
         break;
       }
       case 'copycode': {

@@ -77,6 +77,10 @@ export function bossPortrait(type) {
 // 而在此之前 assets/portrait/ 里只有一张 companion.jpg —— 规格写了,
 // 图没有,于是 STAGES[].bg 写进 derive() 就再没人读,COMPANION.form() 零调用点。
 // 图补齐之后,这两处才**有消费方**。
+// ⚠️ 2026-10-12 实测更正:图补齐后,按阶段取图走的是 **key**(见下方 JSDoc),
+//   数字档位 bg 至今**产品零读**,只有 tests/mutation-regression.mjs 在断言它
+//   (见「派生全部可量化形态参数」那份契约)。所以 bg 的现状是「测试锁着、产品没用」,
+//   不是「没接线的美术档位」。删它要先改契约,那是产品决策,不在这道门的职权内。
 //
 // 形状刻意与 bossPortrait 完全一致(有专属用专属,没有退回通用),
 // 理由和它一样:**不静默给错的脸**。阶段图缺失时退回原立绘,
@@ -91,9 +95,14 @@ export const COMPANION_PORTRAIT = {
 
 /**
  * 灵伴取立绘。
- * @param {number|string} [stage] MUTATION.STAGES 的索引或 key;
- *                            缺省 / 认不出 → 退回通用灵伴立绘。
- * @returns {string} 图片路径(保证非空)
+ * @param {string} [stage] MUTATION.STAGES 的 **key**（sealed/awaken/reveal/morph/true）。
+ *                       缺省 / 认不出 → 退回通用灵伴立绘。
+ * @returns {string} 图片路径（保证非空）
+ *
+ * ⚠️ 这里**只认 key,不认数字下标**。原来 JSDoc 写的是「索引或 key」,
+ *   但数字走进来会一路落到 fallback 返回通用图 —— 文档承诺的能力代码并没有实现。
+ *   已于 2026-10-12 把文档改成实际行为:唯一的调用方(bag.js)传的就是
+ *   `MUTATION.STAGES[m.stage].key`。想支持数字下标请先补调用方,别只补文档。
  */
 export function companionPortrait(stage) {
   if (stage === undefined || stage === null) return PORTRAIT.companion;

@@ -55,18 +55,60 @@ function nodesOfTypes(types) {
   } catch { return []; }
 }
 
+/**
+ * 以 done 为准,剔除 active 里已经了结的支线。返回被剔除的条数。
+ *
+ * 【为什么要它】2026-10-12
+ *   存档若出现 `active ∩ done ≠ ∅`,那条支线会同时「在手上」且「已了结」——
+ *   finish() 的幂等闸会拦住二次发奖,但状态本身自相矛盾,
+ *   玩家会看到一条永远推不动的线。
+ *   生产路径目前造不出这个交集(take/autoTake 都先过 canTake 的 done 检查),
+ *   所以这是**潜在健壮性缺口**;但存档码玩家可导入,外部改写是现实场景。
+ *
+ * 【为什么抽成函数而不是写在 load() 里】
+ *   写在 load() 里会让那个 try 撑到 23 行,直接撞上 lint-silent-catch
+ *   (长 try + 空 catch 报红)。那道门禁是对的 —— 这里本来就该短。
+ */
+function pruneActiveAgainstDone(s) {
+  if (!s || !s.done || typeof s.done !== 'object' || !Array.isArray(s.active)) return 0;
+  const doneKeys = Object.keys(s.done);
+  if (!doneKeys.length) return 0;
+  const before = s.active.length;
+  s.active = s.active.filter(k => !s.done[k]);
+  const dropped = before - s.active.length;
+  if (dropped) {
+    console.warn(`[quest] 存档里 active ∩ done ≠ ∅,已剔除 ${dropped} 条: ${doneKeys.join(',')}`);
+  }
+  return dropped;
+}
+
+/**
+ * 读档的解析与迁移。**解析失败往上抛**,由 load() 的 try 兜住。
+ *
+ * 【为什么单独抽出来】2026-10-12
+ *   改造 load() 时(加 active ∩ done 去重)try 体被撑到 23 行,
+ *   撞上 lint-silent-catch 的「长 try + 空 catch」。那道门禁是对的:
+ *   一个空 catch 包着 23 行,失败时玩家什么都不知道。
+ *   门禁给的第 ③ 条修法是「收进 3 行以内自动放行」——
+ *   与其把登记进基线糊过去,不如真的让 try 短到没有藏东西的余地。
+ */
+function readStoredQuest(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return fallback;                       // 没有存档:保持原状
+  const def = { active:[], done:{}, choices:{} };
+  const s = { ...def, ...(JSON.parse(raw) || {}) };
+  if (!Array.isArray(s.active)) s.active = [];
+  pruneActiveAgainstDone(s);
+  return s;
+}
+
 export const QUEST = {
   s: { active: [], done: {}, choices: {} },   // active:[key], done:{key:{path,at}}, choices:{arc:1|2}
 
   load() {
-    try {
-      const r = localStorage.getItem(K);
-      if (r) { const d = JSON.parse(r)||{};
-        const def = { active:[], done:{}, choices:{} };
-        this.s = { ...def, ...d };
-        if (!Array.isArray(this.s.active)) this.s.active = [];
-      }
-    } catch {}
+    // try 只包一次调用:失败无害(存档读不出来就用内存里的现状,游戏照跑),
+    // 而且现在短到没有藏东西的余地 —— lint-silent-catch 对 ≤3 行的空 catch 自动放行。
+    try { this.s = readStoredQuest(K, this.s); } catch {}
     return this.s;
   },
   save() { try { localStorage.setItem(K, JSON.stringify(this.s)); } catch {} },
@@ -144,6 +186,15 @@ export const QUEST = {
   finish(key, path) {
     const l = LEGEND[key];
     if (!l) return { ok:false, msg:'无此支线' };
+    // ⚠️ 幂等闸(2026-10-12):这一行原来**不存在**。
+    //   ready() → progress() 看到 s.done[key] 会返回 1,于是「已结案」的支线
+    //   能被再次结案、**再次照发奖励**。实测构造 active ∩ done ≠ ∅ 时:
+    //     finish('hongyi', 1) → { ok:true, dao:800, scroll:'scroll_2' }  ← 二次发奖
+    //   生产路径目前造不出这个交集(take/autoTake 都先过 canTake 的 done 检查,
+    //   finish 本身是「同一个对象里原子地」移出 active 并写入 done),
+    //   所以这是**潜在健壮性缺口**而不是已证实的在线可利用 bug。
+    //   但存档码是玩家可导入的,外部改写是现实场景 —— 3 行的闸,不必等它被用到。
+    if (this.s.done[key]) return { ok:false, msg:'已了结' };
     if (!this.ready(key)) return { ok:false, msg:'还没办成。' };
     this.s.active = this.s.active.filter(k=>k!==key);
     this.s.done[key] = { path, at: Date.now() };

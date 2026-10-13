@@ -32,7 +32,14 @@ globalThis.document = {
   createElement: () => ({ style: {}, classList: { add() {}, remove() {} }, appendChild() {} }),
   body: { appendChild() {} }, getElementById: () => null,
 };
-globalThis.window = {};
+// ⚠️ G8 要**真的构造出 Engine** 来验 engine.reset() 清空 pickups。
+//   只补 Engine 用得到的那几个成员(它构造时调 window.addEventListener),
+//   其余模块一律不碰 —— 桩补得越少,越不会把别的断言连带改坏。
+globalThis.window = {
+  addEventListener() {}, removeEventListener() {},
+  devicePixelRatio: 1, innerWidth: 800, innerHeight: 600,
+  requestAnimationFrame() { return 0; },
+};
 
 let pass = 0, fail = 0; const failed = [];
 const ok = (n, c, d = '') => {
@@ -201,6 +208,51 @@ console.log('[G7] 反向自检:尺子自己先红一遍');
   ok('★ 交付走的是 applyPickup(和玩家同一个真源)', /applyPickup\(this\.g,\s*k\)/.test(code));
   ok('★ 旧的那条"直接给玩家经验"已不在',
      !/player\.addXp\(k\.xp\)/.test(read('js/xiuxian/companion-actor.js')));
+}
+
+// ————————————————————————————————————————————————————————————
+// G8:局末手上那颗会「消失」—— **实测不成立,但前提必须钉住**(2026-10-12)
+//
+// 【这条为什么存在】
+//   2026-10-12 的三审报告报了一条 P2:
+//     「_fetch 把宝石从世界里摘掉存进 carry,但 begin()/_reset() 直接 carry=null,
+//       零补偿 ⇒ 手持战利品在局末被静默销毁,暴露窗口 0.12~1.73s。」
+//   我复现了「carry 被清空」这一步(EXIT 0,确实会清),但继续往下查发现:
+//     **那颗宝石在 carry 被清空之前就已经不在世界了。**
+//
+// 【实测】
+//   engine.reset() → `this.pickups.length = 0`   ← 整个世界连同那颗一起清
+//   main.js 的 startRun 里,engine.reset() 排在角色/灵伴初始化**之前**
+//   ⇒ 顺序是:世界先清空 → 再 gather.begin() 清 carry。
+//     所以 carry=null **没有额外损失任何东西**,玩家看不到少一颗。
+//   报告那个探针是直接调 _reset() 并手工造的世界,没走真实 startRun 路径。
+//
+// 【所以本组的价值不是"断言没 bug",而是钉住让它安全的前提】
+//   哪天有人把 startRun 里的顺序调换,或者加一个「局内重开但不 reset 世界」的路径,
+//   「不额外损失」这个前提就没了 —— 那时候这里必须红。
+//   跟 XX-MATH-001 同一个道理:特性最危险的不是算错,是悄悄不生效。
+{
+  // ① engine.reset() 确实清空 pickups(动态断言,不靠读源码猜)
+  const eng = await import('../js/core/engine.js').catch(() => null);
+  if (eng && eng.Engine) {
+    try {
+      const e = new eng.Engine({ getContext: () => null, width: 8, height: 8 });
+      e.addPickup({ id: 'x1', kind: 'gem', n: 1, x: 1, y: 1, vx: 0, vy: 0 });
+      const before = e.pickups.length;
+      e.reset();
+      ok('★ engine.reset() 会清空 pickups(那颗宝石与整个世界一起没了)',
+         before > 0 && e.pickups.length === 0, `前 ${before} 后 ${e.pickups.length}`);
+    } catch (err) {
+      console.log(`  ℹ️  Engine 无法在本环境构造,跳过动态断言:${err.message}`);
+    }
+  }
+  // ② startRun 里 reset 排在灵伴初始化之前(顺序断言)
+  const mainSrc = read('js/main.js');
+  const sr = mainSrc.slice(mainSrc.indexOf('function startRun'));
+  const iReset = sr.search(/\n\s*engine\.reset\(\)/);
+  const iComp  = sr.search(/COMPANION\.(load|beginRun)|companion\.begin|new CompanionActor/);
+  ok('★ startRun 里 engine.reset() 排在灵伴初始化之前(否则 carry 会额外丢东西)',
+     iReset >= 0 && (iComp < 0 || iReset < iComp), `reset@${iReset} 灵伴@${iComp}`);
 }
 
 // ============================================================

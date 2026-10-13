@@ -402,6 +402,19 @@ export function planRoute(fromId, toId, opts = {}) {
   // 都会跳一次遭遇。遭遇在**真正执行赶路时**由 rollTravelEncounters() 掷。
   // 这里只回报「全程的遭遇概率」,让 UI 能在出发前提示风险。
   //
+  // ⚠️ 2026-10-12 更正一句会被误读的话:
+  //   上面「遭遇在真正执行赶路时由 rollTravelEncounters() 掷」原本读起来像
+  //   「接线时忘了接」。**不是。** 它是由开关挡着的:
+  //     FEATURE_FLAGS.encounters = false(见 nodes.js 的写明理由:
+  //       ENCOUNTERS 里 kind:'combat' 那两条要不要进回合制,是设计决定,
+  //       会与 XX-DUEL-006 新接的 Duel 出口耦合)
+  //     ui.js 的 routeInfo() 已经读 plan.pEncounter 显示风险百分比 ——
+  //       但那行同样被这个开关包着,所以开关关着时恒显示 0,不会出现
+  //       「界面说路上有风险、却什么都不会发生」的半吊子状态。
+  //   开关打开前必须先补的一件事:rollTravelEncounters 要接进 ui.js 的抵达分支。
+  //   审计若看到「零生产调用」,**先查这个开关再下结论** ——
+  //   2026-10-12 那轮审计就因为没查,把它报成了「整个系统只活在注释里」。
+  //
   // 跨路要**连乘**,不能相加。
   //   p_total = 1 - Π(1 - p_i)
   // 第一版写成了 Σp_i,66 里的长途直接算出 0.9(几乎必遇)。
