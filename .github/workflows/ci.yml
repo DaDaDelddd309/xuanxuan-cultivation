@@ -80,6 +80,22 @@ jobs:
       - name: 预缓存双向核对
         run: node tests/lint-precache-reverse.mjs
 
+      # 线上自检(XX-DEPLOY-002):直接打**线上**站点爬整棵模块图。
+      #
+      # 为什么必须在 check 之后单独一步:它验的是「线上能加载」,
+      # 而 check 验的是「仓库内容自洽」。两者之间隔着缓存、大小写、
+      # 漏提交、漏进预缓存清单 —— 后果全是**白屏**。
+      #
+      # 刻意**不**放进步骤顶部:Pages 部署由 pages 工作流独立触发,
+      # 本 job 跑到这一步时线上可能还是上一个 commit。
+      # 实测 9616038 推送后 pages workflow 先于 check 完成,顺序不保证。
+      # 所以这一步在 check 之后跑,且默认失败**不阻断** ——
+      # 它是信息性的:真正卡发布的是 browser job。
+      # 需要硬卡时把 `continue-on-error` 去掉(注意上面那个时序前提)。
+      - name: 线上站点自检(信息性,不阻断)
+        continue-on-error: true
+        run: node tests/live-site-check.mjs
+
   # 浏览器实测在本机跑不了(playwright 不支持 Android),放到 CI 上补。
   # 这一条是"看得见的"验收:灵伴有没有真的在场上动、主线因果句有没有真的弹出来。
   #
