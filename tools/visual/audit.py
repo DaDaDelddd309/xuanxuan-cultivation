@@ -237,7 +237,9 @@ def pixel_contrast(img: Image.Image, box, dpr: float):
         return None, "tiny-box"
 
     core = img.crop((x, y, x + w, y + h)).convert("L")
-    cp = list(core.getdata())
+    # Pillow 10 起 getdata() 废弃(2026-10-12 换,见 measure_style.py 同一处说明)
+    cw, ch = core.size
+    cp = [core.getpixel((x, y)) for y in range(ch) for x in range(cw)]
     if len(cp) < 16:
         return None, "tiny-box"
 

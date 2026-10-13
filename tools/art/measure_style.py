@@ -48,7 +48,11 @@ def measure(path: pathlib.Path):
     from PIL import Image
     im = Image.open(path).convert("RGB")
     im.thumbnail((200, 200), Image.LANCZOS)
-    px = list(im.getdata())
+    # Pillow 10 起 getdata() 废弃、Pillow 14(2027-10-15)计划移除(2026-10-12 换)。
+    # getdata() 的替代是 getpixel() 按坐标取 —— 不能一次拿整张,
+    # 这里 thumbnail 已经把图缩到 ≤200×200,逐像素取仍然便宜。
+    w, h = im.size
+    px = [im.getpixel((x, y)) for y in range(h) for x in range(w)]
     n = len(px)
     L = [0.2126 * r + 0.7152 * g + 0.0722 * b for r, g, b in px]
     S = [colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)[1] for r, g, b in px]
