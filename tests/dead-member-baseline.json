@@ -1,0 +1,1571 @@
+{
+  "_note": "死成员 · 存量清单。key = rule|实体.成员|声明文件(刻意不用行号:行号会被任何无关改动冲掉)。\n\n【这份文件的定位:它让「新死的」变得可见,不是给「已死的」发免责声明。】\n  本文件里的条目是 2026-10-11 首次普查时的**存量**,\n  它们**逐条未经人工复核** —— 静态上分不出「真死」与「经由对象传递的间接调用」,\n  而后者恰恰是真正在用的。所以 reviewed 一律 false,别拿它当「已审过」。\n  逐条复核后请把 reviewed 改成 true 并补一句人话理由。\n\n真正的闸门是:本清单里**没有**的成员一旦被判死,就会作为「新增候选」报出来。\n默认 report-only 退出 0;加 --strict 才退出 1(反向注入验证用)。",
+  "entries": {
+    "R1|Save.reset|js/core/save.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/core/save.js",
+      "entity": "Save",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|SLOTS.desc|js/game/gear.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/game/gear.js",
+      "entity": "SLOTS",
+      "member": "desc",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Ambience.isNight|js/xiuxian/ambience.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ambience.js",
+      "entity": "Ambience",
+      "member": "isNight",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Ambience.setVol|js/xiuxian/ambience.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ambience.js",
+      "entity": "Ambience",
+      "member": "setVol",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Ambience.stop|js/xiuxian/ambience.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ambience.js",
+      "entity": "Ambience",
+      "member": "stop",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|ARTSTAR.isMax|js/xiuxian/artstar.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/artstar.js",
+      "entity": "ARTSTAR",
+      "member": "isMax",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|ARTSTAR.reset|js/xiuxian/artstar.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/artstar.js",
+      "entity": "ARTSTAR",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|RICE.name|js/xiuxian/bestiary.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "RICE",
+      "member": "name",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|RICE.col|js/xiuxian/bestiary.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "RICE",
+      "member": "col",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|RICE.feed|js/xiuxian/bestiary.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "RICE",
+      "member": "feed",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|TIERS.slots|js/xiuxian/bestiary.js": {
+      "kind": "testonly",
+      "rule": "R2",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "TIERS",
+      "member": "slots",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|TIERS.need|js/xiuxian/bestiary.js": {
+      "kind": "testonly",
+      "rule": "R2",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "TIERS",
+      "member": "need",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|TIERS.desc|js/xiuxian/bestiary.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "TIERS",
+      "member": "desc",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|TIERS.col|js/xiuxian/bestiary.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/bestiary.js",
+      "entity": "TIERS",
+      "member": "col",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|BUILD.count|js/xiuxian/build.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "count",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|BUILD.replant|js/xiuxian/build.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "replant",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|BUILD.remove|js/xiuxian/build.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "remove",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|BUILD.unassign|js/xiuxian/build.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "unassign",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|BUILD.allyAid|js/xiuxian/build.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "allyAid",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|BUILD.power|js/xiuxian/build.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "power",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|BUILD.ward|js/xiuxian/build.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "ward",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|BUILD.reset|js/xiuxian/build.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/build.js",
+      "entity": "BUILD",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|CAMP_TIERS.col|js/xiuxian/camp.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/camp.js",
+      "entity": "CAMP_TIERS",
+      "member": "col",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|CAMP_TIERS.d|js/xiuxian/camp.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/camp.js",
+      "entity": "CAMP_TIERS",
+      "member": "d",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|CAMP.mourning|js/xiuxian/camp.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/camp.js",
+      "entity": "CAMP",
+      "member": "mourning",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CAMP.canTeleport|js/xiuxian/camp.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/camp.js",
+      "entity": "CAMP",
+      "member": "canTeleport",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CAMP.reset|js/xiuxian/camp.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/camp.js",
+      "entity": "CAMP",
+      "member": "reset",
+      "tests": 3,
+      "reviewed": false
+    },
+    "R1|CHRONICLE.mobMul|js/xiuxian/chronicle.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/chronicle.js",
+      "entity": "CHRONICLE",
+      "member": "mobMul",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CHRONICLE.stoneMul|js/xiuxian/chronicle.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/chronicle.js",
+      "entity": "CHRONICLE",
+      "member": "stoneMul",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CHRONICLE.bossMul|js/xiuxian/chronicle.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/chronicle.js",
+      "entity": "CHRONICLE",
+      "member": "bossMul",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CHRONICLE.reset|js/xiuxian/chronicle.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/chronicle.js",
+      "entity": "CHRONICLE",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CLOCK.uptimeMs|js/xiuxian/clock.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/clock.js",
+      "entity": "CLOCK",
+      "member": "uptimeMs",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|CLOCK.nightProgress|js/xiuxian/clock.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/clock.js",
+      "entity": "CLOCK",
+      "member": "nightProgress",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Codex.seenCount|js/xiuxian/codex.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/codex.js",
+      "entity": "Codex",
+      "member": "seenCount",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Codex.total|js/xiuxian/codex.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/codex.js",
+      "entity": "Codex",
+      "member": "total",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Codex.reset|js/xiuxian/codex.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/codex.js",
+      "entity": "Codex",
+      "member": "reset",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|COMPANION.form|js/xiuxian/companion.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/companion.js",
+      "entity": "COMPANION",
+      "member": "form",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|COMPANION.sayLeft|js/xiuxian/companion.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/companion.js",
+      "entity": "COMPANION",
+      "member": "sayLeft",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|COMPANION.ghostLine|js/xiuxian/companion.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/companion.js",
+      "entity": "COMPANION",
+      "member": "ghostLine",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|COMPANION.reset|js/xiuxian/companion.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/companion.js",
+      "entity": "COMPANION",
+      "member": "reset",
+      "tests": 8,
+      "reviewed": false
+    },
+    "R1|CRAFT.load|js/xiuxian/craft.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/craft.js",
+      "entity": "CRAFT",
+      "member": "load",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|CRAFT.reset|js/xiuxian/craft.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/craft.js",
+      "entity": "CRAFT",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Duel.foeHitLine|js/xiuxian/duel.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/duel.js",
+      "entity": "Duel",
+      "member": "foeHitLine",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|FAMILY.claim|js/xiuxian/family.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/family.js",
+      "entity": "FAMILY",
+      "member": "claim",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|FAMILY.mineYield|js/xiuxian/family.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/family.js",
+      "entity": "FAMILY",
+      "member": "mineYield",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|FAMILY.attackChance|js/xiuxian/family.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/family.js",
+      "entity": "FAMILY",
+      "member": "attackChance",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|FAMILY.reset|js/xiuxian/family.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/family.js",
+      "entity": "FAMILY",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Cult.grantPill|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "grantPill",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.spendDao|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "spendDao",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.canEnlighten|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "canEnlighten",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.enlighten|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "enlighten",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.canBreakthrough|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "canBreakthrough",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.breakthrough|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "breakthrough",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.title|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "title",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.power|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "power",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.reset|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "reset",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.bgm|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "bgm",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.playNemesisBgm|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "playNemesisBgm",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.playOverlordBgm|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "playOverlordBgm",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Cult.leaveBattleBgm|js/xiuxian/index.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/index.js",
+      "entity": "Cult",
+      "member": "leaveBattleBgm",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Bag.save|js/xiuxian/items.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "Bag",
+      "member": "save",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Bag.buildCount|js/xiuxian/items.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "Bag",
+      "member": "buildCount",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Bag.reset|js/xiuxian/items.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "Bag",
+      "member": "reset",
+      "tests": 4,
+      "reviewed": false
+    },
+    "R1|DAY.ACTIONS_PER_DAY|js/xiuxian/items.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "DAY",
+      "member": "ACTIONS_PER_DAY",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|DAY.save|js/xiuxian/items.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "DAY",
+      "member": "save",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|DAY.day|js/xiuxian/items.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "DAY",
+      "member": "day",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|DAY.reset|js/xiuxian/items.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/items.js",
+      "entity": "DAY",
+      "member": "reset",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|WORLD.subtitle|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/lore.js",
+      "entity": "WORLD",
+      "member": "subtitle",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|WORLD.setting|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/lore.js",
+      "entity": "WORLD",
+      "member": "setting",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|WORLD.regions|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/lore.js",
+      "entity": "WORLD",
+      "member": "regions",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.name|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/lore.js",
+      "entity": "ENCOUNTERS",
+      "member": "name",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.text|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/lore.js",
+      "entity": "ENCOUNTERS",
+      "member": "text",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.effect|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/lore.js",
+      "entity": "ENCOUNTERS",
+      "member": "effect",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.log|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/lore.js",
+      "entity": "ENCOUNTERS",
+      "member": "log",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.options|js/xiuxian/lore.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/lore.js",
+      "entity": "ENCOUNTERS",
+      "member": "options",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|MARKET.reset|js/xiuxian/market.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/market.js",
+      "entity": "MARKET",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|MOUNT.pickupMul|js/xiuxian/mount.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT",
+      "member": "pickupMul",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|MOUNT.speedMul|js/xiuxian/mount.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT",
+      "member": "speedMul",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|MOUNT.petAtk|js/xiuxian/mount.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT",
+      "member": "petAtk",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|MOUNT.reset|js/xiuxian/mount.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT",
+      "member": "reset",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|MOUNT_BLUEPRINT.tongyaji|js/xiuxian/mount.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT_BLUEPRINT",
+      "member": "tongyaji",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|MOUNT_BLUEPRINT.langyixue|js/xiuxian/mount.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT_BLUEPRINT",
+      "member": "langyixue",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|MOUNT_BLUEPRINT.guibiao|js/xiuxian/mount.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/mount.js",
+      "entity": "MOUNT_BLUEPRINT",
+      "member": "guibiao",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|MUTATION.offAll|js/xiuxian/mutation.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/mutation.js",
+      "entity": "MUTATION",
+      "member": "offAll",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|MUTATION.dramaGrant|js/xiuxian/mutation.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/mutation.js",
+      "entity": "MUTATION",
+      "member": "dramaGrant",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|MUTATION.title|js/xiuxian/mutation.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/mutation.js",
+      "entity": "MUTATION",
+      "member": "title",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NAGER.reset|js/xiuxian/nag.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/nag.js",
+      "entity": "NAGER",
+      "member": "reset",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|NAGER.left|js/xiuxian/nag.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/nag.js",
+      "entity": "NAGER",
+      "member": "left",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|NAGER.report|js/xiuxian/nag.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/nag.js",
+      "entity": "NAGER",
+      "member": "report",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Seed.get|js/xiuxian/profile.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/profile.js",
+      "entity": "Seed",
+      "member": "get",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|Seed.int|js/xiuxian/profile.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/profile.js",
+      "entity": "Seed",
+      "member": "int",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|Seed.pick|js/xiuxian/profile.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/profile.js",
+      "entity": "Seed",
+      "member": "pick",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Seed.weighted|js/xiuxian/profile.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/profile.js",
+      "entity": "Seed",
+      "member": "weighted",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|Seed.chance|js/xiuxian/profile.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/profile.js",
+      "entity": "Seed",
+      "member": "chance",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|QUEST.drop|js/xiuxian/quest.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/quest.js",
+      "entity": "QUEST",
+      "member": "drop",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Nemesis.load|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Nemesis",
+      "member": "load",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|Nemesis.meet|js/xiuxian/relations.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Nemesis",
+      "member": "meet",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Nemesis.battle|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Nemesis",
+      "member": "battle",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Nemesis.grudge|js/xiuxian/relations.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Nemesis",
+      "member": "grudge",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Nemesis.powerBoost|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Nemesis",
+      "member": "powerBoost",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Nemesis.reset|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Nemesis",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Titles.load|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Titles",
+      "member": "load",
+      "tests": 3,
+      "reviewed": false
+    },
+    "R1|Titles.track|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Titles",
+      "member": "track",
+      "tests": 3,
+      "reviewed": false
+    },
+    "R1|Titles.has|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Titles",
+      "member": "has",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Titles.list|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Titles",
+      "member": "list",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Titles.reset|js/xiuxian/relations.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/relations.js",
+      "entity": "Titles",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|SPINE.get|js/xiuxian/spine.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/spine.js",
+      "entity": "SPINE",
+      "member": "get",
+      "tests": 3,
+      "reviewed": false
+    },
+    "R1|SPINE.reset|js/xiuxian/spine.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/spine.js",
+      "entity": "SPINE",
+      "member": "reset",
+      "tests": 3,
+      "reviewed": false
+    },
+    "R1|SPINE.phase|js/xiuxian/spine.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/spine.js",
+      "entity": "SPINE",
+      "member": "phase",
+      "tests": 3,
+      "reviewed": false
+    },
+    "R1|SPINE.progress|js/xiuxian/spine.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/spine.js",
+      "entity": "SPINE",
+      "member": "progress",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|SPINE.timeline|js/xiuxian/spine.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/spine.js",
+      "entity": "SPINE",
+      "member": "timeline",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|SPIRIT.reset|js/xiuxian/spirit.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/spirit.js",
+      "entity": "SPIRIT",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|STORY.rumorCount|js/xiuxian/story.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/story.js",
+      "entity": "STORY",
+      "member": "rumorCount",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|STORY.logsOf|js/xiuxian/story.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/story.js",
+      "entity": "STORY",
+      "member": "logsOf",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|STORY.reset|js/xiuxian/story.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/story.js",
+      "entity": "STORY",
+      "member": "reset",
+      "tests": 14,
+      "reviewed": false
+    },
+    "R1|TAVERN.load|js/xiuxian/tavern.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/tavern.js",
+      "entity": "TAVERN",
+      "member": "load",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|TAVERN.reset|js/xiuxian/tavern.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/tavern.js",
+      "entity": "TAVERN",
+      "member": "reset",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|ROOMS.guard|js/xiuxian/tomb.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/tomb.js",
+      "entity": "ROOMS",
+      "member": "guard",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ROOMS.end|js/xiuxian/tomb.js": {
+      "kind": "testonly",
+      "rule": "R2",
+      "file": "js/xiuxian/tomb.js",
+      "entity": "ROOMS",
+      "member": "end",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|TOMB.load|js/xiuxian/tomb.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/tomb.js",
+      "entity": "TOMB",
+      "member": "load",
+      "tests": 2,
+      "reviewed": false
+    },
+    "R1|Hall.isOpen|js/xiuxian/ui.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "isOpen",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|Hall.tombEnding|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "tombEnding",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.artHow|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "artHow",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.vCraft|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "vCraft",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.vTavern|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "vTavern",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall._feedBtnText|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "_feedBtnText",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall._vMutCard|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "_vMutCard",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall._vPartPicker|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "_vPartPicker",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall._sFeedable|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "_sFeedable",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.showMountGet|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "showMountGet",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.empty|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "empty",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.vVillage|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "vVillage",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|Hall.vMount|js/xiuxian/ui.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/ui.js",
+      "entity": "Hall",
+      "member": "vMount",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.name|js/xiuxian/world/network.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/network.js",
+      "entity": "ENCOUNTERS",
+      "member": "name",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.kind|js/xiuxian/world/network.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/network.js",
+      "entity": "ENCOUNTERS",
+      "member": "kind",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.text|js/xiuxian/world/network.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/network.js",
+      "entity": "ENCOUNTERS",
+      "member": "text",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|ENCOUNTERS.effect|js/xiuxian/world/network.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/network.js",
+      "entity": "ENCOUNTERS",
+      "member": "effect",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|ROAD_STATE.blockedBy|js/xiuxian/world/network.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/network.js",
+      "entity": "ROAD_STATE",
+      "member": "blockedBy",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|ROAD_STATE.until|js/xiuxian/world/network.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/network.js",
+      "entity": "ROAD_STATE",
+      "member": "until",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.town|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "town",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.sect|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "sect",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.guild|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "guild",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.port|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "port",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.harvest|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "harvest",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.cursed|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "cursed",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|NODE_FACETS.contested|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODE_FACETS",
+      "member": "contested",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.name|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "name",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.home|js/xiuxian/world/nodes.js": {
+      "kind": "testonly",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "home",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|NODES.threat|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "threat",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.facets|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "facets",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.desc|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "desc",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.pill|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "pill",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.entry|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "entry",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.shop|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "shop",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.mx|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "mx",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.my|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "my",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.claimable|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "claimable",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|NODES.site|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "NODES",
+      "member": "site",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|KNOWN_ISSUES.storyN7Mislabelled|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "KNOWN_ISSUES",
+      "member": "storyN7Mislabelled",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|KNOWN_ISSUES.gridMismatch|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "KNOWN_ISSUES",
+      "member": "gridMismatch",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|KNOWN_ISSUES.deadTravel|js/xiuxian/world/nodes.js": {
+      "kind": "dead",
+      "rule": "R1",
+      "file": "js/xiuxian/world/nodes.js",
+      "entity": "KNOWN_ISSUES",
+      "member": "deadTravel",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|FACTIONS.name|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "FACTIONS",
+      "member": "name",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|FACTIONS.col|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "FACTIONS",
+      "member": "col",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|FACTIONS.stance|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "FACTIONS",
+      "member": "stance",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|FACTIONS.power|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "FACTIONS",
+      "member": "power",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|FACTIONS.desc|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "FACTIONS",
+      "member": "desc",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|REGIONS.name|js/xiuxian/world/regions.js": {
+      "kind": "testonly",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "REGIONS",
+      "member": "name",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|REGIONS.col|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "REGIONS",
+      "member": "col",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|REGIONS.faction|js/xiuxian/world/regions.js": {
+      "kind": "testonly",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "REGIONS",
+      "member": "faction",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R2|REGIONS.desc|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "REGIONS",
+      "member": "desc",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|REGIONS.resources|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "REGIONS",
+      "member": "resources",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R2|REGIONS.sect|js/xiuxian/world/regions.js": {
+      "kind": "dead",
+      "rule": "R2",
+      "file": "js/xiuxian/world/regions.js",
+      "entity": "REGIONS",
+      "member": "sect",
+      "tests": 0,
+      "reviewed": false
+    },
+    "R1|WORLD_INFO.seed|js/xiuxian/world.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/world.js",
+      "entity": "WORLD_INFO",
+      "member": "seed",
+      "tests": 1,
+      "reviewed": false
+    },
+    "R1|DENSITY.boss|js/xiuxian/worldgen.js": {
+      "kind": "testonly",
+      "rule": "R1",
+      "file": "js/xiuxian/worldgen.js",
+      "entity": "DENSITY",
+      "member": "boss",
+      "tests": 1,
+      "reviewed": false
+    }
+  }
+}
