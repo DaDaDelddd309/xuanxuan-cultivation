@@ -70,9 +70,6 @@ onDayPhase
 scene
 # assets.js 场景背景图加载,场景系统重构时要用。
 
-setVolume
-# assets.js 音量设置,设置面板未开工。
-
 clearBg
 # illust.js 清除立绘背景,立绘系统重构时要用。
 

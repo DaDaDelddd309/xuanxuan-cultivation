@@ -459,7 +459,11 @@ document.getElementById('btn-bestiary').addEventListener('click', () => {
 function applySetting(k, v) {
   Save.data.settings[k] = v; Save.commit();
   if (k === 'sfx') SFX.setSfx(v);
-  if (k === 'music') SFX.setMusic(v);
+  // 「音乐」要同时管到两套栈(XX-AUDIT-023):
+  //   SFX.setMusic  → WebAudio 的 musicBus(合成音 BGM + 环境音)
+  //   Bus 广播      → assets.js 的 HTMLAudioElement(宿敌/越级大佬战的 mp3)
+  // 之前只调了前者,玩家关掉音乐后 mp3 照播。
+  if (k === 'music') { SFX.setMusic(v); Bus.emit('music-setting', v); }
   if (k === 'lowgfx') engine.setDprCap(v ? 1 : Math.min(2, window.devicePixelRatio || 1)); // 流畅画质:降采样保帧率
   if (k === 'fpsShow') engine.setFpsShow(v);
 }
