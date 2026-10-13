@@ -1,7 +1,7 @@
 {
   "version": "xuanxuan-v099an",
   "build": "20261013-1302",
-  "count": 184,
+  "count": 187,
   "files": {
     "AGENTS.md": "27d3a6a61046",
     "ARCHITECTURE.md": "0a3c3586c24c",
@@ -37,6 +37,7 @@
     "docs/ART-CHARACTER-CARDS-V2.md": "2f4118778bc4",
     "docs/ART-PORTRAIT-SPEC-V2.md": "f5865fc698e2",
     "docs/ART-PORTRAIT-SPEC.md": "24aa6ee7231e",
+    "docs/AUDIT-R3-VERIFY.md": "e1e6f204f42e",
     "docs/COMPANION-MUTATION.md": "77055889f69a",
     "docs/COMPANION-PLAN.md": "3227d6e450a3",
     "docs/GEAR-TABLE.md": "ce5d5ce260dd",
@@ -175,6 +176,8 @@
     "probe.html": "c2d3540d9ecd",
     "sw.js": "0286207a5865",
     "tests/.hardcoded-baseline.json": "04d5108d7c93",
+    "tests/dead-member-baseline.json": "bc318e41120a",
+    "tests/dead-member-triage.md": "466f55765338",
     "tests/dead-state-field-baseline.json": "0c6d616b54ea",
     "tests/silent-catch-baseline.json": "261f9b7b62d2",
     "tests/t80.js": "52b2899fe00e",

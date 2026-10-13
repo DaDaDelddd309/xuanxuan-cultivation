@@ -115,3 +115,40 @@ if (WRITE) {
 } else {
   console.log(json);
 }
+
+// ⚠️ 未跟踪文件陷阱(2026-10-13 实踩,CI 亲自抓出来的)
+//
+// 上面的 `git ls-files --cached` 只看**跟踪 + 已暂存**。于是这个顺序会静默出事:
+//
+//     ① 写好新文件(此时是 `??` 未跟踪)
+//     ② npm run manifest:write      ← 新文件不在清单里,而且**一声不吭**
+//     ③ git add + commit             ← 现在它们被跟踪了
+//     ④ 推到 CI → lint-version 红:「清单缺了 3 个」,清单=184 / 生成器=187
+//
+// 本轮就是这样丢的:docs/AUDIT-R3-VERIFY.md、tests/dead-member-baseline.json、
+// tests/dead-member-triage.md 三个文件在②里还没被跟踪。
+//
+// 「同一 commit 在任何机器上生成同一份清单」这个判据本身是对的(见上面 XX-AUDIT-039),
+// 错的不是枚举方式,是**没告诉人正确的调用顺序**。所以在写完清单之后提醒一次:
+// 把「会被收进本次提交、却因为还没 git add 而漏掉」的文件点名报出来。
+//
+// 这不改退出码 —— 拦住的是「以为写好了」,不是「写坏了」。
+if (WRITE) {
+  const INCLUDE = /\.(js|css|html|json|webmanifest|md)$/;
+  let untracked = [];
+  try {
+    untracked = git('ls-files', '--others', '--exclude-standard')
+      .split('\n').filter(Boolean)
+      .filter(f => !f.split('/').includes('node_modules'))
+      .filter(f => f !== 'version.json')
+      .filter(f => INCLUDE.test(f) || /^icons\//.test(f));
+  } catch { /* 不是 git 仓库 / 老版本 git:跳过提醒,不影响主流程 */ }
+  if (untracked.length) {
+    console.log('');
+    console.log(`  ⚠️ 有 ${untracked.length} 个符合清单口径的文件**还没被 git 跟踪**,这次没进 version.json:`);
+    for (const f of untracked.slice(0, 10)) console.log(`     ${f}`);
+    if (untracked.length > 10) console.log(`     …还有 ${untracked.length - 10} 个`);
+    console.log('     它们一旦被提交,CI 的 lint-version 就会判「清单已过期」。');
+    console.log('     正确顺序:git add → 再跑一次 npm run manifest:write → commit。');
+  }
+}
